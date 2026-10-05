@@ -1,0 +1,2566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pizarra Baseball Overlay OBS - Transmisión en Vivo</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* =========================================================================
+       MODO TRANSPARENTE PARA OBS STUDIO (?obs=1)
+       ========================================================================= */
+    body.obs-transparent-mode {
+      background: transparent !important;
+      background-image: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 34px !important;
+    }
+
+    body.obs-transparent-mode .navbar,
+    body.obs-transparent-mode .control-panel-wrapper {
+      display: none !important;
+    }
+
+    body.obs-transparent-mode #obsLiveCanvas {
+      display: flex !important;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+
+    #obsLiveCanvas {
+      display: none;
+    }
+
+    /* =========================================================================
+       DISEÑO FIEL DE LA PIZARRA DE BASEBALL (ESTILO TV BROADCAST SD vs MIL)
+       - 1 sola barra superior de texto para las estadísticas del bateador al plato
+       - Marco dorado inferior/lateral (#eab308)
+       - Espacio de logo junto al nombre y anotación de cada equipo
+       - Trapecio blanco central con Inning (▲/▼/FINAL), Outs, Conteo (B-S)
+       - Diamante 3D inferior con 1ra, 2da y 3ra base iluminables en amarillo
+       - Animación especial de ¡HOME RUN! integrada
+       ========================================================================= */
+    .bb-tv-wrapper {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: stretch;
+      font-family: 'Arial Narrow', 'Roboto Condensed', 'Bahnschrift', 'Oswald', 'Segoe UI', sans-serif;
+      user-select: none;
+      filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.78));
+      padding-bottom: 24px; /* Espacio para que sobresalga el diamante 3D abajo */
+    }
+
+    /* ÚNICA BARRA SUPERIOR: Estadísticas del bateador en turno */
+    .bb-tv-top-batter-bar {
+      background: linear-gradient(180deg, #141821 0%, #090b10 100%);
+      color: #ffffff;
+      min-height: 36px;
+      padding: 4px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border-top: 2px solid rgba(255, 255, 255, 0.14);
+      border-left: 3px solid var(--bb-frame-color, #eab308);
+      border-right: 3px solid var(--bb-frame-color, #eab308);
+      border-bottom: 2px solid #262b36;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bb-tv-batter-text {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      line-height: 1.1;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+    }
+
+    /* CUERPO PRINCIPAL DE LA PIZARRA CON MARCO DORADO */
+    .bb-tv-main-box {
+      position: relative;
+      display: grid;
+      grid-template-columns: 185px 176px 185px;
+      height: 86px;
+      background: #0b0e14;
+      border-left: 4px solid var(--bb-frame-color, #eab308);
+      border-right: 4px solid var(--bb-frame-color, #eab308);
+      border-bottom: 4px solid var(--bb-frame-color, #eab308);
+      box-sizing: border-box;
+      overflow: visible;
+    }
+
+    /* Paneles laterales de cada equipo (Izquierda = Visitante, Derecha = Local) */
+    .bb-tv-team-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      gap: 10px;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bb-tv-team-panel.away-side {
+      padding-right: 16px;
+    }
+
+    .bb-tv-team-panel.home-side {
+      padding-left: 16px;
+    }
+
+    /* Espacio para el Logo del equipo al lado del nombre y la anotación */
+    .bb-tv-logo-slot {
+      width: 54px;
+      height: 54px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.55);
+    }
+
+    .bb-tv-logo-slot img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .bb-tv-logo-placeholder {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      opacity: 0.45;
+      color: #ffffff;
+    }
+
+    /* Columna con Nombre (arriba) y Carreras (abajo) igual a la imagen SD / 2 y MIL / 2 */
+    .bb-tv-team-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      line-height: 1;
+      position: relative;
+    }
+
+    .bb-tv-team-abbr {
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      line-height: 1;
+      margin-bottom: 3px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.75);
+      max-width: 105px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bb-tv-team-score {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 0.95;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bb-score-num {
+      display: inline-block;
+    }
+
+    .bb-tv-team-score.bb-score-anim .bb-score-num {
+      animation: bbRunBounce 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .bb-run-delta-badge {
+      position: absolute;
+      right: -30px;
+      top: 2px;
+      background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+      border: 1.5px solid #fde047;
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      letter-spacing: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px) scale(0.7);
+    }
+
+    .bb-run-delta-badge.show-delta {
+      animation: bbRunDeltaPop 1.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes bbRunBounce {
+      0% { transform: scale(1); }
+      32% { transform: scale(1.26); color: #fde047; }
+      70% { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes bbRunDeltaPop {
+      0% { opacity: 0; transform: translateY(8px) scale(0.6); }
+      18% { opacity: 1; transform: translateY(0) scale(1.1); }
+      30% { opacity: 1; transform: translateY(0) scale(1); }
+      80% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-7px) scale(0.85); }
+    }
+
+    /* Micro-badge de jugada en la barra superior (HIT, 2B, 3B, BB) */
+    .bb-tv-play-pill {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 13.5px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      border: 1.5px solid #fef08a;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+      white-space: nowrap;
+      flex-shrink: 0;
+      opacity: 0;
+      transform: translateX(16px) scale(0.85);
+      transition: opacity 0.22s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events: none;
+    }
+
+    .bb-tv-play-pill.active {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+
+    /* TRAPECIO BLANCO CENTRAL (Inning, Outs, Conteo B-S más grande y legible en OBS) */
+    .bb-tv-center-trapezoid-wrap {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 4;
+    }
+
+    .bb-tv-center-trapezoid {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #ffffff 0%, #e5e7eb 100%);
+      clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 4px;
+      box-sizing: border-box;
+      color: #111827;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    }
+
+    .bb-tv-inning-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-size: 21px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1;
+    }
+
+    .bb-tv-inning-arrow {
+      font-size: 16px;
+      color: #1f2937;
+      line-height: 1;
+    }
+
+    .bb-tv-outs-count-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 3px;
+      font-size: 16.5px;
+      font-weight: 900;
+      color: #111827;
+      letter-spacing: 0.3px;
+      line-height: 1.05;
+    }
+
+    .bb-tv-count-pill {
+      background: #0f172a;
+      color: #facc15;
+      font-size: 18.5px;
+      font-weight: 900;
+      padding: 2px 9px;
+      border-radius: 5px;
+      border: 1.5px solid rgba(250, 204, 21, 0.82);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+      letter-spacing: 1px;
+      line-height: 1.05;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* =========================================================================
+       DIAMANTE 3D DE BASES (1B, 2B, 3B) EN LA PARTE INFERIOR CENTRAL
+       ========================================================================= */
+    .bb-tv-diamond-3d {
+      position: absolute;
+      bottom: -19px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 96px;
+      height: 48px;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    .bb-tv-base-3d {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      border: 2px solid #475569;
+      transform: rotate(45deg);
+      box-shadow: 2px 3px 0px #1e293b, 0 4px 8px rgba(0, 0, 0, 0.65);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .bb-tv-base-3d.occupied {
+      background: linear-gradient(135deg, #fef08a 0%, #eab308 55%, #ca8a04 100%);
+      border-color: #ffffff;
+      box-shadow: 2px 3px 0px #713f12, 0 0 14px rgba(250, 204, 21, 0.95);
+    }
+
+    /* 2da Base (arriba al centro) */
+    .bb-tv-base-2b {
+      top: 1px;
+      left: 36px;
+    }
+
+    /* 3ra Base (abajo a la izquierda) */
+    .bb-tv-base-3b {
+      top: 17px;
+      left: 16px;
+    }
+
+    /* 1ra Base (abajo a la derecha) */
+    .bb-tv-base-1b {
+      top: 17px;
+      right: 16px;
+    }
+
+    /* =========================================================================
+       ANIMACIÓN ESPECIAL DE ¡HOME RUN! EN LA PIZARRA OBS
+       ========================================================================= */
+    .bb-hr-celebration-overlay {
+      position: absolute;
+      inset: 0;
+      bottom: 24px;
+      background: linear-gradient(90deg, #991b1b 0%, #dc2626 28%, #f59e0b 50%, #dc2626 72%, #991b1b 100%);
+      background-size: 200% 100%;
+      border: 3px solid #fef08a;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.92);
+      transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow: hidden;
+      box-shadow: 0 0 35px rgba(250, 204, 21, 0.85);
+    }
+
+    .bb-hr-celebration-overlay.active {
+      opacity: 1;
+      transform: scale(1);
+      animation: hrBgPulse 1.1s linear infinite;
+    }
+
+    @keyframes hrBgPulse {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+
+    .bb-hr-title {
+      font-size: 40px;
+      font-weight: 900;
+      color: #fef08a;
+      letter-spacing: 3px;
+      line-height: 1;
+      text-transform: uppercase;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9), 0 0 20px rgba(250, 204, 21, 0.9);
+      animation: hrTextBounce 0.55s ease-in-out infinite alternate;
+    }
+
+    @keyframes hrTextBounce {
+      from { transform: scale(0.96); }
+      to { transform: scale(1.06); }
+    }
+
+    .bb-hr-subtitle {
+      margin-top: 4px;
+      font-size: 16px;
+      font-weight: 900;
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 2px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(254, 240, 138, 0.6);
+      letter-spacing: 1px;
+    }
+
+    /* =========================================================================
+       ANIMACIÓN ESPECIAL DE ¡PONCHE! (K) EN LA PIZARRA OBS
+       ========================================================================= */
+    .bb-k-strikeout-overlay {
+      position: absolute;
+      inset: 0;
+      bottom: 24px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(127, 29, 29, 0.96) 50%, rgba(15, 23, 42, 0.96) 100%);
+      border: 3px solid #ef4444;
+      box-shadow: 0 0 28px rgba(239, 68, 68, 0.75), inset 0 0 24px rgba(239, 68, 68, 0.35);
+      z-index: 24;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.93);
+      transition: opacity 0.24s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow: hidden;
+    }
+
+    .bb-k-strikeout-overlay.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .bb-k-giant-letter {
+      width: 68px;
+      height: 68px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, #dc2626 0%, #991b1b 100%);
+      border: 2.5px solid #fde047;
+      color: #ffffff;
+      font-size: 52px;
+      font-weight: 900;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8), 0 0 18px rgba(250, 204, 21, 0.6);
+      text-shadow: 0 3px 8px rgba(0, 0, 0, 0.9);
+      animation: bbKStamp 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes bbKStamp {
+      0% { transform: scale(1.7) rotate(-8deg); opacity: 0; }
+      70% { transform: scale(0.94) rotate(2deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .bb-k-info-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .bb-k-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #fde047;
+      letter-spacing: 2.5px;
+      line-height: 1;
+      text-transform: uppercase;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95);
+    }
+
+    .bb-k-subtitle {
+      margin-top: 5px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 2px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(248, 113, 113, 0.6);
+      letter-spacing: 0.8px;
+    }  text-transform: uppercase;
+    }
+
+    /* =========================================================================
+       ESTILOS DEL PANEL DE CONTROL Y PREVISUALIZACIÓN
+       ========================================================================= */
+    .preview-stage {
+      background:
+        radial-gradient(circle at 50% 35%, rgba(22, 101, 52, 0.32), rgba(15, 23, 42, 0.96) 75%),
+        repeating-linear-gradient(45deg, #0f172a 0px, #0f172a 14px, #131c31 14px, #131c31 28px);
+      border: 2px dashed rgba(234, 179, 8, 0.45);
+      border-radius: 14px;
+      padding: 2rem 1.25rem 2.6rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      overflow-x: auto;
+    }
+
+    .obs-url-box {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      width: 100%;
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.45rem 0.65rem;
+    }
+
+    .obs-url-box input {
+      background: transparent;
+      border: none;
+      color: #fde047;
+      font-family: monospace;
+      font-size: 0.85rem;
+      width: 100%;
+    }
+
+    .obs-url-box input:focus {
+      outline: none;
+      box-shadow: none;
+    }
+
+    .logo-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.16);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .logo-upload-btn:hover {
+      background: rgba(59, 130, 246, 0.28);
+      color: #ffffff;
+    }
+
+    .base-toggle-pill {
+      padding: 0.45rem 0.8rem;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card-alt);
+      color: var(--text-main);
+      font-weight: 800;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .base-toggle-pill.active {
+      background: rgba(234, 179, 8, 0.22);
+      border-color: #facc15;
+      color: #fef08a;
+      box-shadow: 0 0 12px rgba(234, 179, 8, 0.35);
+    }
+
+    /* =========================================================================
+       DISEÑO TV BROADCAST: PIZARRA OFICIAL POR ENTRADAS (LINE SCORE 1-9+ | R | H | E)
+       Ideal para mostrar en OBS en medio de cada inning o cambio de entrada
+       ========================================================================= */
+    .bb-tv-linescore-wrapper {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      min-width: 880px;
+      max-width: 100%;
+      font-family: 'Arial Narrow', 'Roboto Condensed', 'Bahnschrift', 'Oswald', 'Segoe UI', sans-serif;
+      user-select: none;
+      background: linear-gradient(180deg, #111827 0%, #090d16 100%);
+      border: 3px solid var(--bb-frame-color, #eab308);
+      border-radius: 12px;
+      overflow: hidden;
+      filter: drop-shadow(0 16px 34px rgba(0, 0, 0, 0.85));
+    }
+
+    .bb-tv-ls-header {
+      background: linear-gradient(90deg, #0b0f19 0%, #1e293b 50%, #0b0f19 100%);
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 2px solid var(--bb-frame-color, #eab308);
+    }
+
+    .bb-tv-ls-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #f8fafc;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    .bb-tv-ls-title-pill {
+      background: var(--bb-frame-color, #eab308);
+      color: #090d16;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 2px 9px;
+      border-radius: 4px;
+      letter-spacing: 0.8px;
+    }
+
+    .bb-tv-ls-status-pill {
+      background: rgba(250, 204, 21, 0.16);
+      border: 1px solid var(--bb-frame-color, #eab308);
+      color: #fef08a;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 3px 12px;
+      border-radius: 999px;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      box-shadow: 0 0 12px rgba(234, 179, 8, 0.25);
+    }
+
+    .bb-tv-ls-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .bb-tv-ls-table thead th {
+      background: #070a11;
+      color: #94a3b8;
+      font-size: 15px;
+      font-weight: 900;
+      text-align: center;
+      padding: 8px 4px;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.22);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .bb-tv-ls-table thead th.ls-team-col-head {
+      width: 240px;
+      text-align: left;
+      padding-left: 18px;
+      color: #cbd5e1;
+    }
+
+    .bb-tv-ls-table thead th.ls-active-inn-head {
+      background: linear-gradient(180deg, rgba(234, 179, 8, 0.38) 0%, rgba(234, 179, 8, 0.16) 100%);
+      color: #fef08a;
+      border-bottom: 2px solid #facc15;
+      text-shadow: 0 0 8px rgba(250, 204, 21, 0.65);
+    }
+
+    .bb-tv-ls-table thead th.ls-rhe-head {
+      width: 62px;
+      background: linear-gradient(180deg, rgba(234, 179, 8, 0.28) 0%, rgba(161, 98, 7, 0.16) 100%);
+      color: #fde047;
+      font-size: 17px;
+      border-bottom: 2px solid var(--bb-frame-color, #eab308);
+    }
+
+    .bb-tv-ls-table thead th.ls-rhe-first {
+      border-left: 3px solid var(--bb-frame-color, #eab308);
+    }
+
+    .bb-tv-ls-table tbody tr {
+      height: 62px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .bb-tv-ls-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    .bb-tv-ls-team-cell {
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      height: 62px;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bb-tv-ls-team-bar {
+      width: 6px;
+      height: 44px;
+      border-radius: 3px;
+      background: var(--bb-frame-color, #eab308);
+      flex-shrink: 0;
+    }
+
+    .bb-tv-ls-logo-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.55);
+    }
+
+    .bb-tv-ls-logo-box img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .bb-tv-ls-team-names {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .bb-tv-ls-team-main {
+      font-size: 23px;
+      font-weight: 900;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.05;
+      text-shadow: 0 2px 5px rgba(0, 0, 0, 0.85);
+    }
+
+    .bb-tv-ls-team-sub {
+      font-size: 11px;
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .bb-tv-ls-inn-cell {
+      text-align: center;
+      font-size: 25px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #e2e8f0;
+      border-left: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 0 2px;
+    }
+
+    .bb-tv-ls-inn-cell.scored-runs {
+      color: #ffffff;
+      font-weight: 900;
+      text-shadow: 0 0 10px rgba(250, 204, 21, 0.35);
+    }
+
+    .bb-tv-ls-inn-cell.unplayed-inn {
+      color: rgba(148, 163, 184, 0.38);
+      font-weight: 700;
+    }
+
+    .bb-tv-ls-inn-cell.active-inn-cell {
+      background: linear-gradient(180deg, rgba(234, 179, 8, 0.22) 0%, rgba(234, 179, 8, 0.09) 100%);
+      color: #fef08a;
+      font-weight: 900;
+      box-shadow: inset 0 0 10px rgba(250, 204, 21, 0.2);
+    }
+
+    .bb-tv-ls-rhe-cell {
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-weight: 900;
+      padding: 0 4px;
+    }
+
+    .bb-tv-ls-rhe-cell.runs-col {
+      border-left: 3px solid var(--bb-frame-color, #eab308);
+      background: linear-gradient(180deg, rgba(234, 179, 8, 0.28) 0%, rgba(161, 98, 7, 0.14) 100%);
+      color: #facc15;
+      font-size: 31px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+    }
+
+    .bb-tv-ls-rhe-cell.hits-col {
+      background: rgba(15, 23, 42, 0.85);
+      color: #ffffff;
+      font-size: 27px;
+      border-left: 1px solid rgba(250, 204, 21, 0.22);
+    }
+
+    .bb-tv-ls-rhe-cell.errors-col {
+      background: rgba(15, 23, 42, 0.85);
+      color: #cbd5e1;
+      font-size: 26px;
+      border-left: 1px solid rgba(250, 204, 21, 0.22);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================================
+       LIENZO LIMPIO EXCLUSIVO PARA OBS STUDIO (?obs=1)
+       Soporta 2 enlaces independientes:
+       1) ?obs=1 (Scorebug compacto principal)
+       2) ?obs=1&view=linescore (Pizarra por Entradas 1-9 | R | H | E para medio de cada inning)
+       ========================================================================= -->
+  <div id="obsLiveCanvas">
+    <div id="obsScorebugMount"></div>
+    <div id="obsLineScoreMount" class="hidden"></div>
+  </div>
+
+  <!-- Barra de navegación (se oculta automáticamente en OBS) -->
+  <nav class="navbar no-print">
+    <a href="index.html" class="brand">
+      ⚾ Basket & Baseball Stats <span class="badge-sport">Overlay Baseball OBS</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status">⏳ Firebase...</span>
+      <a href="index.html" class="nav-link">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link active">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <!-- =========================================================================
+       PANEL DE CREACIÓN Y CONTROL DEL OVERLAY DE BASEBALL
+       ========================================================================= -->
+  <main class="container control-panel-wrapper">
+    <div class="page-header" style="margin-bottom:1rem;">
+      <div>
+        <h1 class="page-title" id="bbPanelMainTitle">🖥️ Pizarra de Baseball para OBS</h1>
+        <p class="page-subtitle" id="bbPanelMainSubtitle">
+          Maneja esta pizarra de forma independiente o ábrela conectada a un partido en vivo desde <strong>Anotar Baseball (baseball.html)</strong>.
+        </p>
+      </div>
+    </div>
+
+    <!-- BARRA SUPERIOR DE CONTEXTO (MODO JUEGO CONECTADO VS MODO INDEPENDIENTE) -->
+    <div class="card" style="padding:1rem 1.25rem; margin-bottom:1.25rem;">
+      <!-- Modo Conectado a un Juego en Vivo -->
+      <div id="bbSelectorModeGameRow" class="hidden" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; flex:1;">
+          <span class="badge badge-live">⚾ CONECTADA AL JUEGO EN VIVO</span>
+          <strong id="bbLinkedGameTitleLabel" style="font-size:1rem; color:var(--text-main);">Cargando partido...</strong>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <a id="btnBackToBaseballScorer" href="baseball.html" class="btn btn-sm btn-primary">
+            ⚾ Volver a Mesa de Baseball de este Juego
+          </a>
+          <a href="pizarrabaseball.html" class="btn btn-sm btn-outline">
+            🕹️ Ir a Pizarra Independiente
+          </a>
+        </div>
+      </div>
+
+      <!-- Modo Independiente (Manual por Dispositivo) -->
+      <div id="bbSelectorModeManualRow" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; flex:1;">
+          <label style="font-size:0.85rem; font-weight:800; color:#facc15;">🕹️ PIZARRA DE BASEBALL INDEPENDIENTE:</label>
+          <select id="selectManualBbBoard" style="width:auto; min-width:260px; font-weight:700;" onchange="onChangeManualBbBoard(this.value)"></select>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="createNewManualBbBoard()">
+            ➕ Nueva Pizarra Independiente
+          </button>
+          <button type="button" class="btn btn-sm btn-red" onclick="deleteCurrentManualBbBoard()">
+            🗑️ Eliminar Pizarra
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         ENLACE 1: VISTA PREVIA EN TIEMPO REAL DEL SCOREBUG + ENLACE PARA OBS
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem;">
+      <div class="card-header" style="margin-bottom:0.85rem;">
+        <div>
+          <h2 class="card-title">🎥 Enlace OBS #1: Pizarra Principal de Juego (Scorebug con Diamante y Bateador)</h2>
+          <p style="font-size:0.8rem; color:var(--text-muted);">
+            Copia el enlace de abajo y pégalo en <strong>OBS Studio → Añadir Fuente → Navegador (Browser Source)</strong> (Ancho recomendado: <code>800</code>, Alto: <code>250</code>).
+          </p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-amber" onclick="triggerHomeRunAnimationOverlay()">
+            💥 Probar Animación ¡HOME RUN!
+          </button>
+          <button type="button" class="btn btn-sm btn-primary" onclick="copyBbObsLink()">
+            📋 Copiar Enlace OBS #1
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="openBbObsPreviewWindow()">
+            ↗️ Abrir Ventana Limpia
+          </button>
+        </div>
+      </div>
+
+      <!-- Escenario de Previsualización -->
+      <div class="preview-stage">
+        <div id="previewScorebugMount"></div>
+      </div>
+
+      <!-- URL generada para OBS -->
+      <div style="margin-top:0.9rem;">
+        <label class="form-label" style="margin-bottom:0.3rem;">🔗 URL #1 para OBS Studio (Scorebug de Juego en Vivo):</label>
+        <div class="obs-url-box">
+          <input type="text" id="bbObsGeneratedUrlInput" readonly onclick="this.select()" />
+          <button type="button" class="btn btn-sm btn-green" onclick="copyBbObsLink()">📋 Copiar URL #1</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         ENLACE 2: PIZARRA OFICIAL POR ENTRADAS (LINE SCORE 1 AL 9+ | R | H | E)
+         Para mostrar en OBS en medio de cada inning cuando el usuario quiera
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem; border-color:rgba(250,204,21,0.5);">
+      <div class="card-header" style="margin-bottom:0.85rem;">
+        <div>
+          <h2 class="card-title" style="color:#fde047;">📺 Enlace OBS #2: Pizarra por Entradas para Medio de Inning (Line Score: 1 al 9+ | R | H | E)</h2>
+          <p style="font-size:0.8rem; color:var(--text-muted);">
+            Agrega este segundo enlace en <strong>OBS Studio → Navegador</strong> (Ancho recomendado: <code>1050</code>, Alto: <code>260</code>) para activarlo o mostrarlo en medio de cada entrada cuando quieras. Usa los mismos logos y colores de tus equipos.
+          </p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="copyBbLineScoreObsLink()">
+            📋 Copiar Enlace Line Score OBS #2
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="openBbLineScoreObsPreviewWindow()">
+            ↗️ Abrir Ventana Limpia Line Score
+          </button>
+        </div>
+      </div>
+
+      <!-- Escenario de Previsualización del Line Score TV -->
+      <div class="preview-stage" style="padding:1.4rem 1rem;">
+        <div id="previewLineScoreMount" style="max-width:100%; overflow-x:auto;"></div>
+      </div>
+
+      <!-- URL #2 generada para OBS (Line Score por Entradas) -->
+      <div style="margin-top:0.9rem;">
+        <label class="form-label" style="margin-bottom:0.3rem;">🔗 URL #2 para OBS Studio (Pizarra por Entradas 1-9 | R | H | E):</label>
+        <div class="obs-url-box" style="border-color:rgba(250,204,21,0.45);">
+          <input type="text" id="bbObsLineScoreUrlInput" readonly onclick="this.select()" />
+          <button type="button" class="btn btn-sm btn-amber" onclick="copyBbLineScoreObsLink()">📋 Copiar URL Line Score</button>
+        </div>
+      </div>
+
+      <!-- Editor rápido de Carreras por Entrada (1-9+), Hits (H) y Errores (E) -->
+      <div style="margin-top:0.95rem; padding-top:0.85rem; border-top:1px solid var(--border-color);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;">
+          <span style="font-size:0.8rem; font-weight:800; color:#fde047;">
+            ⚡ Editor Rápido de Entradas (1 al 9+), Hits (H) y Errores (E):
+          </span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">
+            En modo juego se actualiza solo al anotar en <code>baseball.html</code>, o puedes ajustar cualquier entrada aquí mismo.
+          </span>
+        </div>
+        <div class="table-responsive">
+          <table id="ctrlLineScoreEditorTable" style="font-size:0.8rem;"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         CONTROLES DE LA BARRA SUPERIOR (BATEADOR AL PLATO) Y ANIMACIÓN HOME RUN
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem; border-color:rgba(234,179,8,0.4);">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">🏏 Barra Superior de Texto (Estadísticas del Bateador al Plato) y Animación de Home Run</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            En modo conectado al juego, aquí salen automáticamente las estadísticas de cada bateador que se pare al batear (o puedes escribir un texto libre). En modo independiente, escribe lo que quieras mostrar arriba.
+          </p>
+        </div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns: 1fr auto auto auto; align-items:end; gap:0.65rem;">
+        <div>
+          <label class="form-label" style="margin-bottom:0.25rem;">📝 Texto en la Barra Superior (Bateador y Estadísticas)</label>
+          <input type="text" id="ctrlBatterTextInput" placeholder="Ej: 4. FRANCE   2-3, HR, 3 RBI, .667 AVG" oninput="onEditBatterText(this.value)" />
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:0.25rem;">🎨 Letra</label>
+          <input type="color" id="ctrlBatterTextColor" value="#ffffff" style="width:52px; height:41px; padding:3px; cursor:pointer;" oninput="onEditBatterStyle()" />
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:0.25rem;">🎨 Marco</label>
+          <input type="color" id="ctrlFrameColor" value="#eab308" style="width:52px; height:41px; padding:3px; cursor:pointer;" oninput="onEditBatterStyle()" />
+        </div>
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+          <button type="button" id="btnResetAutoBatterText" class="btn btn-outline hidden" style="height:41px;" onclick="resetToAutoBatterText()" title="Volver a mostrar automáticamente las estadísticas del bateador seleccionado en baseball.html">
+            🔄 Auto Bateador
+          </button>
+          <button type="button" class="btn btn-red" style="height:41px; font-weight:900;" onclick="triggerKAnimationOverlay()" title="Lanzar animación de Ponche (K) en la pizarra">
+            ⚾ Lanzar ¡PONCHE! (K)
+          </button>
+          <button type="button" class="btn btn-amber" style="height:41px; font-weight:900;" onclick="triggerHomeRunAnimationOverlay()">
+            💥 Lanzar ¡HOME RUN!
+          </button>
+        </div>
+      </div>
+
+      <!-- Selector rápido de bateador cuando está conectada a un juego -->
+      <div id="gameBatterQuickPickerSection" class="hidden" style="margin-top:0.85rem; padding-top:0.8rem; border-top:1px solid var(--border-color);">
+        <div style="font-size:0.78rem; font-weight:800; color:var(--text-muted); margin-bottom:0.45rem;">
+          ⚡ CAMBIAR BATEADOR EN TURNO DESDE AQUÍ (Muestra sus estadísticas al instante):
+        </div>
+        <div id="gameBatterQuickButtonsList" style="display:flex; gap:0.4rem; flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         CONTROLES DE ENTRADA (▲/▼/FINAL), OUTS, BOLAS, STRIKES Y BASES (1B, 2B, 3B)
+         ========================================================================= -->
+    <div class="grid-2" style="margin-bottom:1.25rem;">
+
+      <!-- TARJETA 1: ENTRADA, OUTS Y CONTEO (BOLAS Y STRIKES) -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-header">
+          <h3 class="card-title">⚾ Control de Entrada (Inning), Outs, Bolas y Strikes</h3>
+        </div>
+
+        <div class="form-row" style="margin-bottom:0.8rem;">
+          <div>
+            <label class="form-label">Entrada (Inning)</label>
+            <div style="display:flex; gap:0.4rem; align-items:center;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayInning(-1)">−</button>
+              <input type="number" id="ctrlInningInput" min="1" max="25" value="1" style="text-align:center; font-weight:900; font-size:1.1rem;" onchange="onChangeOverlayInning(this.value)" />
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayInning(1)">+</button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">Mitad de Entrada / Estado</label>
+            <div style="display:flex; gap:0.35rem;">
+              <button type="button" id="btnHalfTop" class="btn btn-sm btn-primary" style="flex:1;" onclick="setOverlayHalf('top')">▲ Alta</button>
+              <button type="button" id="btnHalfBottom" class="btn btn-sm btn-outline" style="flex:1;" onclick="setOverlayHalf('bottom')">▼ Baja</button>
+              <button type="button" id="btnOverlayFinal" class="btn btn-sm btn-red" style="flex:1;" onclick="toggleOverlayFinal()">🏁 FINAL</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bolas, Strikes y Outs -->
+        <div class="grid-3" style="gap:0.6rem;">
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.65rem; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:800; color:#4ade80; margin-bottom:0.35rem;">🟢 BOLAS (0-3)</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:0.4rem;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayBSO('balls', -1)">−</button>
+              <strong id="ctrlBallsDisplay" style="font-size:1.25rem; min-width:24px;">0</strong>
+              <button type="button" class="btn btn-sm btn-green" onclick="stepOverlayBSO('balls', 1)">+</button>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.65rem; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:800; color:#facc15; margin-bottom:0.35rem;">🟡 STRIKES (0-2)</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:0.4rem;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayBSO('strikes', -1)">−</button>
+              <strong id="ctrlStrikesDisplay" style="font-size:1.25rem; min-width:24px;">0</strong>
+              <button type="button" class="btn btn-sm btn-amber" onclick="stepOverlayBSO('strikes', 1)">+</button>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.65rem; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:800; color:#f87171; margin-bottom:0.35rem;">🔴 OUTS (0-2)</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:0.4rem;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayBSO('outs', -1)">−</button>
+              <strong id="ctrlOutsDisplay" style="font-size:1.25rem; min-width:24px;">0</strong>
+              <button type="button" class="btn btn-sm btn-red" onclick="stepOverlayBSO('outs', 1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TARJETA 2: BASES OCUPADAS EN EL DIAMANTE 3D (1B, 2B, 3B) -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-header">
+          <h3 class="card-title">💎 Bases Ocupadas en el Diamante 3D</h3>
+          <button type="button" class="btn btn-sm btn-outline" onclick="clearOverlayBases()">🧹 Limpiar Bases</button>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.85rem;">
+          Activa o desactiva qué bases están ocupadas para iluminarlas en amarillo en el diamante inferior de la pizarra.
+        </p>
+        <div class="grid-3" style="gap:0.65rem;">
+          <button type="button" id="btnToggleBase3B" class="base-toggle-pill" onclick="toggleOverlayBase('third')">
+            💎 3ra Base (3B)
+          </button>
+          <button type="button" id="btnToggleBase2B" class="base-toggle-pill" onclick="toggleOverlayBase('second')">
+            💎 2da Base (2B)
+          </button>
+          <button type="button" id="btnToggleBase1B" class="base-toggle-pill" onclick="toggleOverlayBase('first')">
+            💎 1ra Base (1B)
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- =========================================================================
+         CONFIGURACIÓN DE EQUIPOS: LOGOS, NOMBRES, COLORES Y CARRERAS
+         ========================================================================= -->
+    <div class="grid-2">
+
+      <!-- EQUIPO IZQUIERDO (VISITANTE / AWAY) -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">✈️ Equipo Izquierdo (Visitante)</h3>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Siglas / Nombre en Pizarra</label>
+            <input type="text" id="ctrlAwayName" maxlength="8" placeholder="Ej. SD" oninput="onEditTeamOverlay('away')" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Carreras (Score)</label>
+            <div style="display:flex; gap:0.35rem;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayTeamScore('away', -1)">−</button>
+              <input type="number" id="ctrlAwayScore" min="0" value="0" style="text-align:center; font-weight:900; font-size:1.1rem;" onchange="onChangeOverlayTeamScore('away', this.value)" />
+              <button type="button" class="btn btn-sm btn-green" onclick="stepOverlayTeamScore('away', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Color de Fondo</label>
+            <input type="color" id="ctrlAwayBgColor" value="#0f131a" style="height:40px; padding:3px; cursor:pointer;" oninput="onEditTeamOverlay('away')" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color de Letras y Número</label>
+            <input type="color" id="ctrlAwayTextColor" value="#ffffff" style="height:40px; padding:3px; cursor:pointer;" oninput="onEditTeamOverlay('away')" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">🖼️ Logo del Equipo Izquierdo (Desde PC o Tableta)</label>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <label class="logo-upload-btn">
+              📁 Subir Logo Visitante
+              <input type="file" accept="image/*" style="display:none;" onchange="handleBbLogoUpload(event, 'away')" />
+            </label>
+            <select id="ctrlAwayLogoFit" style="width:auto;" onchange="onEditTeamOverlay('away')">
+              <option value="contain">Ajustar Completo (Contain)</option>
+              <option value="cover">Llenar Cuadro (Cover)</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-red" onclick="clearBbTeamLogo('away')">🗑️ Quitar Logo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- EQUIPO DERECHO (LOCAL / HOME) -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🏠 Equipo Derecho (Local)</h3>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Siglas / Nombre en Pizarra</label>
+            <input type="text" id="ctrlHomeName" maxlength="8" placeholder="Ej. MIL" oninput="onEditTeamOverlay('home')" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Carreras (Score)</label>
+            <div style="display:flex; gap:0.35rem;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayTeamScore('home', -1)">−</button>
+              <input type="number" id="ctrlHomeScore" min="0" value="0" style="text-align:center; font-weight:900; font-size:1.1rem;" onchange="onChangeOverlayTeamScore('home', this.value)" />
+              <button type="button" class="btn btn-sm btn-green" onclick="stepOverlayTeamScore('home', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Color de Fondo</label>
+            <input type="color" id="ctrlHomeBgColor" value="#0f131a" style="height:40px; padding:3px; cursor:pointer;" oninput="onEditTeamOverlay('home')" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color de Letras y Número</label>
+            <input type="color" id="ctrlHomeTextColor" value="#ffffff" style="height:40px; padding:3px; cursor:pointer;" oninput="onEditTeamOverlay('home')" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">🖼️ Logo del Equipo Derecho (Desde PC o Tableta)</label>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <label class="logo-upload-btn">
+              📁 Subir Logo Local
+              <input type="file" accept="image/*" style="display:none;" onchange="handleBbLogoUpload(event, 'home')" />
+            </label>
+            <select id="ctrlHomeLogoFit" style="width:auto;" onchange="onEditTeamOverlay('home')">
+              <option value="contain">Ajustar Completo (Contain)</option>
+              <option value="cover">Llenar Cuadro (Cover)</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-red" onclick="clearBbTeamLogo('home')">🗑️ Quitar Logo</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const isObsMode = urlParams.get('obs') === '1';
+    const isLineScoreObsView = urlParams.get('view') === 'linescore';
+    const initialModeParam = urlParams.get('mode');
+    const initialGameIdParam = urlParams.get('gameId');
+    const initialBoardIdParam = urlParams.get('boardId');
+
+    const DEVICE_BB_BOARD_KEY = 'baseball_device_manual_board_id_v1';
+
+    let currentBbOverlayMode = (initialModeParam === 'game' || initialGameIdParam) ? 'game' : 'manual';
+    let selectedBbGameId = initialGameIdParam || '';
+    let selectedManualBbBoardId = initialBoardIdParam || localStorage.getItem(DEVICE_BB_BOARD_KEY) || '';
+    let hrAnimTimeout = null;
+    let kAnimTimeout = null;
+    let playBadgeTimeout = null;
+
+    if (isObsMode) {
+      document.body.classList.add('obs-transparent-mode');
+      const sbMount = document.getElementById('obsScorebugMount');
+      const lsMount = document.getElementById('obsLineScoreMount');
+      if (sbMount && lsMount) {
+        sbMount.classList.toggle('hidden', isLineScoreObsView);
+        lsMount.classList.toggle('hidden', !isLineScoreObsView);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function updateFirebaseBadge() {
+      const info = getFirebaseStatus();
+      const el = document.getElementById('firebaseBadge');
+      if (!el) return;
+      if (info.status === 'connected') {
+        el.className = 'db-status connected';
+        el.textContent = '🟢 Firebase Conectado';
+      } else if (info.status === 'permission_denied') {
+        el.className = 'db-status error';
+        el.textContent = '🔒 Reglas Firebase Bloqueadas';
+      } else {
+        el.className = 'db-status';
+        el.textContent = '⏳ Modo Local / Conectando';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    function ensureManualBbBoardExists(store) {
+      if (!Array.isArray(store.standaloneBaseballBoards)) {
+        store.standaloneBaseballBoards = [];
+      }
+      if (selectedManualBbBoardId && store.standaloneBaseballBoards.some(b => b.id === selectedManualBbBoardId)) {
+        return;
+      }
+      if (store.standaloneBaseballBoards.length > 0) {
+        selectedManualBbBoardId = store.standaloneBaseballBoards[0].id;
+        localStorage.setItem(DEVICE_BB_BOARD_KEY, selectedManualBbBoardId);
+        return;
+      }
+      const newBoard = normalizeStandaloneBaseballBoard({
+        id: uid('bbboard'),
+        batterText: '4. FRANCE   0-0, .000 AVG',
+        awayName: 'SD',
+        homeName: 'MIL',
+        awayScore: 2,
+        homeScore: 2,
+        awayHits: 5,
+        homeHits: 6,
+        awayErrors: 0,
+        homeErrors: 0,
+        inningRuns: {
+          away: { '1': 1, '2': 0, '3': 0, '4': 1 },
+          home: { '1': 0, '2': 0, '3': 2, '4': 0 }
+        },
+        inning: 5,
+        half: 'top',
+        outs: 2,
+        balls: 0,
+        strikes: 0,
+        bases: { first: false, second: true, third: false }
+      });
+      store.standaloneBaseballBoards.push(newBoard);
+      selectedManualBbBoardId = newBoard.id;
+      localStorage.setItem(DEVICE_BB_BOARD_KEY, selectedManualBbBoardId);
+      saveStore(store);
+    }
+
+    // Obtiene el estado unificado que debe mostrar el Scorebug y el Line Score (sea modo juego o modo manual)
+    function getActiveBbOverlayState(store) {
+      if (currentBbOverlayMode === 'game') {
+        const game = store.games.find(g => g.id === selectedBbGameId) || store.games.find(g => getGameSport(store, g) === 'baseball');
+        if (game) {
+          selectedBbGameId = game.id;
+          const tourney = store.tournaments.find(t => t.id === game.tournamentId);
+          const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+          const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+          const awayTot = getBaseballTeamTotals(store, game, game.awayTeamId);
+          const homeTot = getBaseballTeamTotals(store, game, game.homeTeamId);
+          const cfg = game.baseballOverlayConfig || {};
+
+          return {
+            mode: 'game',
+            gameId: game.id,
+            tournamentName: tourney ? tourney.name : 'PIZARRA OFICIAL POR ENTRADAS',
+            batterText: getBaseballBatterSummaryText(store, game),
+            customBatterText: cfg.customBatterText || '',
+            batterTextColor: cfg.batterTextColor || '#ffffff',
+            frameColor: cfg.frameColor || '#eab308',
+            awayName: cfg.awayName || (awayTeam ? (awayTeam.shortName || awayTeam.name.slice(0, 4).toUpperCase()) : 'VIS'),
+            homeName: cfg.homeName || (homeTeam ? (homeTeam.shortName || homeTeam.name.slice(0, 4).toUpperCase()) : 'LOC'),
+            awayFullName: awayTeam ? awayTeam.name : (cfg.awayName || 'Visitante'),
+            homeFullName: homeTeam ? homeTeam.name : (cfg.homeName || 'Local'),
+            awayColor: cfg.awayColor || '#0f131a',
+            homeColor: cfg.homeColor || '#0f131a',
+            awayTextColor: cfg.awayTextColor || '#ffffff',
+            homeTextColor: cfg.homeTextColor || '#ffffff',
+            awayLogo: cfg.awayLogo || '',
+            homeLogo: cfg.homeLogo || '',
+            awayLogoFit: cfg.awayLogoFit || 'contain',
+            homeLogoFit: cfg.homeLogoFit || 'contain',
+            awayScore: awayTot.runs,
+            homeScore: homeTot.runs,
+            awayHits: awayTot.h,
+            homeHits: homeTot.h,
+            awayErrors: awayTot.errors,
+            homeErrors: homeTot.errors,
+            inningRuns: {
+              away: (game.inningRuns && game.inningRuns.away) ? { ...game.inningRuns.away } : {},
+              home: (game.inningRuns && game.inningRuns.home) ? { ...game.inningRuns.home } : {}
+            },
+            inning: Number(game.inning || 1),
+            half: game.half === 'bottom' ? 'bottom' : 'top',
+            outs: Number(game.outs || 0),
+            balls: Number(game.balls || 0),
+            strikes: Number(game.strikes || 0),
+            isFinal: game.status === 'Finalizado',
+            bases: {
+              first: Boolean(game.bases && game.bases.first),
+              second: Boolean(game.bases && game.bases.second),
+              third: Boolean(game.bases && game.bases.third)
+            },
+            hrAnimation: game.hrAnimation || null,
+            kAnimation: game.kAnimation || null,
+            playBadgeAnimation: game.playBadgeAnimation || null
+          };
+        }
+      }
+
+      // Modo Independiente
+      ensureManualBbBoardExists(store);
+      const b = store.standaloneBaseballBoards.find(x => x.id === selectedManualBbBoardId) || store.standaloneBaseballBoards[0];
+      return {
+        mode: 'manual',
+        boardId: b.id,
+        tournamentName: 'PIZARRA OFICIAL POR ENTRADAS',
+        batterText: b.batterText || '4. FRANCE   0-0, .000 AVG',
+        customBatterText: b.batterText || '',
+        batterTextColor: b.batterTextColor || '#ffffff',
+        frameColor: b.frameColor || '#eab308',
+        awayName: b.awayName || 'SD',
+        homeName: b.homeName || 'MIL',
+        awayFullName: b.awayName || 'SD',
+        homeFullName: b.homeName || 'MIL',
+        awayColor: b.awayColor || '#0f131a',
+        homeColor: b.homeColor || '#0f131a',
+        awayTextColor: b.awayTextColor || '#ffffff',
+        homeTextColor: b.homeTextColor || '#ffffff',
+        awayLogo: b.awayLogo || '',
+        homeLogo: b.homeLogo || '',
+        awayLogoFit: b.awayLogoFit || 'contain',
+        homeLogoFit: b.homeLogoFit || 'contain',
+        awayScore: Number(b.awayScore || 0),
+        homeScore: Number(b.homeScore || 0),
+        awayHits: Number(b.awayHits || 0),
+        homeHits: Number(b.homeHits || 0),
+        awayErrors: Number(b.awayErrors || 0),
+        homeErrors: Number(b.homeErrors || 0),
+        inningRuns: {
+          away: (b.inningRuns && b.inningRuns.away) ? { ...b.inningRuns.away } : {},
+          home: (b.inningRuns && b.inningRuns.home) ? { ...b.inningRuns.home } : {}
+        },
+        inning: Number(b.inning || 1),
+        half: b.half === 'bottom' ? 'bottom' : 'top',
+        outs: Number(b.outs || 0),
+        balls: Number(b.balls || 0),
+        strikes: Number(b.strikes || 0),
+        isFinal: Boolean(b.isFinal),
+        bases: {
+          first: Boolean(b.bases && b.bases.first),
+          second: Boolean(b.bases && b.bases.second),
+          third: Boolean(b.bases && b.bases.third)
+        },
+        hrAnimation: b.hrAnimation || null,
+        kAnimation: b.kAnimation || null,
+        playBadgeAnimation: b.playBadgeAnimation || null
+      };
+    }
+
+    function applyBbRunScoreWithDelta(scoreEl, newScoreVal) {
+      if (!scoreEl) return;
+      const nextScore = Number(newScoreVal || 0);
+      const prevAttr = scoreEl.getAttribute('data-last-score');
+
+      let numSpan = scoreEl.querySelector('.bb-score-val-num');
+      if (!numSpan) {
+        scoreEl.innerHTML = `<span class="bb-score-val-num">${nextScore}</span>`;
+        scoreEl.setAttribute('data-last-score', String(nextScore));
+        return;
+      }
+
+      if (prevAttr !== null) {
+        const prevScore = Number(prevAttr);
+        const diff = nextScore - prevScore;
+        numSpan.textContent = String(nextScore);
+
+        if (diff >= 1 && diff <= 6) {
+          scoreEl.classList.remove('bb-score-bump');
+          void scoreEl.offsetWidth;
+          scoreEl.classList.add('bb-score-bump');
+
+          const oldBadges = scoreEl.querySelectorAll('.bb-run-delta-badge');
+          oldBadges.forEach(b => b.remove());
+
+          const badge = document.createElement('span');
+          badge.className = 'bb-run-delta-badge';
+          badge.textContent = `+${diff}`;
+          scoreEl.appendChild(badge);
+
+          setTimeout(() => {
+            if (badge.parentNode) badge.remove();
+            scoreEl.classList.remove('bb-score-bump');
+          }, 1500);
+        }
+      } else {
+        numSpan.textContent = String(nextScore);
+      }
+
+      scoreEl.setAttribute('data-last-score', String(nextScore));
+    }
+
+    // Actualiza el DOM del Scorebug in-place sin recrearlo para que nunca parpadee
+    function updateBaseballScorebugMount(mountEl, state) {
+      if (!mountEl) return;
+
+      let wrapper = mountEl.querySelector('.bb-tv-wrapper');
+      if (!wrapper) {
+        mountEl.innerHTML = `
+          <div class="bb-tv-wrapper">
+            <!-- ÚNICA BARRA SUPERIOR: Estadísticas del bateador al plato -->
+            <div class="bb-tv-top-batter-bar" data-role="top-bar">
+              <div class="bb-tv-batter-text" data-role="batter-text"></div>
+              <span class="bb-tv-play-pill" data-role="play-pill"></span>
+            </div>
+
+            <!-- CUERPO PRINCIPAL DE LA PIZARRA -->
+            <div class="bb-tv-main-box" data-role="main-box">
+              <!-- Equipo Izquierdo (Visitante) -->
+              <div class="bb-tv-team-panel away-side" data-role="away-panel">
+                <div class="bb-tv-logo-slot" data-role="away-logo-slot"></div>
+                <div class="bb-tv-team-info">
+                  <div class="bb-tv-team-abbr" data-role="away-name"></div>
+                  <div class="bb-tv-team-score" data-role="away-score"></div>
+                </div>
+              </div>
+
+              <!-- Trapecio Blanco Central + Diamante 3D -->
+              <div class="bb-tv-center-trapezoid-wrap">
+                <div class="bb-tv-center-trapezoid">
+                  <div class="bb-tv-inning-row">
+                    <span class="bb-tv-inning-arrow" data-role="inning-arrow"></span>
+                    <span data-role="inning-num"></span>
+                  </div>
+                  <div class="bb-tv-outs-count-row">
+                    <span data-role="outs-label"></span>
+                    <span class="bb-tv-count-pill" data-role="count-pill"></span>
+                  </div>
+                </div>
+
+                <!-- Diamante 3D de Bases (1ra, 2da, 3ra) -->
+                <div class="bb-tv-diamond-3d">
+                  <div class="bb-tv-base-3d bb-tv-base-2b" data-role="base-2b"></div>
+                  <div class="bb-tv-base-3d bb-tv-base-3b" data-role="base-3b"></div>
+                  <div class="bb-tv-base-3d bb-tv-base-1b" data-role="base-1b"></div>
+                </div>
+              </div>
+
+              <!-- Equipo Derecho (Local) -->
+              <div class="bb-tv-team-panel home-side" data-role="home-panel">
+                <div class="bb-tv-team-info">
+                  <div class="bb-tv-team-abbr" data-role="home-name"></div>
+                  <div class="bb-tv-team-score" data-role="home-score"></div>
+                </div>
+                <div class="bb-tv-logo-slot" data-role="home-logo-slot"></div>
+              </div>
+            </div>
+
+            <!-- ANIMACIÓN DE ¡PONCHE! (K) -->
+            <div class="bb-k-strikeout-overlay" data-role="k-overlay">
+              <div class="bb-k-letter-box" data-role="k-letter">K</div>
+              <div class="bb-k-info-col">
+                <div class="bb-k-title" data-role="k-title">⚾ ¡PONCHE! (STRIKEOUT)</div>
+                <div class="bb-k-player" data-role="k-player"></div>
+              </div>
+            </div>
+
+            <!-- ANIMACIÓN DE ¡HOME RUN! -->
+            <div class="bb-hr-celebration-overlay" data-role="hr-overlay">
+              <div class="bb-hr-title" data-role="hr-title">💥 ¡HOME RUN! 💥</div>
+              <div class="bb-hr-subtitle" data-role="hr-subtitle"></div>
+            </div>
+          </div>
+        `;
+        wrapper = mountEl.querySelector('.bb-tv-wrapper');
+      }
+
+      wrapper.style.setProperty('--bb-frame-color', state.frameColor || '#eab308');
+
+      const batterTextEl = wrapper.querySelector('[data-role="batter-text"]');
+      batterTextEl.textContent = state.batterText || '';
+      batterTextEl.style.color = state.batterTextColor || '#ffffff';
+
+      // Equipo Visitante (Izquierda)
+      const awayPanel = wrapper.querySelector('[data-role="away-panel"]');
+      awayPanel.style.background = state.awayColor || '#0f131a';
+      const awayNameEl = wrapper.querySelector('[data-role="away-name"]');
+      const awayScoreEl = wrapper.querySelector('[data-role="away-score"]');
+      awayNameEl.textContent = state.awayName;
+      awayNameEl.style.color = state.awayTextColor || '#ffffff';
+      awayScoreEl.style.color = state.awayTextColor || '#ffffff';
+      applyBbRunScoreWithDelta(awayScoreEl, state.awayScore);
+
+      const awayLogoSlot = wrapper.querySelector('[data-role="away-logo-slot"]');
+      const awayLogoKey = `${state.awayLogo}|${state.awayLogoFit}|${state.awayName}`;
+      if (awayLogoSlot.getAttribute('data-logo-key') !== awayLogoKey) {
+        awayLogoSlot.setAttribute('data-logo-key', awayLogoKey);
+        if (state.awayLogo) {
+          awayLogoSlot.innerHTML = `<img src="${state.awayLogo}" alt="Logo" style="object-fit:${state.awayLogoFit || 'contain'};" />`;
+        } else {
+          awayLogoSlot.innerHTML = `<span class="bb-tv-logo-placeholder">${escapeHtml(state.awayName.slice(0, 3))}</span>`;
+        }
+      }
+
+      // Equipo Local (Derecha)
+      const homePanel = wrapper.querySelector('[data-role="home-panel"]');
+      homePanel.style.background = state.homeColor || '#0f131a';
+      const homeNameEl = wrapper.querySelector('[data-role="home-name"]');
+      const homeScoreEl = wrapper.querySelector('[data-role="home-score"]');
+      homeNameEl.textContent = state.homeName;
+      homeNameEl.style.color = state.homeTextColor || '#ffffff';
+      homeScoreEl.style.color = state.homeTextColor || '#ffffff';
+      applyBbRunScoreWithDelta(homeScoreEl, state.homeScore);
+
+      const homeLogoSlot = wrapper.querySelector('[data-role="home-logo-slot"]');
+      const homeLogoKey = `${state.homeLogo}|${state.homeLogoFit}|${state.homeName}`;
+      if (homeLogoSlot.getAttribute('data-logo-key') !== homeLogoKey) {
+        homeLogoSlot.setAttribute('data-logo-key', homeLogoKey);
+        if (state.homeLogo) {
+          homeLogoSlot.innerHTML = `<img src="${state.homeLogo}" alt="Logo" style="object-fit:${state.homeLogoFit || 'contain'};" />`;
+        } else {
+          homeLogoSlot.innerHTML = `<span class="bb-tv-logo-placeholder">${escapeHtml(state.homeName.slice(0, 3))}</span>`;
+        }
+      }
+
+      // Trapecio Central: Inning / FINAL, Outs y Conteo B-S
+      const innArrowEl = wrapper.querySelector('[data-role="inning-arrow"]');
+      const innNumEl = wrapper.querySelector('[data-role="inning-num"]');
+      const outsLabelEl = wrapper.querySelector('[data-role="outs-label"]');
+      const countPillEl = wrapper.querySelector('[data-role="count-pill"]');
+
+      if (state.isFinal) {
+        innArrowEl.textContent = '';
+        innNumEl.textContent = 'FINAL';
+        if (state.homeScore > state.awayScore) {
+          outsLabelEl.textContent = `🏆 GANA ${state.homeName}`;
+        } else if (state.awayScore > state.homeScore) {
+          outsLabelEl.textContent = `🏆 GANA ${state.awayName}`;
+        } else {
+          outsLabelEl.textContent = 'JUEGO TERMINADO';
+        }
+        outsLabelEl.style.fontSize = '11.5px';
+        countPillEl.style.display = 'none';
+      } else {
+        innArrowEl.textContent = state.half === 'bottom' ? '▼' : '▲';
+        innNumEl.textContent = state.inning;
+        outsLabelEl.style.fontSize = '16.5px';
+        outsLabelEl.textContent = `${state.outs} ${state.outs === 1 ? 'OUT' : 'OUTS'}`;
+        countPillEl.style.display = 'inline-block';
+        countPillEl.textContent = `${state.balls}-${state.strikes}`;
+      }
+
+      // Diamante 3D de Bases (1ra, 2da, 3ra)
+      wrapper.querySelector('[data-role="base-1b"]').classList.toggle('occupied', Boolean(state.bases.first));
+      wrapper.querySelector('[data-role="base-2b"]').classList.toggle('occupied', Boolean(state.bases.second));
+      wrapper.querySelector('[data-role="base-3b"]').classList.toggle('occupied', Boolean(state.bases.third));
+
+      const now = Date.now();
+
+      // Píldora sutil de jugada reciente (HIT, DOBLE, TRIPLE, BB) en barra superior
+      const playPillEl = wrapper.querySelector('[data-role="play-pill"]');
+      const pb = state.playBadgeAnimation;
+      const pbDuration = pb && pb.durationMs ? Number(pb.durationMs) : 3200;
+      const isPbActive = Boolean(pb && pb.triggeredAt && (now - Number(pb.triggeredAt)) < pbDuration);
+      if (playPillEl) {
+        if (isPbActive) {
+          playPillEl.textContent = pb.label || 'HIT';
+          playPillEl.style.background = pb.color || '#10b981';
+          playPillEl.classList.add('active');
+          if (playBadgeTimeout) clearTimeout(playBadgeTimeout);
+          const remPb = Math.max(100, pbDuration - (now - Number(pb.triggeredAt)));
+          playBadgeTimeout = setTimeout(() => {
+            renderBbOverlayEverything();
+          }, remPb + 40);
+        } else {
+          playPillEl.classList.remove('active');
+        }
+      }
+
+      // Animación de ¡PONCHE! (K)
+      const kOverlay = wrapper.querySelector('[data-role="k-overlay"]');
+      const kTitleEl = wrapper.querySelector('[data-role="k-title"]');
+      const kPlayerEl = wrapper.querySelector('[data-role="k-player"]');
+      const kAnim = state.kAnimation;
+      const kDuration = kAnim && kAnim.durationMs ? Number(kAnim.durationMs) : 3500;
+      const isKActive = Boolean(kAnim && kAnim.triggeredAt && (now - Number(kAnim.triggeredAt)) < kDuration);
+
+      if (kOverlay) {
+        if (isKActive) {
+          kTitleEl.textContent = `⚾ ${kAnim.subtitle || '¡PONCHE! (STRIKEOUT)'}`;
+          kPlayerEl.textContent = `${kAnim.teamText ? kAnim.teamText + ' • ' : ''}${kAnim.playerText || 'TERCER STRIKE • OUT'}`;
+          kOverlay.classList.add('active');
+          if (kAnimTimeout) clearTimeout(kAnimTimeout);
+          const remK = Math.max(100, kDuration - (now - Number(kAnim.triggeredAt)));
+          kAnimTimeout = setTimeout(() => {
+            renderBbOverlayEverything();
+          }, remK + 40);
+        } else {
+          kOverlay.classList.remove('active');
+        }
+      }
+
+      // Animación de ¡HOME RUN!
+      const hrOverlay = wrapper.querySelector('[data-role="hr-overlay"]');
+      const hrTitle = wrapper.querySelector('[data-role="hr-title"]');
+      const hrSubtitle = wrapper.querySelector('[data-role="hr-subtitle"]');
+
+      const hr = state.hrAnimation;
+      const duration = hr && hr.durationMs ? Number(hr.durationMs) : 6000;
+      const isHrActive = Boolean(hr && hr.triggeredAt && (now - Number(hr.triggeredAt)) < duration);
+
+      if (isHrActive) {
+        hrTitle.textContent = `💥 ${hr.subtitle || '¡HOME RUN!'} 💥`;
+        hrSubtitle.textContent = `${hr.teamText ? hr.teamText + ' • ' : ''}${hr.playerText || '¡CUADRANGULAR!'}`;
+        hrOverlay.classList.add('active');
+        if (hrAnimTimeout) clearTimeout(hrAnimTimeout);
+        const remaining = Math.max(100, duration - (now - Number(hr.triggeredAt)));
+        hrAnimTimeout = setTimeout(() => {
+          renderBbOverlayEverything();
+        }, remaining + 40);
+      } else {
+        hrOverlay.classList.remove('active');
+      }
+    }
+
+    // =========================================================================
+    // RENDERIZADOR TV BROADCAST: PIZARRA OFICIAL POR ENTRADAS (LINE SCORE OBS #2)
+    // =========================================================================
+    function updateBaseballLineScoreMount(mountEl, state) {
+      if (!mountEl) return;
+
+      const maxInn = Math.max(9, Number(state.inning || 1));
+      const innings = [];
+      for (let i = 1; i <= maxInn; i++) innings.push(i);
+
+      const innRunsAway = (state.inningRuns && state.inningRuns.away) || {};
+      const innRunsHome = (state.inningRuns && state.inningRuns.home) || {};
+      const currInn = Number(state.inning || 1);
+      const isBottom = state.half === 'bottom';
+
+      const awayDisplay = state.awayFullName && state.awayFullName.toUpperCase() !== state.awayName
+        ? state.awayFullName
+        : state.awayName;
+      const homeDisplay = state.homeFullName && state.homeFullName.toUpperCase() !== state.homeName
+        ? state.homeFullName
+        : state.homeName;
+
+      let finalWinText = '🏁 MARCADOR FINAL';
+      if (state.homeScore > state.awayScore) {
+        finalWinText = `🏁 FINAL • 🏆 GANA ${homeDisplay.toUpperCase()} (${state.homeScore}-${state.awayScore})`;
+      } else if (state.awayScore > state.homeScore) {
+        finalWinText = `🏁 FINAL • 🏆 GANA ${awayDisplay.toUpperCase()} (${state.awayScore}-${state.homeScore})`;
+      }
+
+      const statusText = state.isFinal
+        ? finalWinText
+        : `${isBottom ? '▼ BAJA' : '▲ ALTA'} DEL ${currInn}° INNING • ${state.outs} ${state.outs === 1 ? 'OUT' : 'OUTS'}`;
+
+      const awayLogoHtml = state.awayLogo
+        ? `<img src="${state.awayLogo}" alt="Logo" style="object-fit:${state.awayLogoFit || 'contain'};" />`
+        : `<span class="bb-tv-logo-placeholder">${escapeHtml(state.awayName.slice(0, 3))}</span>`;
+
+      const homeLogoHtml = state.homeLogo
+        ? `<img src="${state.homeLogo}" alt="Logo" style="object-fit:${state.homeLogoFit || 'contain'};" />`
+        : `<span class="bb-tv-logo-placeholder">${escapeHtml(state.homeName.slice(0, 3))}</span>`;
+
+      mountEl.innerHTML = `
+        <div class="bb-tv-linescore-wrapper" style="--bb-frame-color:${state.frameColor || '#eab308'};">
+          <div class="bb-tv-ls-header">
+            <div class="bb-tv-ls-title">
+              <span class="bb-tv-ls-title-pill">⚾ LINE SCORE</span>
+              <span>${escapeHtml(state.tournamentName || 'PIZARRA OFICIAL POR ENTRADAS')}</span>
+            </div>
+            <div class="bb-tv-ls-status-pill">${escapeHtml(statusText)}</div>
+          </div>
+
+          <table class="bb-tv-ls-table">
+            <thead>
+              <tr>
+                <th class="ls-team-col-head">EQUIPO</th>
+                ${innings.map(i => `<th class="${!state.isFinal && i === currInn ? 'ls-active-inn-head' : ''}">${i}</th>`).join('')}
+                <th class="ls-rhe-head ls-rhe-first">R</th>
+                <th class="ls-rhe-head">H</th>
+                <th class="ls-rhe-head">E</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Fila Equipo Visitante -->
+              <tr style="background:${state.awayColor || '#0f131a'};">
+                <td>
+                  <div class="bb-tv-ls-team-cell">
+                    <div class="bb-tv-ls-team-bar" style="background:${state.isFinal && state.awayScore > state.homeScore ? '#4ade80' : (!state.isFinal && !isBottom ? '#facc15' : 'rgba(255,255,255,0.22)')};"></div>
+                    <div class="bb-tv-ls-logo-box">${awayLogoHtml}</div>
+                    <div class="bb-tv-ls-team-names">
+                      <div class="bb-tv-ls-team-main" style="color:${state.awayTextColor || '#ffffff'};">
+                        ${escapeHtml(awayDisplay)}
+                      </div>
+                      <div class="bb-tv-ls-team-sub">
+                        ✈️ VISITANTE ${state.isFinal && state.awayScore > state.homeScore ? '• 🏆 GANADOR' : (!state.isFinal && !isBottom ? '• 🏏 AL BATE' : '')}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                ${innings.map(i => {
+                  const rawVal = innRunsAway[String(i)];
+                  const hasVal = rawVal !== undefined && rawVal !== '';
+                  const played = hasVal || i < currInn || (i === currInn && !state.isFinal) || (state.isFinal && i <= currInn);
+                  const val = hasVal ? Number(rawVal) : (played ? 0 : '-');
+                  const isAct = !state.isFinal && i === currInn;
+                  const cellCls = [
+                    'bb-tv-ls-inn-cell',
+                    isAct ? 'active-inn-cell' : '',
+                    val !== '-' && Number(val) > 0 ? 'scored-runs' : '',
+                    val === '-' ? 'unplayed-inn' : ''
+                  ].filter(Boolean).join(' ');
+                  return `<td class="${cellCls}">${val}</td>`;
+                }).join('')}
+                <td class="bb-tv-ls-rhe-cell runs-col">${state.awayScore}</td>
+                <td class="bb-tv-ls-rhe-cell hits-col">${state.awayHits}</td>
+                <td class="bb-tv-ls-rhe-cell errors-col">${state.awayErrors}</td>
+              </tr>
+
+              <!-- Fila Equipo Local -->
+              <tr style="background:${state.homeColor || '#0f131a'};">
+                <td>
+                  <div class="bb-tv-ls-team-cell">
+                    <div class="bb-tv-ls-team-bar" style="background:${state.isFinal && state.homeScore > state.awayScore ? '#4ade80' : (!state.isFinal && isBottom ? '#facc15' : 'rgba(255,255,255,0.22)')};"></div>
+                    <div class="bb-tv-ls-logo-box">${homeLogoHtml}</div>
+                    <div class="bb-tv-ls-team-names">
+                      <div class="bb-tv-ls-team-main" style="color:${state.homeTextColor || '#ffffff'};">
+                        ${escapeHtml(homeDisplay)}
+                      </div>
+                      <div class="bb-tv-ls-team-sub">
+                        🏠 LOCAL ${state.isFinal && state.homeScore > state.awayScore ? '• 🏆 GANADOR' : (!state.isFinal && isBottom ? '• 🏏 AL BATE' : '')}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                ${innings.map(i => {
+                  const rawVal = innRunsHome[String(i)];
+                  const hasVal = rawVal !== undefined && rawVal !== '';
+                  const homeSkippedBottom9 = i >= 9 && i === currInn && state.isFinal && !isBottom && !hasVal && state.homeScore > state.awayScore;
+                  const played = hasVal || i < currInn || (i === currInn && isBottom && !state.isFinal) || (state.isFinal && i <= currInn && !homeSkippedBottom9);
+                  const val = hasVal ? Number(rawVal) : (homeSkippedBottom9 ? 'X' : (played ? 0 : '-'));
+                  const isAct = !state.isFinal && i === currInn;
+                  const cellCls = [
+                    'bb-tv-ls-inn-cell',
+                    isAct ? 'active-inn-cell' : '',
+                    val !== '-' && val !== 'X' && Number(val) > 0 ? 'scored-runs' : '',
+                    val === '-' ? 'unplayed-inn' : ''
+                  ].filter(Boolean).join(' ');
+                  return `<td class="${cellCls}">${val}</td>`;
+                }).join('')}
+                <td class="bb-tv-ls-rhe-cell runs-col">${state.homeScore}</td>
+                <td class="bb-tv-ls-rhe-cell hits-col">${state.homeHits}</td>
+                <td class="bb-tv-ls-rhe-cell errors-col">${state.homeErrors}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderLineScoreQuickEditor(state) {
+      const tableEl = document.getElementById('ctrlLineScoreEditorTable');
+      if (!tableEl) return;
+
+      // No re-renderizar la tabla mientras el usuario esté escribiendo dentro de un input de esta tabla
+      if (tableEl.contains(document.activeElement)) return;
+
+      const maxInn = Math.max(9, Number(state.inning || 1));
+      const innings = [];
+      for (let i = 1; i <= maxInn; i++) innings.push(i);
+
+      const innRunsAway = (state.inningRuns && state.inningRuns.away) || {};
+      const innRunsHome = (state.inningRuns && state.inningRuns.home) || {};
+      const isGame = state.mode === 'game';
+
+      tableEl.innerHTML = `
+        <thead>
+          <tr>
+            <th style="min-width:130px;">Equipo</th>
+            ${innings.map(i => `<th style="text-align:center; ${i === Number(state.inning || 1) ? 'color:#fde047;' : ''}">${i}</th>`).join('')}
+            <th style="text-align:center; color:#fde047;">R</th>
+            <th style="text-align:center; color:#4ade80;">H</th>
+            <th style="text-align:center; color:#f87171;">E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>✈️ ${escapeHtml(state.awayName)}</strong></td>
+            ${innings.map(i => {
+              const v = innRunsAway[String(i)];
+              return `<td style="padding:0.25rem;"><input type="number" min="0" placeholder="-" value="${v !== undefined ? v : ''}" style="width:46px; padding:0.22rem; text-align:center; font-weight:800;" onchange="onEditOverlayInningRun('away', ${i}, this.value)" /></td>`;
+            }).join('')}
+            <td style="text-align:center; font-weight:900; color:#fde047; font-size:1rem;">${state.awayScore}</td>
+            <td style="padding:0.25rem;">
+              ${isGame
+                ? `<div style="text-align:center; font-weight:800;">${state.awayHits}</div>`
+                : `<input type="number" min="0" value="${state.awayHits}" style="width:52px; padding:0.22rem; text-align:center; font-weight:800;" onchange="onEditOverlayHits('away', this.value)" />`}
+            </td>
+            <td style="padding:0.25rem;">
+              <input type="number" min="0" value="${state.awayErrors}" style="width:52px; padding:0.22rem; text-align:center; font-weight:800;" onchange="onEditOverlayErrors('away', this.value)" />
+            </td>
+          </tr>
+          <tr>
+            <td><strong>🏠 ${escapeHtml(state.homeName)}</strong></td>
+            ${innings.map(i => {
+              const v = innRunsHome[String(i)];
+              return `<td style="padding:0.25rem;"><input type="number" min="0" placeholder="-" value="${v !== undefined ? v : ''}" style="width:46px; padding:0.22rem; text-align:center; font-weight:800;" onchange="onEditOverlayInningRun('home', ${i}, this.value)" /></td>`;
+            }).join('')}
+            <td style="text-align:center; font-weight:900; color:#fde047; font-size:1rem;">${state.homeScore}</td>
+            <td style="padding:0.25rem;">
+              ${isGame
+                ? `<div style="text-align:center; font-weight:800;">${state.homeHits}</div>`
+                : `<input type="number" min="0" value="${state.homeHits}" style="width:52px; padding:0.22rem; text-align:center; font-weight:800;" onchange="onEditOverlayHits('home', this.value)" />`}
+            </td>
+            <td style="padding:0.25rem;">
+              <input type="number" min="0" value="${state.homeErrors}" style="width:52px; padding:0.22rem; text-align:center; font-weight:800;" onchange="onEditOverlayErrors('home', this.value)" />
+            </td>
+          </tr>
+        </tbody>
+      `;
+    }
+
+    function onEditOverlayInningRun(side /* 'away' | 'home' */, inningNum, rawVal) {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        if (!target.inningRuns) target.inningRuns = { away: {}, home: {} };
+        if (!target.inningRuns[side]) target.inningRuns[side] = {};
+        const trimmed = String(rawVal).trim();
+        if (trimmed === '') {
+          delete target.inningRuns[side][String(inningNum)];
+        } else {
+          target.inningRuns[side][String(inningNum)] = Math.max(0, parseInt(trimmed, 10) || 0);
+        }
+        // En modo independiente, actualizar el total de carreras automáticamente si hay entradas anotadas
+        if (!isGame) {
+          const vals = Object.values(target.inningRuns[side]);
+          if (vals.length > 0) {
+            const sum = vals.reduce((acc, n) => acc + (Number(n) || 0), 0);
+            if (side === 'home') target.homeScore = sum;
+            else target.awayScore = sum;
+          }
+          checkManualBoardWalkOff(target);
+        } else {
+          checkBaseballWalkOffWin(store, target);
+        }
+      });
+    }
+
+    function onEditOverlayHits(side, val) {
+      const num = Math.max(0, parseInt(val, 10) || 0);
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        if (!isGame) {
+          if (side === 'home') target.homeHits = num;
+          else target.awayHits = num;
+        }
+      });
+    }
+
+    function onEditOverlayErrors(side, val) {
+      const num = Math.max(0, parseInt(val, 10) || 0);
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        if (isGame) {
+          if (side === 'home') target.errorsHome = num;
+          else target.errorsAway = num;
+        } else {
+          if (side === 'home') target.homeErrors = num;
+          else target.awayErrors = num;
+        }
+      });
+    }
+
+    function buildBbObsUrl(state) {
+      const baseUrl = window.location.href.split('?')[0];
+      if (state.mode === 'game' && state.gameId) {
+        return `${baseUrl}?obs=1&mode=game&gameId=${encodeURIComponent(state.gameId)}`;
+      }
+      return `${baseUrl}?obs=1&mode=manual&boardId=${encodeURIComponent(state.boardId || selectedManualBbBoardId)}`;
+    }
+
+    function buildBbLineScoreObsUrl(state) {
+      const baseUrl = window.location.href.split('?')[0];
+      if (state.mode === 'game' && state.gameId) {
+        return `${baseUrl}?obs=1&view=linescore&mode=game&gameId=${encodeURIComponent(state.gameId)}`;
+      }
+      return `${baseUrl}?obs=1&view=linescore&mode=manual&boardId=${encodeURIComponent(state.boardId || selectedManualBbBoardId)}`;
+    }
+
+    function renderBbOverlayEverything() {
+      const store = loadStore();
+      const state = getActiveBbOverlayState(store);
+
+      // Actualizar Lienzo OBS según el tipo de enlace (?obs=1 vs ?obs=1&view=linescore)
+      if (isObsMode) {
+        if (isLineScoreObsView) {
+          updateBaseballLineScoreMount(document.getElementById('obsLineScoreMount'), state);
+        } else {
+          updateBaseballScorebugMount(document.getElementById('obsScorebugMount'), state);
+        }
+        return;
+      }
+
+      // Actualizar ambas vistas previas en el Panel de Control
+      updateBaseballScorebugMount(document.getElementById('previewScorebugMount'), state);
+      updateBaseballLineScoreMount(document.getElementById('previewLineScoreMount'), state);
+      renderLineScoreQuickEditor(state);
+
+      // Actualizar URL #1 (Scorebug) y URL #2 (Line Score por Entradas) generadas para OBS
+      const urlInput = document.getElementById('bbObsGeneratedUrlInput');
+      if (urlInput) {
+        urlInput.value = buildBbObsUrl(state);
+      }
+      const lsUrlInput = document.getElementById('bbObsLineScoreUrlInput');
+      if (lsUrlInput) {
+        lsUrlInput.value = buildBbLineScoreObsUrl(state);
+      }
+
+      // Contexto superior: Modo Juego vs Modo Independiente
+      const isGameMode = state.mode === 'game';
+      document.getElementById('bbSelectorModeGameRow').classList.toggle('hidden', !isGameMode);
+      document.getElementById('bbSelectorModeManualRow').classList.toggle('hidden', isGameMode);
+      document.getElementById('gameBatterQuickPickerSection').classList.toggle('hidden', !isGameMode);
+      document.getElementById('btnResetAutoBatterText').classList.toggle('hidden', !isGameMode || !state.customBatterText);
+
+      if (isGameMode) {
+        document.getElementById('bbPanelMainTitle').textContent = `⚾ Pizarra OBS Conectada al Juego en Vivo`;
+        document.getElementById('bbPanelMainSubtitle').textContent =
+          `Sincronizada en tiempo real con las carreras, entradas, bases, conteo, bateador en turno y Home Runs de este partido.`;
+        document.getElementById('bbLinkedGameTitleLabel').textContent = `${state.awayFullName} (${state.awayScore}) vs ${state.homeFullName} (${state.homeScore})`;
+        document.getElementById('btnBackToBaseballScorer').href = `baseball.html?gameId=${encodeURIComponent(state.gameId)}`;
+
+        // Renderizar botones rápidos de jugadores del partido para poner al bate (en orden rotativo de turno)
+        const game = store.games.find(g => g.id === state.gameId);
+        const listEl = document.getElementById('gameBatterQuickButtonsList');
+        if (game && listEl) {
+          const battingTeamId = game.half === 'bottom' ? game.homeTeamId : game.awayTeamId;
+          const otherTeamId = game.half === 'bottom' ? game.awayTeamId : game.homeTeamId;
+          const players = [
+            ...getRotatingBaseballQueueForTeam(store, game, battingTeamId),
+            ...getRotatingBaseballQueueForTeam(store, game, otherTeamId)
+          ];
+          listEl.innerHTML = players.map(p => {
+            const st = getBaseballPlayerStats(game, p.id);
+            const isCurr = game.currentBatterId === p.id && !state.customBatterText;
+            return `
+              <button type="button" class="btn btn-sm ${isCurr ? 'btn-amber' : 'btn-outline'}" onclick="selectGameBatterFromOverlay('${p.id}')">
+                🏏 ${p.battingSlot}° Bate • #${escapeHtml(String(p.number))} ${escapeHtml(p.name)} (${st.h}-${st.ab}, ${st.avg})
+              </button>
+            `;
+          }).join('');
+        }
+      } else {
+        document.getElementById('bbPanelMainTitle').textContent = `🖥️ Pizarra de Baseball Independiente para OBS`;
+        document.getElementById('bbPanelMainSubtitle').textContent =
+          `Maneja esta pizarra manualmente desde este panel sin depender de la anotación de un juego, o abre una desde baseball.html.`;
+
+        const manualSelect = document.getElementById('selectManualBbBoard');
+        if (manualSelect) {
+          manualSelect.innerHTML = store.standaloneBaseballBoards.map((b, i) =>
+            `<option value="${b.id}" ${b.id === state.boardId ? 'selected' : ''}>Pizarra #${i + 1}: ${escapeHtml(b.awayName)} vs ${escapeHtml(b.homeName)}</option>`
+          ).join('');
+        }
+      }
+
+      // Sincronizar valores de inputs si el usuario no está escribiendo activamente en ellos
+      const activeEl = document.activeElement;
+      const setValIfNotFocused = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && activeEl !== el) el.value = val;
+      };
+
+      setValIfNotFocused('ctrlBatterTextInput', isGameMode ? (state.customBatterText || state.batterText) : state.batterText);
+      setValIfNotFocused('ctrlBatterTextColor', state.batterTextColor);
+      setValIfNotFocused('ctrlFrameColor', state.frameColor);
+
+      setValIfNotFocused('ctrlInningInput', state.inning);
+      document.getElementById('btnHalfTop').className = `btn btn-sm ${!state.isFinal && state.half === 'top' ? 'btn-primary' : 'btn-outline'}`;
+      document.getElementById('btnHalfBottom').className = `btn btn-sm ${!state.isFinal && state.half === 'bottom' ? 'btn-primary' : 'btn-outline'}`;
+      document.getElementById('btnOverlayFinal').className = `btn btn-sm ${state.isFinal ? 'btn-red' : 'btn-outline'}`;
+
+      document.getElementById('ctrlBallsDisplay').textContent = state.balls;
+      document.getElementById('ctrlStrikesDisplay').textContent = state.strikes;
+      document.getElementById('ctrlOutsDisplay').textContent = state.outs;
+
+      document.getElementById('btnToggleBase1B').classList.toggle('active', Boolean(state.bases.first));
+      document.getElementById('btnToggleBase2B').classList.toggle('active', Boolean(state.bases.second));
+      document.getElementById('btnToggleBase3B').classList.toggle('active', Boolean(state.bases.third));
+
+      setValIfNotFocused('ctrlAwayName', state.awayName);
+      setValIfNotFocused('ctrlAwayScore', state.awayScore);
+      setValIfNotFocused('ctrlAwayBgColor', state.awayColor);
+      setValIfNotFocused('ctrlAwayTextColor', state.awayTextColor);
+      setValIfNotFocused('ctrlAwayLogoFit', state.awayLogoFit);
+
+      setValIfNotFocused('ctrlHomeName', state.homeName);
+      setValIfNotFocused('ctrlHomeScore', state.homeScore);
+      setValIfNotFocused('ctrlHomeBgColor', state.homeColor);
+      setValIfNotFocused('ctrlHomeTextColor', state.homeTextColor);
+      setValIfNotFocused('ctrlHomeLogoFit', state.homeLogoFit);
+    }
+
+    // =========================================================================
+    // ACCIONES DE EDICIÓN EN MODO CONECTADO O INDEPENDIENTE
+    // =========================================================================
+    function mutateActiveBbTarget(mutatorFn) {
+      const store = loadStore();
+      if (currentBbOverlayMode === 'game') {
+        const game = store.games.find(g => g.id === selectedBbGameId);
+        if (!game) return;
+        if (!game.baseballOverlayConfig) game.baseballOverlayConfig = {};
+        mutatorFn(game, game.baseballOverlayConfig, true, store);
+      } else {
+        ensureManualBbBoardExists(store);
+        const board = store.standaloneBaseballBoards.find(b => b.id === selectedManualBbBoardId);
+        if (!board) return;
+        mutatorFn(board, board, false, store);
+      }
+      saveStore(store);
+    }
+
+    function onEditBatterText(val) {
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        if (isGame) {
+          cfg.customBatterText = val;
+        } else {
+          target.batterText = val;
+        }
+      });
+    }
+
+    function resetToAutoBatterText() {
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        if (isGame) {
+          cfg.customBatterText = '';
+        }
+      });
+    }
+
+    function selectGameBatterFromOverlay(playerId) {
+      mutateActiveBbTarget((game, cfg, isGame) => {
+        if (isGame) {
+          game.currentBatterId = playerId;
+          cfg.customBatterText = '';
+        }
+      });
+    }
+
+    function onEditBatterStyle() {
+      const textColor = document.getElementById('ctrlBatterTextColor').value;
+      const frameColor = document.getElementById('ctrlFrameColor').value;
+      mutateActiveBbTarget((target, cfg) => {
+        cfg.batterTextColor = textColor;
+        cfg.frameColor = frameColor;
+      });
+    }
+
+    function stepOverlayInning(delta) {
+      mutateActiveBbTarget((target) => {
+        target.inning = Math.max(1, Number(target.inning || 1) + delta);
+      });
+    }
+
+    function onChangeOverlayInning(val) {
+      mutateActiveBbTarget((target) => {
+        target.inning = Math.max(1, parseInt(val, 10) || 1);
+      });
+    }
+
+    function getManualBoardFinalBannerText(board) {
+      const homeScore = Number(board.homeScore || 0);
+      const awayScore = Number(board.awayScore || 0);
+      const homeName = (board.homeName || 'LOC').toUpperCase();
+      const awayName = (board.awayName || 'VIS').toUpperCase();
+      if (homeScore > awayScore) {
+        return `🏁 FINAL DEL PARTIDO • 🏆 GANA ${homeName} (${homeScore}-${awayScore})`;
+      }
+      if (awayScore > homeScore) {
+        return `🏁 FINAL DEL PARTIDO • 🏆 GANA ${awayName} (${awayScore}-${homeScore})`;
+      }
+      return `🏁 FINAL DEL PARTIDO • EMPATE (${awayScore}-${homeScore})`;
+    }
+
+    function checkManualBoardWalkOff(board) {
+      if (!board || board.isFinal) return false;
+      const inn = Number(board.inning || 1);
+      if (inn >= 9 && board.half === 'bottom') {
+        const homeScore = Number(board.homeScore || 0);
+        const awayScore = Number(board.awayScore || 0);
+        if (homeScore > awayScore) {
+          board.isFinal = true;
+          board.batterText = getManualBoardFinalBannerText(board);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function evaluateManualBoardThirdOutTransition(board) {
+      if (!board) return;
+      const inn = Number(board.inning || 1);
+      const homeScore = Number(board.homeScore || 0);
+      const awayScore = Number(board.awayScore || 0);
+
+      if (!board.inningRuns) board.inningRuns = { away: {}, home: {} };
+      if (!board.inningRuns.away) board.inningRuns.away = {};
+      if (!board.inningRuns.home) board.inningRuns.home = {};
+
+      board.outs = 0;
+      board.balls = 0;
+      board.strikes = 0;
+      board.bases = { first: false, second: false, third: false };
+
+      if (board.half !== 'bottom') {
+        if (board.inningRuns.away[String(inn)] === undefined) {
+          board.inningRuns.away[String(inn)] = 0;
+        }
+        // Si el equipo que abre en el 9° (o extra inning) hace el 3er out sin empatar ni irse arriba, pierde inmediatamente
+        if (inn >= 9 && homeScore > awayScore) {
+          board.isFinal = true;
+          board.batterText = getManualBoardFinalBannerText(board);
+          return;
+        }
+        board.half = 'bottom';
+        if (board.inningRuns.home[String(inn)] === undefined) {
+          board.inningRuns.home[String(inn)] = 0;
+        }
+      } else {
+        if (board.inningRuns.home[String(inn)] === undefined) {
+          board.inningRuns.home[String(inn)] = 0;
+        }
+        // Fin de la baja del 9° o extra inning: si hay desempate, termina el partido
+        if (inn >= 9 && homeScore !== awayScore) {
+          board.isFinal = true;
+          board.batterText = getManualBoardFinalBannerText(board);
+          return;
+        }
+        // Si están empatados o es antes del 9°, avanza al siguiente inning
+        const nextInn = inn + 1;
+        board.inning = nextInn;
+        board.half = 'top';
+        if (board.inningRuns.away[String(nextInn)] === undefined) {
+          board.inningRuns.away[String(nextInn)] = 0;
+        }
+      }
+    }
+
+    function setOverlayHalf(half) {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        if (isGame) {
+          if (target.status === 'Finalizado') {
+            target.status = 'En Vivo';
+          }
+          if (half === 'bottom' && target.half !== 'bottom') {
+            evaluateBaseballThirdOutTransition(store, target);
+          } else {
+            target.half = half === 'bottom' ? 'bottom' : 'top';
+          }
+        } else {
+          target.isFinal = false;
+          if (half === 'bottom' && target.half !== 'bottom') {
+            evaluateManualBoardThirdOutTransition(target);
+          } else {
+            target.half = half === 'bottom' ? 'bottom' : 'top';
+          }
+        }
+      });
+    }
+
+    function toggleOverlayFinal() {
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        if (isGame) {
+          if (target.status === 'Finalizado') {
+            target.status = 'En Vivo';
+          } else {
+            target.status = 'Finalizado';
+            target.finishedAt = Date.now();
+          }
+        } else {
+          target.isFinal = !target.isFinal;
+          if (target.isFinal) {
+            target.batterText = getManualBoardFinalBannerText(target);
+          }
+        }
+      });
+    }
+
+    function stepOverlayBSO(field /* 'balls' | 'strikes' | 'outs' */, delta) {
+      const maxMap = { balls: 3, strikes: 2, outs: 2 };
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        const next = Number(target[field] || 0) + delta;
+        if (field === 'outs' && next >= 3) {
+          if (isGame) {
+            evaluateBaseballThirdOutTransition(store, target);
+          } else {
+            evaluateManualBoardThirdOutTransition(target);
+          }
+          return;
+        }
+        target[field] = Math.min(maxMap[field], Math.max(0, next));
+      });
+    }
+
+    function toggleOverlayBase(baseKey /* 'first' | 'second' | 'third' */) {
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        if (!target.bases) target.bases = { first: '', second: '', third: '' };
+        if (isGame) {
+          target.bases[baseKey] = target.bases[baseKey] ? '' : (target.currentBatterId || 'OCCUPIED');
+        } else {
+          target.bases[baseKey] = !target.bases[baseKey];
+        }
+      });
+    }
+
+    function clearOverlayBases() {
+      mutateActiveBbTarget((target, cfg, isGame) => {
+        target.bases = isGame
+          ? { first: '', second: '', third: '' }
+          : { first: false, second: false, third: false };
+      });
+    }
+
+    function onEditTeamOverlay(side /* 'away' | 'home' */) {
+      const isAway = side === 'away';
+      const nameVal = document.getElementById(isAway ? 'ctrlAwayName' : 'ctrlHomeName').value.trim().toUpperCase();
+      const bgColor = document.getElementById(isAway ? 'ctrlAwayBgColor' : 'ctrlHomeBgColor').value;
+      const textColor = document.getElementById(isAway ? 'ctrlAwayTextColor' : 'ctrlHomeTextColor').value;
+      const logoFit = document.getElementById(isAway ? 'ctrlAwayLogoFit' : 'ctrlHomeLogoFit').value;
+
+      mutateActiveBbTarget((target, cfg) => {
+        if (isAway) {
+          cfg.awayName = nameVal || 'VIS';
+          cfg.awayColor = bgColor;
+          cfg.awayTextColor = textColor;
+          cfg.awayLogoFit = logoFit;
+        } else {
+          cfg.homeName = nameVal || 'LOC';
+          cfg.homeColor = bgColor;
+          cfg.homeTextColor = textColor;
+          cfg.homeLogoFit = logoFit;
+        }
+      });
+    }
+
+    function stepOverlayTeamScore(side, delta) {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        if (isGame) {
+          if (side === 'home') {
+            target.runsAdjustHome = Number(target.runsAdjustHome || 0) + delta;
+          } else {
+            target.runsAdjustAway = Number(target.runsAdjustAway || 0) + delta;
+          }
+          if (delta > 0) {
+            const innKey = String(target.inning || 1);
+            if (!target.inningRuns) target.inningRuns = { away: {}, home: {} };
+            if (!target.inningRuns[side]) target.inningRuns[side] = {};
+            target.inningRuns[side][innKey] = Number(target.inningRuns[side][innKey] || 0) + delta;
+          }
+          checkBaseballWalkOffWin(store, target);
+        } else {
+          if (side === 'home') {
+            target.homeScore = Math.max(0, Number(target.homeScore || 0) + delta);
+          } else {
+            target.awayScore = Math.max(0, Number(target.awayScore || 0) + delta);
+          }
+          if (delta > 0) {
+            const innKey = String(target.inning || 1);
+            if (!target.inningRuns) target.inningRuns = { away: {}, home: {} };
+            if (!target.inningRuns[side]) target.inningRuns[side] = {};
+            target.inningRuns[side][innKey] = Number(target.inningRuns[side][innKey] || 0) + delta;
+          }
+          checkManualBoardWalkOff(target);
+        }
+      });
+    }
+
+    function onChangeOverlayTeamScore(side, val) {
+      const num = Math.max(0, parseInt(val, 10) || 0);
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        if (isGame) {
+          const teamId = side === 'home' ? target.homeTeamId : target.awayTeamId;
+          const tot = getBaseballTeamTotals(store, target, teamId);
+          const diff = num - tot.r;
+          if (side === 'home') target.runsAdjustHome = diff;
+          else target.runsAdjustAway = diff;
+          checkBaseballWalkOffWin(store, target);
+        } else {
+          if (side === 'home') target.homeScore = num;
+          else target.awayScore = num;
+          checkManualBoardWalkOff(target);
+        }
+      });
+    }
+
+    function handleBbLogoUpload(event, side /* 'away' | 'home' */) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 160;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/png');
+
+          mutateActiveBbTarget((target, cfg) => {
+            if (side === 'away') cfg.awayLogo = dataUrl;
+            else cfg.homeLogo = dataUrl;
+          });
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearBbTeamLogo(side) {
+      mutateActiveBbTarget((target, cfg) => {
+        if (side === 'away') cfg.awayLogo = '';
+        else cfg.homeLogo = '';
+      });
+    }
+
+    function triggerHomeRunAnimationOverlay() {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        let playerText = '¡CUADRANGULAR!';
+        let teamText = '';
+        if (isGame) {
+          const p = store.players.find(x => x.id === target.currentBatterId);
+          const tm = p ? store.teams.find(t => t.id === p.teamId) : null;
+          if (p) playerText = `#${p.number} ${p.name.toUpperCase()}`;
+          if (tm) teamText = (tm.shortName || tm.name).toUpperCase();
+        } else {
+          playerText = (target.batterText || '¡HOME RUN!').split('   ')[0];
+        }
+        target.hrAnimation = {
+          id: uid('hr'),
+          playerText,
+          teamText,
+          subtitle: '¡HOME RUN!',
+          triggeredAt: Date.now(),
+          durationMs: 6000
+        };
+      });
+    }
+
+    function triggerKAnimationOverlay() {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        let playerText = 'TERCER STRIKE • OUT';
+        let teamText = '';
+        if (isGame) {
+          const p = store.players.find(x => x.id === target.currentBatterId);
+          const tm = p ? store.teams.find(t => t.id === p.teamId) : null;
+          if (p) playerText = `#${p.number} ${p.name.toUpperCase()}`;
+          if (tm) teamText = (tm.shortName || tm.name).toUpperCase();
+        } else {
+          playerText = (target.batterText || 'TERCER STRIKE • OUT').split('   ')[0];
+        }
+        target.kAnimation = {
+          id: uid('k'),
+          playerText,
+          teamText,
+          subtitle: '¡PONCHE! (STRIKEOUT)',
+          triggeredAt: Date.now(),
+          durationMs: 3600
+        };
+      });
+    }
+
+    // Gestión de Pizarras Independientes
+    function onChangeManualBbBoard(boardId) {
+      selectedManualBbBoardId = boardId;
+      localStorage.setItem(DEVICE_BB_BOARD_KEY, boardId);
+      renderBbOverlayEverything();
+    }
+
+    function createNewManualBbBoard() {
+      const store = loadStore();
+      const newBoard = normalizeStandaloneBaseballBoard({
+        id: uid('bbboard'),
+        batterText: 'BATEADOR EN TURNO   0-0, .000 AVG',
+        awayName: 'VIS',
+        homeName: 'LOC',
+        awayScore: 0,
+        homeScore: 0,
+        inning: 1,
+        half: 'top'
+      });
+      store.standaloneBaseballBoards.push(newBoard);
+      selectedManualBbBoardId = newBoard.id;
+      localStorage.setItem(DEVICE_BB_BOARD_KEY, newBoard.id);
+      saveStore(store);
+    }
+
+    function deleteCurrentManualBbBoard() {
+      const store = loadStore();
+      if (store.standaloneBaseballBoards.length <= 1) {
+        alert('Debe existir al menos una pizarra independiente.');
+        return;
+      }
+      if (!confirm('¿Eliminar esta pizarra independiente de Baseball?')) return;
+      store.standaloneBaseballBoards = store.standaloneBaseballBoards.filter(b => b.id !== selectedManualBbBoardId);
+      selectedManualBbBoardId = store.standaloneBaseballBoards[0].id;
+      localStorage.setItem(DEVICE_BB_BOARD_KEY, selectedManualBbBoardId);
+      saveStore(store);
+    }
+
+    function copyBbObsLink() {
+      const input = document.getElementById('bbObsGeneratedUrlInput');
+      if (!input) return;
+      input.select();
+      navigator.clipboard.writeText(input.value).then(() => {
+        alert('✅ Enlace #1 (Scorebug Principal) copiado al portapapeles.\n\nPégalo en OBS Studio → Fuente Navegador (Browser Source).');
+      }).catch(() => {
+        document.execCommand('copy');
+        alert('✅ Enlace copiado.');
+      });
+    }
+
+    function openBbObsPreviewWindow() {
+      const input = document.getElementById('bbObsGeneratedUrlInput');
+      if (input && input.value) {
+        window.open(input.value, '_blank', 'width=820,height=280');
+      }
+    }
+
+    function copyBbLineScoreObsLink() {
+      const input = document.getElementById('bbObsLineScoreUrlInput');
+      if (!input) return;
+      input.select();
+      navigator.clipboard.writeText(input.value).then(() => {
+        alert('✅ Enlace #2 (Pizarra por Entradas / Line Score para medio de inning) copiado al portapapeles.\n\nPégalo en OBS Studio → Fuente Navegador (Ancho recomendado: 1050, Alto: 260) y actívalo cuando quieras entre entradas.');
+      }).catch(() => {
+        document.execCommand('copy');
+        alert('✅ Enlace Line Score copiado.');
+      });
+    }
+
+    function openBbLineScoreObsPreviewWindow() {
+      const input = document.getElementById('bbObsLineScoreUrlInput');
+      if (input && input.value) {
+        window.open(input.value, '_blank', 'width=1060,height=280');
+      }
+    }
+
+    window.addEventListener('storeUpdated', renderBbOverlayEverything);
+    renderBbOverlayEverything();
+    updateFirebaseBadge();
+  </script>
+</body>
+</html>

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anotación de Estadísticas Secundarias (R&A) - Basketball</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Barra de navegación -->
+  <nav class="navbar">
+    <a href="index.html" class="brand">
+      🏀 Basket & Baseball Stats <span class="badge-sport">Mesa: R&A</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status">⏳ Firebase...</span>
+      <a href="index.html" class="nav-link">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link active">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- =========================================================
+         PANTALLA 1: SELECCIONAR JUEGO A ANOTAR
+         ========================================================= -->
+    <section id="viewSelectGameRA">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">📊 Seleccionar Juego para Estadísticas Secundarias (R&A)</h1>
+          <p class="page-subtitle">En la pantalla principal aparecen solo los juegos en vivo o por anotar. Los juegos terminados pasan al apartado de Últimos Juegos.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <label style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">Filtrar por Torneo:</label>
+          <select id="filterTournamentRASelect" style="width:auto; min-width:220px;" onchange="renderRAPage()"></select>
+        </div>
+      </div>
+
+      <!-- Barra de pestañas: Pantalla Principal (En Vivo / Por Anotar) vs Apartado de Últimos Juegos (Finalizados) -->
+      <div class="tabs-bar" style="margin-bottom:1.25rem;">
+        <button type="button" class="tab-btn active" id="tabRAActive" onclick="switchRAGamesTab('active')">
+          🔴 Juegos por Anotar / En Vivo <span id="badgeRAActiveCount" class="badge badge-live" style="margin-left:0.35rem;">0</span>
+        </button>
+        <button type="button" class="tab-btn" id="tabRAFinished" onclick="switchRAGamesTab('finished')">
+          🏁 Últimos Juegos (Finalizados) <span id="badgeRAFinishedCount" class="badge badge-finished" style="margin-left:0.35rem;">0</span>
+        </button>
+      </div>
+
+      <!-- Pantalla Principal: Juegos En Vivo o Programados -->
+      <div id="raActiveGamesWrapper">
+        <div id="raGamesPickerGrid" class="grid-2"></div>
+      </div>
+
+      <!-- Apartado de Últimos Juegos: Juegos Finalizados (el último siempre arriba) -->
+      <div id="raFinishedGamesWrapper" class="hidden">
+        <div class="card" style="background:rgba(15,23,42,0.6); border-color:rgba(59,130,246,0.35); margin-bottom:1rem; padding:0.85rem 1.1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <span style="font-size:0.88rem; color:var(--text-muted);">
+              🏁 <strong>Apartado de Últimos Juegos Finalizados (R&A):</strong> Ordenados del más reciente al más antiguo (el último juego terminado aparece siempre arriba de primero).
+            </span>
+          </div>
+        </div>
+        <div id="raFinishedGamesPickerGrid" class="grid-2"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 2: MESA DE ESTADÍSTICAS SECUNDARIAS (2 - 2 - 1)
+         ========================================================= -->
+    <section id="viewRAScorer" class="hidden">
+      <div class="page-header" style="margin-bottom:1rem;">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="backToRAGameSelector()" style="margin-bottom:0.35rem;">
+            ← Cambiar de Juego / Ver Lista de Juegos
+          </button>
+          <h1 class="page-title" id="raGameTitle">📊 Mesa R&A (Secundarias)</h1>
+          <p class="page-subtitle">Los 5 jugadores en cancha se actualizan automáticamente con los cambios hechos en Puntos. Usa ✏️ en cada jugador para editar.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-outline" onclick="document.getElementById('raHistorySection').scrollIntoView({behavior:'smooth'})">
+            📜 Ver Historial R&A (<span id="raHistoryCountTop">0</span>)
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="openEditRAPlayerModal('')">
+            ✏️ Editar Cualquier Jugador (Cancha/Banca)
+          </button>
+        </div>
+      </div>
+
+      <!-- Banner de partido finalizado en R&A -->
+      <div id="lockedRABanner" class="locked-banner hidden">
+        <div>
+          <strong style="font-size:1.05rem; color:#60a5fa;">🔒 PARTIDO FINALIZADO — Anotaciones en vivo cerradas</strong>
+          <div style="font-size:0.83rem; color:var(--text-muted); margin-top:0.15rem;">
+            El partido fue cerrado en la mesa principal (Puntos). Aún puedes usar el lápiz ✏️ en cada jugador para corregir cualquier estadística secundaria.
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen Rápido del Partido -->
+      <div class="scoreboard" id="raSummaryBox">
+        <div class="team-side">
+          <div class="team-name-lg" id="homeName">Local</div>
+          <div style="font-size:0.9rem; color:var(--text-muted);" id="homeSecStats">REB: 0 | AST: 0 | ROB: 0 | TAP: 0 | PER: 0</div>
+        </div>
+        <div class="game-center-info">
+          <span class="period-badge" id="periodBadge">Q1</span>
+          <span style="font-family:monospace; font-size:1.45rem; font-weight:900; color:#4ade80;" id="raClockDisplay">10:00</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Sincronizado en Vivo</span>
+        </div>
+        <div class="team-side">
+          <div class="team-name-lg" id="awayName">Visitante</div>
+          <div style="font-size:0.9rem; color:var(--text-muted);" id="awaySecStats">REB: 0 | AST: 0 | ROB: 0 | TAP: 0 | PER: 0</div>
+        </div>
+      </div>
+
+      <!-- CUADRITOS DE LOS 5 JUGADORES EN CANCHA DE CADA EQUIPO (FORMACIÓN 2 - 2 - 1) -->
+      <div class="grid-2">
+        <!-- 5 EN CANCHA: EQUIPO LOCAL -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="homeCardTitle">🏠 5 en Cancha Local - R&A</h2>
+              <p style="font-size:0.78rem; color:var(--text-muted);">Formación 2-2-1. Toca ✏️ en el cuadrito del jugador para corregir casillas.</p>
+            </div>
+          </div>
+          <div id="homePlayersBody" class="on-court-grid-5"></div>
+        </section>
+
+        <!-- 5 EN CANCHA: EQUIPO VISITANTE -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="awayCardTitle">✈️ 5 en Cancha Visitante - R&A</h2>
+              <p style="font-size:0.78rem; color:var(--text-muted);">Formación 2-2-1. Toca ✏️ en el cuadrito del jugador para corregir casillas.</p>
+            </div>
+          </div>
+          <div id="awayPlayersBody" class="on-court-grid-5"></div>
+        </section>
+      </div>
+
+      <!-- Historial Propio de R&A -->
+      <section class="card" id="raHistorySection">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📜 Historial de Jugadas Secundarias (R&A)</h2>
+            <p style="font-size:0.8rem; color:var(--text-muted);">Registro exclusivo de Rebotes, Asistencias, Robos, Tapones y Pérdidas.</p>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="raHistorySearch" placeholder="🔍 Buscar jugador o jugada..." style="width:220px;" oninput="renderRAPage()" />
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height:280px; overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Reloj / Cuarto</th>
+                <th>Equipo</th>
+                <th>Jugador</th>
+                <th>Acción Secundaria</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="raHistoryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Modal Interactivo y Compacto para Editar Estadísticas Secundarias (R&A) -->
+  <div id="modalEditRAStats" class="modal-backdrop" onclick="if(event.target===this) closeModal('modalEditRAStats')">
+    <div class="modal-content" style="max-width:460px;">
+      <div class="modal-header">
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditRAStats')">
+          ← Atrás
+        </button>
+        <h3 class="card-title" style="font-size:1rem;">✏️ Editar R&A del Jugador</h3>
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditRAStats')">✕</button>
+      </div>
+      <form id="formEditRAStats">
+        <div class="form-group" style="margin-bottom:0.65rem;">
+          <select id="editRAPlayerSelect" onchange="loadPlayerIntoRAModal(this.value)" style="font-weight:700;"></select>
+        </div>
+
+        <div class="interactive-stats-grid">
+          <div class="stat-stepper-card" style="border-color:rgba(59,130,246,0.4);">
+            <span class="stat-stepper-label" style="color:#60a5fa;">REB Defensivo</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepRAModalField('editRARebDef', -1)">−</button>
+              <input type="number" id="editRARebDef" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepRAModalField('editRARebDef', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(168,85,247,0.4);">
+            <span class="stat-stepper-label" style="color:#c084fc;">REB Ofensivo</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepRAModalField('editRARebOff', -1)">−</button>
+              <input type="number" id="editRARebOff" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepRAModalField('editRARebOff', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(34,197,94,0.4);">
+            <span class="stat-stepper-label" style="color:#4ade80;">Asistencias</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepRAModalField('editRAAst', -1)">−</button>
+              <input type="number" id="editRAAst" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepRAModalField('editRAAst', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="interactive-stats-grid" style="margin-bottom:0;">
+          <div class="stat-stepper-card" style="border-color:rgba(249,115,22,0.4);">
+            <span class="stat-stepper-label" style="color:#fb923c;">Robos (ROB)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepRAModalField('editRAStl', -1)">−</button>
+              <input type="number" id="editRAStl" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepRAModalField('editRAStl', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">Tapones (TAP)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepRAModalField('editRABlk', -1)">−</button>
+              <input type="number" id="editRABlk" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepRAModalField('editRABlk', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(239,68,68,0.4);">
+            <span class="stat-stepper-label" style="color:#f87171;">Pérdidas (PER)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepRAModalField('editRATov', -1)">−</button>
+              <input type="number" id="editRATov" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepRAModalField('editRATov', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditRAStats')">← Atrás / Cancelar</button>
+          <button type="submit" class="btn btn-primary">✅ Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentRAScreen = 'select';
+    let activeRAGameId = null;
+
+    function updateFirebaseBadge() {
+      const info = getFirebaseStatus();
+      const el = document.getElementById('firebaseBadge');
+      if (info.status === 'connected') {
+        el.className = 'db-status connected';
+        el.textContent = '🟢 Firebase Conectado';
+      } else if (info.status === 'permission_denied') {
+        el.className = 'db-status error';
+        el.textContent = '🔒 Reglas Firebase Bloqueadas';
+      } else {
+        el.className = 'db-status';
+        el.textContent = '⏳ Modo Local / Conectando';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    function enterRAGame(gameId) {
+      activeRAGameId = gameId;
+      const store = loadStore();
+      store.activeGameId = gameId;
+      const g = store.games.find(x => x.id === gameId);
+      if (g) ensureOnCourtPlayers(store, g);
+      saveStore(store);
+      currentRAScreen = 'scorer';
+      renderRAPage();
+    }
+
+    function backToRAGameSelector() {
+      currentRAScreen = 'select';
+      renderRAPage();
+    }
+
+    let currentRAGamesTab = 'active'; // 'active' | 'finished'
+
+    function switchRAGamesTab(tab) {
+      currentRAGamesTab = tab;
+      document.getElementById('tabRAActive').classList.toggle('active', tab === 'active');
+      document.getElementById('tabRAFinished').classList.toggle('active', tab === 'finished');
+      document.getElementById('raActiveGamesWrapper').classList.toggle('hidden', tab !== 'active');
+      document.getElementById('raFinishedGamesWrapper').classList.toggle('hidden', tab !== 'finished');
+      renderRAPage();
+    }
+
+    function buildRAGameCardHTML(store, g, isFinished, idx) {
+      const tourney = store.tournaments.find(t => t.id === g.tournamentId);
+      const h = store.teams.find(t => t.id === g.homeTeamId);
+      const a = store.teams.find(t => t.id === g.awayTeamId);
+      const ht = getTeamGameTotals(store, g, g.homeTeamId);
+      const at = getTeamGameTotals(store, g, g.awayTeamId);
+      const isLatestFinished = isFinished && idx === 0;
+
+      return `
+        <div class="card item-card" style="${isLatestFinished ? 'border-color:rgba(59,130,246,0.75); box-shadow:0 0 18px rgba(59,130,246,0.14);' : (g.status === 'En Vivo' ? 'border-color:rgba(239,68,68,0.6);' : '')}">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+              <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
+                <span class="badge badge-pending">🏆 ${tourney ? escapeHtml(tourney.name) : 'Torneo'}</span>
+                ${isLatestFinished ? `<span class="badge" style="background:var(--accent-blue); color:#fff;">🆕 ÚLTIMO TERMINADO</span>` : ''}
+              </div>
+              <span class="badge ${g.status === 'En Vivo' ? 'badge-live' : (isFinished ? 'badge-finished' : 'badge-pending')}">
+                ${g.status || 'Programado'} • ${getPeriodLabel(g.period)}
+              </span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-top:1px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+              <div>
+                <div style="font-size:1.1rem; font-weight:800;">🏠 ${h ? escapeHtml(h.name) : 'Local'}</div>
+                <div style="font-size:1.1rem; font-weight:800; margin-top:0.3rem;">✈️ ${a ? escapeHtml(a.name) : 'Visitante'}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:1.35rem; font-weight:900; color:var(--accent-orange);">${ht.pts}</div>
+                <div style="font-size:1.35rem; font-weight:900; color:var(--accent-orange); margin-top:0.1rem;">${at.pts}</div>
+              </div>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">
+              📅 ${g.date || ''} ${g.time || ''} ${g.note ? '• ' + escapeHtml(g.note) : ''}
+            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn ${isFinished ? 'btn-outline' : 'btn-blue'}" style="flex:1;" onclick="enterRAGame('${g.id}')">
+              ${isFinished ? '✏️ Ver / Editar R&A' : '📊 Entrar a Anotar R&A'}
+            </button>
+            <a href="pizarrabasket.html?gameId=${encodeURIComponent(g.id)}" class="btn btn-outline" title="Abrir Pizarra en Vivo">
+              🖥️ Pizarra
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRAPage() {
+      const store = loadStore();
+      document.getElementById('viewSelectGameRA').classList.toggle('hidden', currentRAScreen !== 'select');
+      document.getElementById('viewRAScorer').classList.toggle('hidden', currentRAScreen !== 'scorer');
+
+      if (currentRAScreen === 'select') {
+        const filterSel = document.getElementById('filterTournamentRASelect');
+        const prevVal = filterSel.value || 'ALL';
+        const basketTournaments = store.tournaments.filter(t => t.sport !== 'baseball');
+        filterSel.innerHTML = `<option value="ALL">Todos los Torneos (${basketTournaments.length})</option>` +
+          basketTournaments.map(t => `<option value="${t.id}" ${t.id === prevVal ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+
+        const selTourney = filterSel.value;
+        const games = store.games.filter(g => getGameSport(store, g) !== 'baseball' && (selTourney === 'ALL' || g.tournamentId === selTourney));
+
+        const activeGames = sortActiveGamesToScore(games.filter(g => g.status !== 'Finalizado'));
+        const finishedGames = sortFinishedGamesNewestFirst(games.filter(g => g.status === 'Finalizado'), store.games);
+
+        const badgeActive = document.getElementById('badgeRAActiveCount');
+        const badgeFinished = document.getElementById('badgeRAFinishedCount');
+        if (badgeActive) badgeActive.textContent = activeGames.length;
+        if (badgeFinished) badgeFinished.textContent = finishedGames.length;
+
+        document.getElementById('tabRAActive').classList.toggle('active', currentRAGamesTab === 'active');
+        document.getElementById('tabRAFinished').classList.toggle('active', currentRAGamesTab === 'finished');
+        document.getElementById('raActiveGamesWrapper').classList.toggle('hidden', currentRAGamesTab !== 'active');
+        document.getElementById('raFinishedGamesWrapper').classList.toggle('hidden', currentRAGamesTab !== 'finished');
+
+        const activeGrid = document.getElementById('raGamesPickerGrid');
+        if (!activeGames.length) {
+          activeGrid.innerHTML = `
+            <div class="card empty-state" style="grid-column:1/-1;">
+              <h3>🏀 No hay juegos pendientes ni en vivo para anotar R&A</h3>
+              <p style="margin-top:0.5rem;">
+                ${finishedGames.length > 0
+                  ? `Tienes <strong>${finishedGames.length}</strong> juego(s) terminado(s) en el apartado <a href="#" onclick="switchRAGamesTab('finished'); return false;" style="color:var(--accent-blue); font-weight:700;">🏁 Últimos Juegos (Finalizados)</a>, o puedes crear uno nuevo en <a href="index.html" style="color:var(--accent-orange); font-weight:700;">Admin / Torneos</a>.`
+                  : `Ve a <a href="index.html" style="color:var(--accent-orange); font-weight:700;">index.html</a> para armar un partido.`}
+              </p>
+            </div>
+          `;
+        } else {
+          activeGrid.innerHTML = activeGames.map((g, idx) => buildRAGameCardHTML(store, g, false, idx)).join('');
+        }
+
+        const finishedGrid = document.getElementById('raFinishedGamesPickerGrid');
+        if (finishedGrid) {
+          if (!finishedGames.length) {
+            finishedGrid.innerHTML = `
+              <div class="card empty-state" style="grid-column:1/-1;">
+                <h3>🏁 Aún no hay juegos finalizados</h3>
+                <p style="margin-top:0.5rem;">Cuando un juego termine, aparecerá automáticamente aquí con el último juego siempre arriba.</p>
+              </div>
+            `;
+          } else {
+            finishedGrid.innerHTML = finishedGames.map((g, idx) => buildRAGameCardHTML(store, g, true, idx)).join('');
+          }
+        }
+        return;
+      }
+
+      const activeGame = store.games.find(g => g.id === activeRAGameId);
+      if (!activeGame) {
+        backToRAGameSelector();
+        return;
+      }
+
+      ensureOnCourtPlayers(store, activeGame);
+      const isFinished = activeGame.status === 'Finalizado';
+      document.getElementById('lockedRABanner').classList.toggle('hidden', !isFinished);
+
+      const homeTeam = store.teams.find(t => t.id === activeGame.homeTeamId);
+      const awayTeam = store.teams.find(t => t.id === activeGame.awayTeamId);
+      const homeTotals = getTeamGameTotals(store, activeGame, activeGame.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, activeGame, activeGame.awayTeamId);
+
+      const homeName = homeTeam ? homeTeam.name : 'Local';
+      const awayName = awayTeam ? awayTeam.name : 'Visitante';
+
+      document.getElementById('raGameTitle').textContent = `📊 R&A: ${homeName} vs ${awayName}`;
+      document.getElementById('homeName').textContent = `${homeName} (${homeTotals.pts} pts)`;
+      document.getElementById('awayName').textContent = `${awayName} (${awayTotals.pts} pts)`;
+      document.getElementById('homeSecStats').textContent = `REB: ${homeTotals.reb} (${homeTotals.rebOff}O/${homeTotals.rebDef}D) | AST: ${homeTotals.ast} | ROB: ${homeTotals.stl} | TAP: ${homeTotals.blk} | PER: ${homeTotals.tov}`;
+      document.getElementById('awaySecStats').textContent = `REB: ${awayTotals.reb} (${awayTotals.rebOff}O/${awayTotals.rebDef}D) | AST: ${awayTotals.ast} | ROB: ${awayTotals.stl} | TAP: ${awayTotals.blk} | PER: ${awayTotals.tov}`;
+      document.getElementById('periodBadge').textContent = getPeriodLabel(activeGame.period);
+      document.getElementById('raClockDisplay').textContent = formatSecondsMMSS(activeGame.clockSeconds);
+
+      document.getElementById('homeCardTitle').textContent = `🏠 5 en Cancha: ${homeName}`;
+      document.getElementById('awayCardTitle').textContent = `✈️ 5 en Cancha: ${awayName}`;
+
+      renderTeamRACards(store, activeGame, activeGame.onCourtHome, document.getElementById('homePlayersBody'), isFinished);
+      renderTeamRACards(store, activeGame, activeGame.onCourtAway, document.getElementById('awayPlayersBody'), isFinished);
+
+      const logsRA = activeGame.logsRA || [];
+      document.getElementById('raHistoryCountTop').textContent = logsRA.length;
+
+      const q = (document.getElementById('raHistorySearch').value || '').toLowerCase().trim();
+      const filtered = logsRA.filter(l => !q || `${l.period} ${l.teamName} ${l.playerName} ${l.label}`.toLowerCase().includes(q));
+
+      document.getElementById('raHistoryBody').innerHTML = filtered.length ? filtered.map(l => `
+        <tr>
+          <td><span class="badge badge-pending">${escapeHtml(l.period)}</span> <strong style="font-family:monospace;">${escapeHtml(l.gameClock || l.time)}</strong></td>
+          <td><strong>${escapeHtml(l.teamName)}</strong></td>
+          <td><strong>${escapeHtml(l.playerName)}</strong></td>
+          <td style="color:var(--accent-blue); font-weight:700;">${escapeHtml(l.label)}</td>
+          <td style="text-align:right;">
+            <button class="btn btn-sm btn-outline" onclick="deleteRALog('${l.id}')" title="Borrar registro">✕</button>
+          </td>
+        </tr>
+      `).join('') : `<tr><td colspan="5" class="empty-state">Sin jugadas secundarias registradas aún.</td></tr>`;
+    }
+
+    function renderTeamRACards(store, game, onCourtIds, container, isFinished) {
+      const players = (onCourtIds || []).map(id => store.players.find(p => p.id === id)).filter(Boolean);
+      if (!players.length) {
+        container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Sin jugadores en cancha.</div>`;
+        return;
+      }
+
+      const disAttr = isFinished ? 'disabled style="opacity:0.45;cursor:not-allowed;"' : '';
+
+      container.innerHTML = players.map(p => {
+        const st = getPlayerGameStats(game, p.id);
+        return `
+          <div class="player-stat-card ${st.isFouledOut ? 'player-expelled' : ''}">
+            <!-- Cabecera del Cuadrito con Lápiz ✏️ -->
+            <div class="player-card-top">
+              <div class="player-card-identity">
+                <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+                <div style="min-width:0;">
+                  <div class="player-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+                  <div class="player-card-pos">${escapeHtml(p.position || 'Jugador')}</div>
+                </div>
+              </div>
+              <button class="btn-pencil" onclick="openEditRAPlayerModal('${p.id}')" title="Editar casillas secundarias de este jugador">
+                ✏️
+              </button>
+            </div>
+
+            <!-- Resumen de Estadísticas Secundarias en el Cuadrito -->
+            <div class="player-mini-stats" style="grid-template-columns: repeat(5, 1fr);">
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">REB</span>
+                <span class="mini-stat-val" style="color:var(--accent-blue);">${st.totalReb}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">AST</span>
+                <span class="mini-stat-val" style="color:var(--accent-green);">${st.ast}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">ROB</span>
+                <span class="mini-stat-val" style="color:var(--accent-orange);">${st.stl}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">TAP</span>
+                <span class="mini-stat-val">${st.blk}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">PER</span>
+                <span class="mini-stat-val" style="color:var(--accent-red);">${st.tov}</span>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); padding:0 0.15rem;">
+              <span>Reb. Defensivos: <strong>${st.rebDef}</strong></span>
+              <span>Reb. Ofensivos: <strong>${st.rebOff}</strong></span>
+            </div>
+
+            <!-- Botones de Acción R&A Organizados (3 arriba, 3 abajo) -->
+            <div class="ra-actions-grid">
+              <button class="btn btn-sm btn-blue" ${disAttr} onclick="recordStatAction('${game.id}','${p.id}','rebDef',1,'+1 Rebote Defensivo')">+REB D</button>
+              <button class="btn btn-sm btn-purple" ${disAttr} onclick="recordStatAction('${game.id}','${p.id}','rebOff',1,'+1 Rebote Ofensivo')">+REB O</button>
+              <button class="btn btn-sm btn-green" ${disAttr} onclick="recordStatAction('${game.id}','${p.id}','ast',1,'+1 Asistencia')">+AST</button>
+              <button class="btn btn-sm btn-primary" ${disAttr} onclick="recordStatAction('${game.id}','${p.id}','stl',1,'+1 Robo')">+ROB</button>
+              <button class="btn btn-sm btn-outline" ${disAttr} onclick="recordStatAction('${game.id}','${p.id}','blk',1,'+1 Tapón')">+TAP</button>
+              <button class="btn btn-sm btn-red" ${disAttr} onclick="recordStatAction('${game.id}','${p.id}','tov',1,'+1 Pérdida')">+PER</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Modal de edición con el lápiz ✏️
+    function openEditRAPlayerModal(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeRAGameId);
+      if (!game) return;
+
+      const allPlayers = store.players.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+      const sel = document.getElementById('editRAPlayerSelect');
+      const targetId = playerId || (game.onCourtHome && game.onCourtHome[0]) || (allPlayers[0] && allPlayers[0].id);
+
+      sel.innerHTML = allPlayers.map(p => {
+        const tm = store.teams.find(t => t.id === p.teamId);
+        return `<option value="${p.id}" ${p.id === targetId ? 'selected' : ''}>#${p.number} ${escapeHtml(p.name)} (${tm ? escapeHtml(tm.name) : ''})</option>`;
+      }).join('');
+
+      loadPlayerIntoRAModal(targetId);
+      openModal('modalEditRAStats');
+    }
+
+    function loadPlayerIntoRAModal(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeRAGameId);
+      if (!game || !playerId) return;
+
+      const st = getPlayerGameStats(game, playerId);
+      document.getElementById('editRAPlayerSelect').value = playerId;
+      document.getElementById('editRARebDef').value = st.rebDef || 0;
+      document.getElementById('editRARebOff').value = st.rebOff || 0;
+      document.getElementById('editRAAst').value = st.ast || 0;
+      document.getElementById('editRAStl').value = st.stl || 0;
+      document.getElementById('editRABlk').value = st.blk || 0;
+      document.getElementById('editRATov').value = st.tov || 0;
+    }
+
+    function stepRAModalField(inputId, delta) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      const val = Math.max(0, (parseInt(el.value, 10) || 0) + delta);
+      el.value = val;
+    }
+
+    document.getElementById('formEditRAStats').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const playerId = document.getElementById('editRAPlayerSelect').value;
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeRAGameId);
+      if (!game || !playerId) return;
+
+      if (!game.stats[playerId]) game.stats[playerId] = getEmptyPlayerStats();
+      const s = game.stats[playerId];
+
+      s.rebDef = Math.max(0, parseInt(document.getElementById('editRARebDef').value, 10) || 0);
+      s.rebOff = Math.max(0, parseInt(document.getElementById('editRARebOff').value, 10) || 0);
+      s.ast = Math.max(0, parseInt(document.getElementById('editRAAst').value, 10) || 0);
+      s.stl = Math.max(0, parseInt(document.getElementById('editRAStl').value, 10) || 0);
+      s.blk = Math.max(0, parseInt(document.getElementById('editRABlk').value, 10) || 0);
+      s.tov = Math.max(0, parseInt(document.getElementById('editRATov').value, 10) || 0);
+
+      saveStore(store);
+      closeModal('modalEditRAStats');
+    });
+
+    function deleteRALog(logId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeRAGameId);
+      if (!game || !game.logsRA) return;
+      game.logsRA = game.logsRA.filter(l => l.id !== logId);
+      saveStore(store);
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.addEventListener('storeUpdated', renderRAPage);
+    renderRAPage();
+    updateFirebaseBadge();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pizarra & Overlay OBS (WebSocket / En Vivo) - Basketball</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* =========================================================================
+       MODO FUENTE DE NAVEGADOR OBS (?obs=1) -> FONDO 100% TRANSPARENTE
+       ========================================================================= */
+    body.obs-overlay-only {
+      background: transparent !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      min-height: auto !important;
+    }
+
+    body.obs-overlay-only .navbar,
+    body.obs-overlay-only .control-panel-wrapper {
+      display: none !important;
+    }
+
+    body.obs-overlay-only #obsTransparentStage {
+      display: flex !important;
+      padding: 12px;
+      background: transparent !important;
+    }
+
+    #obsTransparentStage {
+      display: none;
+    }
+
+    /* =========================================================================
+       DISEÑO EXACTO DEL SCOREBUG / PIZARRA DE TV (ESTILO WSH vs IND)
+       ========================================================================= */
+    .tv-scorebug-wrapper {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      user-select: none;
+      font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.65));
+    }
+
+    /* Espacio pequeño arriba para el nombre del torneo (Editable) */
+    .tv-tourney-header {
+      width: 526px;
+      box-sizing: border-box;
+      background: #0b0b0e;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      padding: 4px 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid #16181d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 24px;
+      line-height: 1.15;
+      cursor: pointer;
+    }
+
+    .tv-tourney-header:hover {
+      background: #13151c;
+    }
+
+    .tv-tourney-header.empty-hidden {
+      display: none;
+    }
+
+    /* Fila contenedora de la caja principal + la tira lateral que sale desde el cuadro rojo */
+    .tv-main-and-side-row {
+      display: flex;
+      align-items: flex-end;
+      position: relative;
+    }
+
+    /* Cuerpo principal de 2 filas */
+    .tv-scorebug-box {
+      display: flex;
+      flex-direction: column;
+      background: #0b0b0b;
+      width: 526px;
+      flex-shrink: 0;
+      border: 1px solid rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      position: relative;
+      z-index: 3;
+    }
+
+    .tv-row {
+      display: grid;
+      grid-template-columns: 266px 88px 172px;
+      height: 55px;
+      align-items: stretch;
+    }
+
+    .tv-row-top {
+      border-bottom: 2px solid #141619;
+    }
+
+    /* Columna 1: Logo + Siglas/Nombre del Equipo */
+    .tv-team-cell {
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      height: 55px;
+    }
+
+    .tv-logo-slot {
+      width: 96px;
+      height: 55px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tv-logo-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+
+    .tv-logo-slot img.fit-contain {
+      object-fit: contain;
+      padding: 2px;
+    }
+
+    .tv-logo-slot svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .tv-team-label {
+      flex: 1;
+      text-align: center;
+      color: #ffffff;
+      font-size: 37px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      line-height: 1;
+      padding: 0 8px 0 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Columna 2: Cuadro Blanco de Puntos + Animación de +1 / +2 / +3 en la misma casilla */
+    .tv-score-cell {
+      background: #ffffff;
+      color: #050505;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 39px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.5px;
+      height: 55px;
+      position: relative;
+      overflow: hidden;
+      transition: background-color 0.25s ease;
+    }
+
+    .tv-score-num {
+      display: inline-block;
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 1;
+    }
+
+    .tv-score-cell.score-anim-active .tv-score-num {
+      animation: tvScoreNumBounce 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .tv-score-cell.score-anim-3pt {
+      animation: tvScoreCellFlash3pt 1.6s ease;
+    }
+
+    .tv-score-cell.score-anim-2pt {
+      animation: tvScoreCellFlash2pt 1.3s ease;
+    }
+
+    .tv-score-cell.score-anim-1pt {
+      animation: tvScoreCellFlash1pt 1.2s ease;
+    }
+
+    .tv-score-delta-badge {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      padding: 2px 5px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0;
+      color: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 3;
+      transform: translateY(8px) scale(0.7);
+    }
+
+    .tv-score-delta-badge.delta-show {
+      animation: tvScoreDeltaPop 1.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .tv-score-delta-badge.delta-3 {
+      background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+      border: 1.5px solid #fde047;
+      box-shadow: 0 2px 8px rgba(234, 88, 12, 0.75);
+      font-size: 14px;
+      padding: 2px 6px;
+    }
+
+    .tv-score-delta-badge.delta-2 {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      border: 1px solid #93c5fd;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.55);
+    }
+
+    .tv-score-delta-badge.delta-1 {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      border: 1px solid #86efac;
+      box-shadow: 0 2px 6px rgba(22, 163, 74, 0.55);
+    }
+
+    @keyframes tvScoreNumBounce {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.24); }
+      65% { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes tvScoreCellFlash3pt {
+      0% { background-color: #ffffff; }
+      18% { background-color: #fef08a; box-shadow: inset 0 0 14px rgba(249, 115, 22, 0.65); }
+      75% { background-color: #fef9c3; }
+      100% { background-color: #ffffff; }
+    }
+
+    @keyframes tvScoreCellFlash2pt {
+      0% { background-color: #ffffff; }
+      20% { background-color: #dbeafe; }
+      100% { background-color: #ffffff; }
+    }
+
+    @keyframes tvScoreCellFlash1pt {
+      0% { background-color: #ffffff; }
+      20% { background-color: #dcfce7; }
+      100% { background-color: #ffffff; }
+    }
+
+    @keyframes tvScoreDeltaPop {
+      0% { opacity: 0; transform: translateY(10px) scale(0.6); }
+      16% { opacity: 1; transform: translateY(0) scale(1.12); }
+      28% { opacity: 1; transform: translateY(0) scale(1); }
+      80% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-7px) scale(0.85); }
+    }
+
+    /* Columna 3 Fila Superior: Reloj Interactivo (10:00) */
+    .tv-clock-cell {
+      background: #0a0a0c;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      line-height: 1;
+      height: 55px;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tv-clock-cell:hover {
+      background: #14161c;
+    }
+
+    /* Columna 3 Fila Inferior: Cuarto (1ST) + Cuadro Rojo Vacío (24s) */
+    .tv-bottom-right-cell {
+      display: grid;
+      grid-template-columns: 104px 68px;
+      height: 55px;
+      background: #0a0a0c;
+    }
+
+    .tv-period-subcell {
+      background: #0a0a0c;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 55px;
+      cursor: pointer;
+    }
+
+    .tv-period-num {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .tv-period-sup {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      margin-left: 2px;
+      align-self: flex-start;
+      margin-top: 9px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Espacio de 24 segundos dejado vacío en rojo exacto al diseño */
+    .tv-shotclock-red-empty {
+      background: #7b273a;
+      height: 55px;
+      width: 68px;
+    }
+
+    /* =========================================================================
+       TIRA LATERAL DESPLEGABLE DE 5 SEGUNDOS (MISMO GROSOR QUE EL CUADRO ROJO)
+       Sale hacia la derecha desde el cuadrito rojo (#7b273a) sin parpadear
+       ========================================================================= */
+    .tv-side-strip-clip {
+      height: 56px;
+      overflow: hidden;
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .tv-side-strip {
+      height: 56px;
+      box-sizing: border-box;
+      background: linear-gradient(90deg, #7b273a 0%, #171b26 16%, #0c0f17 100%);
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.9);
+      border-right: 4px solid #f59e0b;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px 0 14px;
+      white-space: nowrap;
+      transform: translateX(-102%);
+      opacity: 0;
+      will-change: transform, opacity;
+      transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+    }
+
+    .tv-side-strip.strip-open {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    .tv-strip-team-badge {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+
+    .tv-strip-player-name {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    .tv-strip-stats {
+      color: #fde047;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 12px;
+      border-radius: 5px;
+      border: 1px solid rgba(253, 224, 71, 0.38);
+    }
+
+    /* =========================================================================
+       ESTILOS DEL PANEL DE CONTROL Y PREVISUALIZACIÓN
+       ========================================================================= */
+    .preview-stage-box {
+      background: #000000;
+      background-image:
+        radial-gradient(circle at center, rgba(30, 41, 59, 0.32) 0%, rgba(0, 0, 0, 0.95) 100%),
+        repeating-linear-gradient(45deg, #070a12 0, #070a12 10px, #05070c 10px, #05070c 20px);
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.2rem 1.5rem 1.6rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+    }
+
+    .obs-url-box {
+      background: #070b14;
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .obs-url-input {
+      flex: 1;
+      min-width: 240px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #38bdf8;
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+    }
+
+    .team-editor-card {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    .score-quick-btns {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .logo-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.75rem;
+      background: var(--bg-card);
+      border: 1px dashed var(--accent-orange);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .logo-upload-btn:hover {
+      background: rgba(249, 115, 22, 0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================================
+       MODO TRANSPARENTE EXCLUSIVO PARA OBS BROWSER SOURCE (?obs=1)
+       ========================================================================= -->
+  <div id="obsTransparentStage">
+    <div id="obsScorebugMount"></div>
+  </div>
+
+  <!-- Barra de navegación (se oculta automáticamente en OBS) -->
+  <nav class="navbar no-print">
+    <a href="index.html" class="brand">
+      🏀 Basket & Baseball Stats <span class="badge-sport">Overlay OBS</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status">⏳ Firebase...</span>
+      <a href="index.html" class="nav-link">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link active">🖥️ Pizarra Basket</a>
+      <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <!-- =========================================================================
+       PANEL DE CREACIÓN Y CONTROL DEL OVERLAY (VISIBLE EN NAVEGADOR / TABLETA / PC)
+       ========================================================================= -->
+  <main class="container control-panel-wrapper">
+    <div class="page-header" style="margin-bottom:1rem;">
+      <div>
+        <h1 class="page-title" id="panelMainTitle">🖥️ Pizarra Independiente para OBS</h1>
+        <p class="page-subtitle" id="panelMainSubtitle">
+          Maneja esta pizarra de forma independiente sin depender de la anotación del juego, o abre una pizarra conectada desde un juego en <strong>Puntos (Principal)</strong>.
+        </p>
+      </div>
+    </div>
+
+    <!-- BARRA SUPERIOR DE CONTEXTO (SOLO MUESTRA EL MODO CORRESPONDIENTE) -->
+    <div class="card" style="padding:1rem 1.25rem; margin-bottom:1.25rem;">
+      <!-- Contexto Modo Juego: Solo se abre cuando vienes desde "Abrir Pizarra" en un juego creado -->
+      <div id="selectorModeGameRow" class="hidden" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; flex:1;">
+          <span class="badge badge-live">🎯 CONECTADA AL JUEGO</span>
+          <strong id="linkedGameTitleLabel" style="font-size:1rem; color:var(--text-main);">Cargando juego...</strong>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <a id="btnGoToPuntosScorer" href="puntos.html" class="btn btn-sm btn-primary">
+            🎯 Volver a Mesa de Puntos de este Juego
+          </a>
+          <a href="pizarrabasket.html" class="btn btn-sm btn-outline">
+            🕹️ Ir a Pizarra Independiente
+          </a>
+        </div>
+      </div>
+
+      <!-- Contexto Modo Independiente: Cuando se entra directo al panel de Pizarra OBS -->
+      <div id="selectorModeManualRow" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; flex:1;">
+          <label style="font-size:0.85rem; font-weight:800; color:var(--accent-blue);">🕹️ PIZARRA INDEPENDIENTE DE ESTE DISPOSITIVO:</label>
+          <select id="selectManualBoard" style="width:auto; min-width:270px; font-weight:700;" onchange="onChangeManualBoard(this.value)"></select>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="createNewManualBoard()">
+            ➕ Nueva Pizarra Independiente
+          </button>
+          <button type="button" class="btn btn-sm btn-red" onclick="deleteCurrentManualBoard()">
+            🗑️ Eliminar Pizarra
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         VISTA PREVIA EN TIEMPO REAL DEL OVERLAY + ENLACE PARA OBS
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem;">
+      <div class="card-header" style="margin-bottom:0.85rem;">
+        <div>
+          <h2 class="card-title">👁️ Vista Previa en Vivo del Overlay (Idéntico en OBS)</h2>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            Haz clic sobre el <strong>texto superior del torneo</strong> para editarlo rápido, sobre el reloj <strong>10:00</strong> para iniciarlo/pausarlo o sobre <strong>1ST</strong> para cambiar de cuarto.
+          </p>
+        </div>
+        <span class="badge badge-live" id="liveSyncIndicator">🟢 Sincronización Activa</span>
+      </div>
+
+      <!-- Escenario Negro con la Pizarra Exacta -->
+      <div class="preview-stage-box">
+        <div id="previewScorebugMount"></div>
+      </div>
+
+      <!-- Enlace listo para copiar y pegar en OBS como Fuente de Navegador -->
+      <div class="obs-url-box">
+        <div style="min-width:210px;">
+          <div style="font-size:0.82rem; font-weight:800; color:#60a5fa;">🔗 ENLACE PARA AÑADIR A OBS (Fuente de Navegador):</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">En OBS: Fuentes → <strong>+</strong> → <strong>Navegador</strong> → Pega este enlace (Ancho: <strong>1020</strong>, Alto: <strong>170</strong>)</div>
+        </div>
+        <input type="text" id="obsBrowserUrlInput" class="obs-url-input" readonly onclick="this.select()" />
+        <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="copyObsOverlayUrl()">
+            📋 Copiar Enlace OBS
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="openObsUrlPreviewTab()">
+            ↗️ Probar Vista OBS
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         TIRA DESPLEGABLE LATERAL DE 5 SEGUNDOS (DESDE EL CUADRO ROJO)
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem; border-color:rgba(245, 158, 11, 0.45);">
+      <div class="card-header" style="margin-bottom:0.75rem;">
+        <div>
+          <h3 class="card-title">📺 Tira Lateral Desplegable de 5 Segundos (Sale desde el cuadro rojo)</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);" id="bannerHelpSubtitle">
+            Escribe lo que quieras mostrar (Jugador, Equipo y Estadísticas o Mensaje) y presiona <strong>Desplegar (5s)</strong>. La tira saldrá hacia el lado derecho con el mismo grosor del cuadro rojo durante 5 segundos y luego se guardará sola.
+          </p>
+        </div>
+      </div>
+
+      <!-- Formulario para escribir cualquier texto y desplegarlo por 5 segundos -->
+      <div class="form-row" style="grid-template-columns: 1.2fr 0.8fr 1.6fr auto; align-items:end; gap:0.65rem;">
+        <div>
+          <label class="form-label" style="margin-bottom:0.25rem;">👤 Jugador o Título</label>
+          <input type="text" id="bannerCustomPlayerInput" placeholder="Ej: #23 M. JORDAN" />
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:0.25rem;">🏀 Equipo / Siglas</label>
+          <input type="text" id="bannerCustomTeamInput" placeholder="Ej: WSH" />
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:0.25rem;">📊 Estadísticas o Texto a Desplegar</label>
+          <input type="text" id="bannerCustomStatsInput" placeholder="Ej: 28 PTS  •  9 REB  •  6 AST" />
+        </div>
+        <div>
+          <button type="button" class="btn btn-primary" style="height:41px; white-space:nowrap;" onclick="triggerCustomBannerOverlay()">
+            📺 Desplegar (5s)
+          </button>
+        </div>
+      </div>
+
+      <!-- En modo conectado a juego: botones rápidos de los jugadores del partido -->
+      <div id="gamePlayersQuickBannerSection" class="hidden" style="margin-top:0.9rem; padding-top:0.85rem; border-top:1px solid var(--border-color);">
+        <div style="font-size:0.78rem; font-weight:800; color:var(--text-muted); margin-bottom:0.5rem;">
+          ⚡ DESPLEGAR MEJORES ESTADÍSTICAS DE UN JUGADOR DEL PARTIDO (También puedes hacerlo desde Puntos.html):
+        </div>
+        <div id="gamePlayersQuickBannerList" style="display:flex; gap:0.45rem; flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         CONTROLES INTERACTIVOS: RELOJ, TORNEO, EQUIPOS, LOGOS, COLORES Y PUNTOS
+         ========================================================================= -->
+    <div class="grid-2" style="margin-bottom:1.25rem;">
+
+      <!-- TARJETA 1: TEXTO SUPERIOR DEL TORNEO Y RELOJ INTERACTIVO -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-header">
+          <h3 class="card-title">⏱️ Texto Superior (Torneo), Reloj y Cuarto</h3>
+        </div>
+
+        <!-- Espacio pequeño arriba para el Nombre del Torneo o cualquier texto -->
+        <div class="form-row" style="grid-template-columns: 1fr 95px; margin-bottom:0.9rem;">
+          <div>
+            <label class="form-label">🏆 Texto Superior / Nombre del Torneo (Editable)</label>
+            <input
+              type="text"
+              id="ctrlTournamentName"
+              placeholder="Escribe el nombre del torneo o cualquier texto..."
+              oninput="updateOverlayField('tournamentName', this.value)"
+            />
+          </div>
+          <div>
+            <label class="form-label">Color Letras</label>
+            <input
+              type="color"
+              id="ctrlTourneyTextColorInput"
+              value="#ffffff"
+              style="height:41px; padding:2px; cursor:pointer;"
+              oninput="updateOverlayField('tourneyTextColor', this.value)"
+            />
+          </div>
+        </div>
+
+        <!-- Controles del Reloj Interactivo -->
+        <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:12px; padding:0.95rem; margin-bottom:0.9rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+            <span style="font-size:0.82rem; font-weight:800; color:var(--text-muted);">RELOJ EN VIVO:</span>
+            <span id="ctrlClockBigReadout" style="font-family:monospace; font-size:1.75rem; font-weight:900; color:#4ade80;">10:00</span>
+          </div>
+
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-bottom:0.65rem;">
+            <button type="button" id="btnCtrlToggleClock" class="btn btn-sm btn-green" style="flex:1;" onclick="toggleOverlayClock()">
+              ▶️ Iniciar Reloj
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="adjustOverlayClock(-10)">-10s</button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="adjustOverlayClock(-1)">-1s</button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="adjustOverlayClock(1)">+1s</button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="adjustOverlayClock(10)">+10s</button>
+          </div>
+
+          <div style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap;">
+            <input type="number" id="ctrlClockMinInput" min="0" max="99" placeholder="Min" style="width:72px; padding:0.4rem;" />
+            <span>:</span>
+            <input type="number" id="ctrlClockSecInput" min="0" max="59" placeholder="Seg" style="width:72px; padding:0.4rem;" />
+            <button type="button" class="btn btn-sm btn-blue" onclick="applyManualClockInput()">
+              ✅ Fijar Tiempo
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="resetOverlayClock(600)">
+              🔄 10:00
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="resetOverlayClock(720)">
+              🔄 12:00
+            </button>
+          </div>
+        </div>
+
+        <!-- Selector de Cuarto / Período (1ST, 2ND, 3RD, 4TH, OT, FINAL) -->
+        <div>
+          <label class="form-label">🔢 Período / Cuarto Actual o Final del Partido</label>
+          <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm btn-outline period-btn" data-p="1" onclick="setOverlayPeriod(1)">1ST</button>
+            <button type="button" class="btn btn-sm btn-outline period-btn" data-p="2" onclick="setOverlayPeriod(2)">2ND</button>
+            <button type="button" class="btn btn-sm btn-outline period-btn" data-p="3" onclick="setOverlayPeriod(3)">3RD</button>
+            <button type="button" class="btn btn-sm btn-outline period-btn" data-p="4" onclick="setOverlayPeriod(4)">4TH</button>
+            <button type="button" class="btn btn-sm btn-outline period-btn" data-p="5" onclick="setOverlayPeriod(5)">OT</button>
+            <button type="button" id="btnOverlayFinalState" class="btn btn-sm btn-outline" onclick="toggleOverlayFinal()">🏁 FINAL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TARJETA 2: EQUIPOS, LOGOS DESDE PC/TABLETA, COLOR DE BARRA, COLOR DE LETRAS Y PUNTOS -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-header">
+          <h3 class="card-title">🛡️ Equipos, Logos, Color de Letras y Marcador</h3>
+        </div>
+
+        <!-- EQUIPO SUPERIOR (FILA 1 - Ej: WSH) -->
+        <div class="team-editor-card" style="margin-bottom:0.85rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.55rem;">
+            <strong style="font-size:0.85rem; color:var(--accent-orange);">🏠 EQUIPO SUPERIOR (Fila Arriba)</strong>
+            <div class="score-quick-btns">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayScore('home', -1)">-1</button>
+              <input
+                type="number"
+                id="ctrlHomeScoreInput"
+                min="0"
+                style="width:72px; text-align:center; font-weight:900; font-size:1.05rem; padding:0.3rem;"
+                onchange="setOverlayScoreDirect('home', this.value)"
+              />
+              <button type="button" class="btn btn-sm btn-green" onclick="stepOverlayScore('home', 1)">+1</button>
+              <button type="button" class="btn btn-sm btn-blue" onclick="stepOverlayScore('home', 2)">+2</button>
+              <button type="button" class="btn btn-sm btn-primary" onclick="stepOverlayScore('home', 3)">+3</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="grid-template-columns: 1fr 82px 82px; margin-bottom:0.55rem;">
+            <div>
+              <label class="form-label" style="margin-bottom:0.2rem;">Siglas o Nombre (Ej: WSH)</label>
+              <input
+                type="text"
+                id="ctrlHomeNameInput"
+                maxlength="14"
+                placeholder="WSH"
+                oninput="updateOverlayField('homeName', this.value)"
+              />
+            </div>
+            <div>
+              <label class="form-label" style="margin-bottom:0.2rem;">Color Fondo</label>
+              <input
+                type="color"
+                id="ctrlHomeColorInput"
+                value="#2b3244"
+                style="height:40px; padding:2px; cursor:pointer;"
+                oninput="updateOverlayField('homeColor', this.value)"
+              />
+            </div>
+            <div>
+              <label class="form-label" style="margin-bottom:0.2rem;">Color Letras</label>
+              <input
+                type="color"
+                id="ctrlHomeTextColorInput"
+                value="#ffffff"
+                style="height:40px; padding:2px; cursor:pointer;"
+                oninput="updateOverlayField('homeTextColor', this.value)"
+              />
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <label class="logo-upload-btn">
+              📁 Subir Logo (PC / Foto Tableta)
+              <input type="file" accept="image/*" style="display:none;" onchange="handleLogoUpload(event, 'home')" />
+            </label>
+            <button type="button" class="btn btn-sm btn-outline" onclick="toggleLogoFit('home')" title="Cambiar entre recorte zoom o logo entero">
+              🔍 Ajuste Logo
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="clearTeamLogo('home')" title="Restaurar logo por defecto">
+              🗑️ Quitar Logo
+            </button>
+          </div>
+        </div>
+
+        <!-- EQUIPO INFERIOR (FILA 2 - Ej: IND) -->
+        <div class="team-editor-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.55rem;">
+            <strong style="font-size:0.85rem; color:var(--accent-blue);">✈️ EQUIPO INFERIOR (Fila Abajo)</strong>
+            <div class="score-quick-btns">
+              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayScore('away', -1)">-1</button>
+              <input
+                type="number"
+                id="ctrlAwayScoreInput"
+                min="0"
+                style="width:72px; text-align:center; font-weight:900; font-size:1.05rem; padding:0.3rem;"
+                onchange="setOverlayScoreDirect('away', this.value)"
+              />
+              <button type="button" class="btn btn-sm btn-green" onclick="stepOverlayScore('away', 1)">+1</button>
+              <button type="button" class="btn btn-sm btn-blue" onclick="stepOverlayScore('away', 2)">+2</button>
+              <button type="button" class="btn btn-sm btn-primary" onclick="stepOverlayScore('away', 3)">+3</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="grid-template-columns: 1fr 82px 82px; margin-bottom:0.55rem;">
+            <div>
+              <label class="form-label" style="margin-bottom:0.2rem;">Siglas o Nombre (Ej: IND)</label>
+              <input
+                type="text"
+                id="ctrlAwayNameInput"
+                maxlength="14"
+                placeholder="IND"
+                oninput="updateOverlayField('awayName', this.value)"
+              />
+            </div>
+            <div>
+              <label class="form-label" style="margin-bottom:0.2rem;">Color Fondo</label>
+              <input
+                type="color"
+                id="ctrlAwayColorInput"
+                value="#1d294b"
+                style="height:40px; padding:2px; cursor:pointer;"
+                oninput="updateOverlayField('awayColor', this.value)"
+              />
+            </div>
+            <div>
+              <label class="form-label" style="margin-bottom:0.2rem;">Color Letras</label>
+              <input
+                type="color"
+                id="ctrlAwayTextColorInput"
+                value="#ffffff"
+                style="height:40px; padding:2px; cursor:pointer;"
+                oninput="updateOverlayField('awayTextColor', this.value)"
+              />
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <label class="logo-upload-btn">
+              📁 Subir Logo (PC / Foto Tableta)
+              <input type="file" accept="image/*" style="display:none;" onchange="handleLogoUpload(event, 'away')" />
+            </label>
+            <button type="button" class="btn btn-sm btn-outline" onclick="toggleLogoFit('away')" title="Cambiar entre recorte zoom o logo entero">
+              🔍 Ajuste Logo
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="clearTeamLogo('away')" title="Restaurar logo por defecto">
+              🗑️ Quitar Logo
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- =========================================================================
+         CONEXIÓN OPCIONAL CON OBS WEBSOCKET (v5)
+         ========================================================================= -->
+    <div class="card">
+      <div class="card-header" style="margin-bottom:0.75rem;">
+        <div>
+          <h3 class="card-title">🔌 Conexión Directa OBS WebSocket (Opcional)</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            El enlace de arriba ya se actualiza en vivo por Nube (Firebase en GitHub Pages) y Red Local. Si además deseas conectar con el servidor WebSocket interno de OBS Studio (Herramientas → Ajustes de WebSocket Server), configúralo aquí:
+          </p>
+        </div>
+        <span id="obsWsStatusBadge" class="badge badge-pending">⚪ OBS WebSocket Desconectado</span>
+      </div>
+
+      <div style="display:flex; gap:0.65rem; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:1; min-width:200px;">
+          <label class="form-label">URL WebSocket de OBS</label>
+          <input type="text" id="obsWsUrlInput" value="ws://127.0.0.1:4455" placeholder="ws://127.0.0.1:4455" />
+        </div>
+        <div style="width:180px;">
+          <label class="form-label">Contraseña (Opcional)</label>
+          <input type="password" id="obsWsPasswordInput" placeholder="Sin contraseña" />
+        </div>
+        <button type="button" class="btn btn-blue" onclick="connectObsWebSocket()">
+          🔌 Conectar OBS WebSocket
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // =========================================================================
+    // PARÁMETROS DE URL Y AISLAMIENTO POR DISPOSITIVO
+    // =========================================================================
+    const DEVICE_BOARD_STORAGE_KEY = 'pizarra_device_board_id_v1';
+    const params = new URLSearchParams(window.location.search);
+    const isObsOverlayMode = params.get('obs') === '1';
+
+    // La pizarra conectada a un juego SE ABRE SOLAMENTE cuando se entra desde un juego creado (?mode=game&gameId=...)
+    const hasExplicitGameUrl = params.get('mode') === 'game' && Boolean(params.get('gameId'));
+    let currentMode = hasExplicitGameUrl ? 'game' : 'manual';
+    let currentGameId = hasExplicitGameUrl ? params.get('gameId') : '';
+    let currentBoardId = params.get('boardId') || localStorage.getItem(DEVICE_BOARD_STORAGE_KEY) || '';
+
+    let localClockTimer = null;
+    let bannerHideTimer = null;
+    let obsSocket = null;
+    let obsSocketConnected = false;
+
+    if (isObsOverlayMode) {
+      document.body.classList.add('obs-overlay-only');
+    }
+
+    // Logos SVG por defecto idénticos al estilo de la imagen (WSH y IND) cuando aún no se ha subido archivo
+    const DEFAULT_SVG_HOME = `
+      <svg viewBox="0 0 110 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="48" cy="54" r="46" fill="#0c2340" stroke="#ffffff" stroke-width="3.5"/>
+        <path d="M 8 44 A 42 42 0 0 1 88 44" fill="none" stroke="#e31837" stroke-width="8"/>
+        <path d="M 15 58 Q 48 25 81 58" fill="none" stroke="#ffffff" stroke-width="3"/>
+        <polygon points="48,14 51,23 60,23 53,28 55,37 48,32 41,37 43,28 36,23 45,23" fill="#c4ced4" stroke="#ffffff" stroke-width="1"/>
+        <polygon points="45,34 51,34 52,60 44,60" fill="#ffffff"/>
+      </svg>
+    `;
+
+    const DEFAULT_SVG_AWAY = `
+      <svg viewBox="0 0 110 60" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 18 4 L 62 4 A 26 26 0 0 1 62 56 L 8 56 Z" fill="#002d62" stroke="#bec0c2" stroke-width="3"/>
+        <circle cx="58" cy="30" r="20" fill="#fdbb30" stroke="#002d62" stroke-width="2.5"/>
+        <path d="M 42 20 Q 58 30 74 20 M 42 40 Q 58 30 74 40 M 38 30 L 78 30 M 58 10 L 58 50" fill="none" stroke="#002d62" stroke-width="2.2"/>
+        <rect x="14" y="18" width="28" height="4" fill="#fdbb30"/>
+        <rect x="12" y="28" width="30" height="4" fill="#fdbb30"/>
+        <rect x="10" y="38" width="32" height="4" fill="#fdbb30"/>
+      </svg>
+    `;
+
+    function updateFirebaseBadge() {
+      const info = getFirebaseStatus();
+      const el = document.getElementById('firebaseBadge');
+      if (!el) return;
+      if (info.status === 'connected') {
+        el.className = 'db-status connected';
+        el.textContent = '🟢 Firebase Conectado';
+      } else if (info.status === 'permission_denied') {
+        el.className = 'db-status error';
+        el.textContent = '🔒 Reglas Firebase Bloqueadas';
+      } else {
+        el.className = 'db-status';
+        el.textContent = '⏳ Modo Local / Conectando';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    // =========================================================================
+    // OBTENER Y GUARDAR EL ESTADO DEL OVERLAY (AISLADO POR DISPOSITIVO)
+    // =========================================================================
+    function ensureInitialSelection(store) {
+      if (!store.standaloneBoards) {
+        store.standaloneBoards = [];
+      }
+
+      if (currentMode === 'manual') {
+        // Si este dispositivo aún no tiene su propia pizarra independiente o no existe en store, crearla localmente
+        let myBoard = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!myBoard) {
+          const newDeviceId = currentBoardId || uid('board');
+          myBoard = {
+            id: newDeviceId,
+            tournamentName: 'TORNEO DE BALONCESTO',
+            tourneyTextColor: '#ffffff',
+            homeName: 'WSH',
+            awayName: 'IND',
+            homeColor: '#2b3244',
+            awayColor: '#1d294b',
+            homeTextColor: '#ffffff',
+            awayTextColor: '#ffffff',
+            homeLogo: '',
+            awayLogo: '',
+            homeLogoFit: 'cover',
+            awayLogoFit: 'cover',
+            homeScore: 0,
+            awayScore: 0,
+            period: 1,
+            clockSeconds: 600,
+            clockRunning: false,
+            clockUpdatedAt: Date.now(),
+            activeBanner: null,
+            createdAt: Date.now()
+          };
+          store.standaloneBoards.unshift(myBoard);
+          currentBoardId = myBoard.id;
+          if (!isObsOverlayMode) {
+            try { localStorage.setItem(DEVICE_BOARD_STORAGE_KEY, currentBoardId); } catch (e) {}
+            saveStore(store);
+          }
+        } else if (!isObsOverlayMode && !params.get('boardId')) {
+          try { localStorage.setItem(DEVICE_BOARD_STORAGE_KEY, currentBoardId); } catch (e) {}
+        }
+      }
+    }
+
+    function getActiveBannerIfValid(bannerObj) {
+      if (!bannerObj || !bannerObj.triggeredAt) return null;
+      const duration = Number(bannerObj.durationMs || 5000);
+      const elapsed = Date.now() - Number(bannerObj.triggeredAt);
+      if (elapsed >= 0 && elapsed < duration) {
+        return {
+          ...bannerObj,
+          remainingMs: Math.max(50, duration - elapsed)
+        };
+      }
+      return null;
+    }
+
+    function getOverlayViewModel(store) {
+      ensureInitialSelection(store);
+
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) {
+          return {
+            mode: 'game',
+            id: currentGameId,
+            tournamentName: 'TORNEO DE BALONCESTO',
+            tourneyTextColor: '#ffffff',
+            homeName: 'WSH',
+            awayName: 'IND',
+            homeColor: '#2b3244',
+            awayColor: '#1d294b',
+            homeTextColor: '#ffffff',
+            awayTextColor: '#ffffff',
+            homeLogo: '',
+            awayLogo: '',
+            homeLogoFit: 'cover',
+            awayLogoFit: 'cover',
+            homeScore: 0,
+            awayScore: 0,
+            period: 1,
+            clockSeconds: 600,
+            clockRunning: false,
+            isFinal: false,
+            activeBanner: null
+          };
+        }
+
+        const tourney = store.tournaments.find(t => t.id === game.tournamentId);
+        const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+        const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+        const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+        const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+        const cfg = game.overlayConfig || {};
+
+        const defaultHomeLabel = (homeTeam && (homeTeam.shortName || homeTeam.name)) || 'WSH';
+        const defaultAwayLabel = (awayTeam && (awayTeam.shortName || awayTeam.name)) || 'IND';
+        const defaultTourneyLabel = (tourney && tourney.name) || 'TORNEO DE BALONCESTO';
+
+        const computedHomeScore = Math.max(0, homeTotals.pts + Number(cfg.scoreOffsetHome || 0));
+        const computedAwayScore = Math.max(0, awayTotals.pts + Number(cfg.scoreOffsetAway || 0));
+
+        const gameIsFinal = cfg.isFinal !== undefined ? Boolean(cfg.isFinal) : (game.status === 'Finalizado');
+
+        return {
+          mode: 'game',
+          id: game.id,
+          tournamentName: cfg.tournamentName !== undefined ? cfg.tournamentName : defaultTourneyLabel,
+          tourneyTextColor: cfg.tourneyTextColor || '#ffffff',
+          homeName: cfg.homeName !== undefined ? cfg.homeName : defaultHomeLabel,
+          awayName: cfg.awayName !== undefined ? cfg.awayName : defaultAwayLabel,
+          homeColor: cfg.homeColor || (homeTeam && homeTeam.color) || '#2b3244',
+          awayColor: cfg.awayColor || (awayTeam && awayTeam.color) || '#1d294b',
+          homeTextColor: cfg.homeTextColor || '#ffffff',
+          awayTextColor: cfg.awayTextColor || '#ffffff',
+          homeLogo: cfg.homeLogo || (homeTeam && homeTeam.logo) || '',
+          awayLogo: cfg.awayLogo || (awayTeam && awayTeam.logo) || '',
+          homeLogoFit: cfg.homeLogoFit || 'cover',
+          awayLogoFit: cfg.awayLogoFit || 'cover',
+          homeScore: computedHomeScore,
+          awayScore: computedAwayScore,
+          period: game.period || 1,
+          clockSeconds: typeof game.clockSeconds === 'number' ? game.clockSeconds : 600,
+          clockRunning: Boolean(game.clockRunning),
+          isFinal: gameIsFinal,
+          activeBanner: getActiveBannerIfValid(cfg.activeBanner)
+        };
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId) || store.standaloneBoards[0];
+        return {
+          mode: 'manual',
+          id: board.id,
+          tournamentName: board.tournamentName !== undefined ? board.tournamentName : 'TORNEO DE BALONCESTO',
+          tourneyTextColor: board.tourneyTextColor || '#ffffff',
+          homeName: board.homeName || 'WSH',
+          awayName: board.awayName || 'IND',
+          homeColor: board.homeColor || '#2b3244',
+          awayColor: board.awayColor || '#1d294b',
+          homeTextColor: board.homeTextColor || '#ffffff',
+          awayTextColor: board.awayTextColor || '#ffffff',
+          homeLogo: board.homeLogo || '',
+          awayLogo: board.awayLogo || '',
+          homeLogoFit: board.homeLogoFit || 'cover',
+          awayLogoFit: board.awayLogoFit || 'cover',
+          homeScore: Number(board.homeScore || 0),
+          awayScore: Number(board.awayScore || 0),
+          period: Number(board.period || 1),
+          clockSeconds: typeof board.clockSeconds === 'number' ? board.clockSeconds : 600,
+          clockRunning: Boolean(board.clockRunning),
+          isFinal: Boolean(board.isFinal),
+          activeBanner: getActiveBannerIfValid(board.activeBanner)
+        };
+      }
+    }
+
+    function getOrdinalPeriodParts(period) {
+      const p = Number(period || 1);
+      if (p === 1) return { num: '1', sup: 'ST' };
+      if (p === 2) return { num: '2', sup: 'ND' };
+      if (p === 3) return { num: '3', sup: 'RD' };
+      if (p === 4) return { num: '4', sup: 'TH' };
+      return { num: 'OT', sup: p > 5 ? String(p - 4) : '' };
+    }
+
+    // =========================================================================
+    // ACTUALIZACIÓN EN VIVO SIN PARPADEO DEL SCOREBUG Y LA TIRA LATERAL (5s)
+    // =========================================================================
+    function updateScorebugMount(mountEl, vm) {
+      if (!mountEl) return;
+
+      // Crear la estructura DOM una sola vez para que el reloj corriendo cada segundo NUNCA reinicie ni haga parpadear la tira desplegada
+      if (!mountEl.querySelector('.tv-scorebug-wrapper')) {
+        mountEl.innerHTML = `
+          <div class="tv-scorebug-wrapper">
+            <!-- Espacio pequeño superior para el nombre del torneo (Editable) -->
+            <div class="tv-tourney-header" onclick="promptEditTournamentHeader()" title="Clic para editar el texto superior del torneo">
+              <span class="js-tourney-text"></span>
+            </div>
+
+            <!-- Fila que une la Pizarra + Tira Lateral Desplegable que sale desde el cuadro rojo -->
+            <div class="tv-main-and-side-row">
+              <!-- Caja Principal de 2 Filas (Logos, Siglas, Puntos en Blanco, Reloj, Cuarto y Caja Roja vacía) -->
+              <div class="tv-scorebug-box">
+                <!-- FILA 1: Equipo Superior + Puntos + Reloj -->
+                <div class="tv-row tv-row-top">
+                  <div class="tv-team-cell js-home-cell">
+                    <div class="tv-logo-slot js-home-logo"></div>
+                    <div class="tv-team-label js-home-name"></div>
+                  </div>
+                  <div class="tv-score-cell js-home-score">
+                    <span class="tv-score-num js-home-score-num"></span>
+                    <span class="tv-score-delta-badge js-home-score-delta"></span>
+                  </div>
+                  <div class="tv-clock-cell js-clock" onclick="toggleOverlayClock()" title="Clic para Iniciar / Pausar el Reloj"></div>
+                </div>
+
+                <!-- FILA 2: Equipo Inferior + Puntos + Período (1ST) + Cuadro Rojo Vacío -->
+                <div class="tv-row">
+                  <div class="tv-team-cell js-away-cell">
+                    <div class="tv-logo-slot js-away-logo"></div>
+                    <div class="tv-team-label js-away-name"></div>
+                  </div>
+                  <div class="tv-score-cell js-away-score">
+                    <span class="tv-score-num js-away-score-num"></span>
+                    <span class="tv-score-delta-badge js-away-score-delta"></span>
+                  </div>
+                  <div class="tv-bottom-right-cell">
+                    <div class="tv-period-subcell" onclick="cycleOverlayPeriod()" title="Clic para cambiar de período (1ST -> 2ND -> 3RD -> 4TH -> OT)">
+                      <span class="tv-period-num js-period-num"></span>
+                      <span class="tv-period-sup js-period-sup"></span>
+                    </div>
+                    <div class="tv-shotclock-red-empty"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tira Lateral Desplegable de 5 Segundos (Sale hacia la derecha desde el cuadrito rojo) -->
+              <div class="tv-side-strip-clip">
+                <div class="tv-side-strip js-side-strip">
+                  <span class="tv-strip-team-badge js-strip-team"></span>
+                  <span class="tv-strip-player-name js-strip-player"></span>
+                  <div class="tv-strip-stats js-strip-stats"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const applyScoreWithDeltaAnim = (cellEl, numEl, badgeEl, newScore) => {
+        const strScore = String(newScore);
+        const prevAttr = cellEl.getAttribute('data-last-score');
+        if (prevAttr === null) {
+          cellEl.setAttribute('data-last-score', strScore);
+          numEl.textContent = strScore;
+          return;
+        }
+        if (prevAttr !== strScore) {
+          const diff = Number(newScore) - Number(prevAttr);
+          cellEl.setAttribute('data-last-score', strScore);
+          numEl.textContent = strScore;
+          if (diff >= 1 && diff <= 4) {
+            cellEl.classList.remove('score-anim-active', 'score-anim-1pt', 'score-anim-2pt', 'score-anim-3pt');
+            badgeEl.classList.remove('delta-show', 'delta-1', 'delta-2', 'delta-3');
+            void cellEl.offsetWidth;
+            const ptClass = diff >= 3 ? 'score-anim-3pt' : (diff === 2 ? 'score-anim-2pt' : 'score-anim-1pt');
+            const badgeClass = diff >= 3 ? 'delta-3' : (diff === 2 ? 'delta-2' : 'delta-1');
+            badgeEl.textContent = `+${diff}`;
+            cellEl.classList.add('score-anim-active', ptClass);
+            badgeEl.classList.add('delta-show', badgeClass);
+          }
+        }
+      };
+
+      const pParts = getOrdinalPeriodParts(vm.period);
+      const hasTourney = Boolean(vm.tournamentName && vm.tournamentName.trim());
+
+      // 1. Encabezado superior del Torneo
+      const tourneyHeader = mountEl.querySelector('.tv-tourney-header');
+      const tourneyText = mountEl.querySelector('.js-tourney-text');
+      tourneyHeader.classList.toggle('empty-hidden', !hasTourney);
+      tourneyHeader.style.color = vm.tourneyTextColor || '#ffffff';
+      if (tourneyText.textContent !== (vm.tournamentName || '')) {
+        tourneyText.textContent = vm.tournamentName || '';
+      }
+
+      // 2. Equipo Superior (Home)
+      const homeCell = mountEl.querySelector('.js-home-cell');
+      const homeLogoSlot = mountEl.querySelector('.js-home-logo');
+      const homeNameEl = mountEl.querySelector('.js-home-name');
+      const homeScoreEl = mountEl.querySelector('.js-home-score');
+      const homeScoreNumEl = mountEl.querySelector('.js-home-score-num');
+      const homeScoreDeltaEl = mountEl.querySelector('.js-home-score-delta');
+
+      homeCell.style.background = vm.homeColor || '#2b3244';
+      homeNameEl.style.color = vm.homeTextColor || '#ffffff';
+      if (homeNameEl.textContent !== (vm.homeName || '')) {
+        homeNameEl.textContent = vm.homeName || '';
+      }
+      applyScoreWithDeltaAnim(homeScoreEl, homeScoreNumEl, homeScoreDeltaEl, vm.homeScore);
+
+      const homeLogoKey = `${vm.homeLogo || 'DEFAULT'}|${vm.homeLogoFit || 'cover'}`;
+      if (homeLogoSlot.getAttribute('data-logo-key') !== homeLogoKey) {
+        homeLogoSlot.setAttribute('data-logo-key', homeLogoKey);
+        homeLogoSlot.innerHTML = vm.homeLogo
+          ? `<img src="${vm.homeLogo}" alt="Logo Local" class="${vm.homeLogoFit === 'contain' ? 'fit-contain' : ''}" />`
+          : DEFAULT_SVG_HOME;
+      }
+
+      // 3. Equipo Inferior (Away)
+      const awayCell = mountEl.querySelector('.js-away-cell');
+      const awayLogoSlot = mountEl.querySelector('.js-away-logo');
+      const awayNameEl = mountEl.querySelector('.js-away-name');
+      const awayScoreEl = mountEl.querySelector('.js-away-score');
+      const awayScoreNumEl = mountEl.querySelector('.js-away-score-num');
+      const awayScoreDeltaEl = mountEl.querySelector('.js-away-score-delta');
+
+      awayCell.style.background = vm.awayColor || '#1d294b';
+      awayNameEl.style.color = vm.awayTextColor || '#ffffff';
+      if (awayNameEl.textContent !== (vm.awayName || '')) {
+        awayNameEl.textContent = vm.awayName || '';
+      }
+      applyScoreWithDeltaAnim(awayScoreEl, awayScoreNumEl, awayScoreDeltaEl, vm.awayScore);
+
+      const awayLogoKey = `${vm.awayLogo || 'DEFAULT'}|${vm.awayLogoFit || 'cover'}`;
+      if (awayLogoSlot.getAttribute('data-logo-key') !== awayLogoKey) {
+        awayLogoSlot.setAttribute('data-logo-key', awayLogoKey);
+        awayLogoSlot.innerHTML = vm.awayLogo
+          ? `<img src="${vm.awayLogo}" alt="Logo Visitante" class="${vm.awayLogoFit === 'contain' ? 'fit-contain' : ''}" />`
+          : DEFAULT_SVG_AWAY;
+      }
+
+      // 4. Reloj y Período (o FINAL cuando termina el partido)
+      const clockEl = mountEl.querySelector('.js-clock');
+      if (vm.isFinal) {
+        if (clockEl.textContent !== 'FINAL') {
+          clockEl.textContent = 'FINAL';
+        }
+        clockEl.style.color = '#fde047';
+        clockEl.style.fontWeight = '900';
+        clockEl.style.fontSize = '30px';
+        clockEl.style.letterSpacing = '2px';
+      } else {
+        const formattedClock = formatSecondsMMSS(vm.clockSeconds);
+        if (clockEl.textContent !== formattedClock) {
+          clockEl.textContent = formattedClock;
+        }
+        clockEl.style.color = '#f1f5f9';
+        clockEl.style.fontWeight = '600';
+        clockEl.style.fontSize = '34px';
+        clockEl.style.letterSpacing = '1px';
+      }
+
+      const pNumEl = mountEl.querySelector('.js-period-num');
+      const pSupEl = mountEl.querySelector('.js-period-sup');
+      if (pNumEl.textContent !== pParts.num) pNumEl.textContent = pParts.num;
+      if (pSupEl.textContent !== pParts.sup) pSupEl.textContent = pParts.sup;
+
+      // 5. Tira Lateral de 5 Segundos (sin tocar el nodo mientras está abierta para evitar cualquier parpadeo)
+      const sideStrip = mountEl.querySelector('.js-side-strip');
+      const stripTeam = mountEl.querySelector('.js-strip-team');
+      const stripPlayer = mountEl.querySelector('.js-strip-player');
+      const stripStats = mountEl.querySelector('.js-strip-stats');
+
+      const b = vm.activeBanner;
+      if (b) {
+        const badgeBg = b.bgColor || vm.homeColor || '#2b3244';
+        const badgeColor = b.textColor || '#ffffff';
+        if (b.teamText) {
+          stripTeam.style.display = 'inline-block';
+          stripTeam.style.background = badgeBg;
+          stripTeam.style.color = badgeColor;
+          if (stripTeam.textContent !== b.teamText) stripTeam.textContent = b.teamText;
+        } else {
+          stripTeam.style.display = 'none';
+        }
+
+        if (stripPlayer.textContent !== (b.playerText || '')) {
+          stripPlayer.textContent = b.playerText || '';
+        }
+
+        if (b.statsText) {
+          stripStats.style.display = 'block';
+          if (stripStats.textContent !== b.statsText) stripStats.textContent = b.statsText;
+        } else {
+          stripStats.style.display = 'none';
+        }
+
+        if (!sideStrip.classList.contains('strip-open')) {
+          // Forzar reflujo solo cuando pasa de cerrada a abierta para animación limpia
+          void sideStrip.offsetWidth;
+          sideStrip.classList.add('strip-open');
+        }
+      } else {
+        sideStrip.classList.remove('strip-open');
+      }
+    }
+
+    function scheduleBannerAutoHideIfNeeded(vm) {
+      if (bannerHideTimer) {
+        clearTimeout(bannerHideTimer);
+        bannerHideTimer = null;
+      }
+      if (vm.activeBanner && vm.activeBanner.remainingMs) {
+        bannerHideTimer = setTimeout(() => {
+          renderAll();
+        }, vm.activeBanner.remainingMs + 40);
+      }
+    }
+
+    // =========================================================================
+    // RENDERIZADO GENERAL DEL PANEL Y DEL OVERLAY DE OBS
+    // =========================================================================
+    function renderAll() {
+      const store = loadStore();
+      const vm = getOverlayViewModel(store);
+
+      scheduleBannerAutoHideIfNeeded(vm);
+
+      // Si estamos en ?obs=1, actualizar únicamente el Scorebug transparente sin recrear el DOM
+      if (isObsOverlayMode) {
+        updateScorebugMount(document.getElementById('obsScorebugMount'), vm);
+        return;
+      }
+
+      // Generar de inmediato el enlace exacto para OBS Browser Source
+      updateObsGeneratedUrl();
+
+      // Actualizar Vista Previa en el Panel sin recrear el DOM
+      updateScorebugMount(document.getElementById('previewScorebugMount'), vm);
+
+      // Mostrar encabezados según si se abrió conectada a un juego o independiente
+      const mainTitle = document.getElementById('panelMainTitle');
+      const mainSub = document.getElementById('panelMainSubtitle');
+      document.getElementById('selectorModeGameRow').classList.toggle('hidden', currentMode !== 'game');
+      document.getElementById('selectorModeManualRow').classList.toggle('hidden', currentMode !== 'manual');
+      document.getElementById('gamePlayersQuickBannerSection').classList.toggle('hidden', currentMode !== 'game');
+
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        const hTeam = game ? store.teams.find(t => t.id === game.homeTeamId) : null;
+        const aTeam = game ? store.teams.find(t => t.id === game.awayTeamId) : null;
+        mainTitle.textContent = '🎥 Pizarra OBS Conectada al Juego';
+        mainSub.innerHTML = 'Editando la pizarra exclusiva de este partido. Los puntos, reloj y tiras de jugadores desde <strong>Puntos.html</strong> se reflejan en vivo.';
+        document.getElementById('linkedGameTitleLabel').textContent = game
+          ? `${hTeam ? hTeam.name : 'Local'} (${vm.homeScore}) vs ${aTeam ? aTeam.name : 'Visitante'} (${vm.awayScore}) • ${vm.isFinal ? 'FINAL' : getPeriodLabel(vm.period)}`
+          : 'Juego conectado';
+        renderGamePlayersQuickBannerButtons(store, game);
+      } else {
+        mainTitle.textContent = '🖥️ Pizarra OBS Independiente';
+        mainSub.innerHTML = 'Esta pizarra se maneja aparte desde este mismo panel sin depender de la anotación de ningún juego. Cada dispositivo tiene su propia pizarra.';
+        // Poblar selector de Pizarras Independientes
+        const boardSel = document.getElementById('selectManualBoard');
+        boardSel.innerHTML = store.standaloneBoards.map((b, idx) =>
+          `<option value="${b.id}" ${b.id === currentBoardId ? 'selected' : ''}>Pizarra #${idx + 1}: ${escapeHtml(b.homeName)} (${b.homeScore}) vs ${escapeHtml(b.awayName)} (${b.awayScore})</option>`
+        ).join('');
+      }
+
+      // Sincronizar valores en los inputs del panel (sin perder el foco si el usuario está escribiendo)
+      const activeEl = document.activeElement;
+      const tourneyInput = document.getElementById('ctrlTournamentName');
+      if (activeEl !== tourneyInput) tourneyInput.value = vm.tournamentName || '';
+
+      const tourneyTextColorInput = document.getElementById('ctrlTourneyTextColorInput');
+      if (activeEl !== tourneyTextColorInput) tourneyTextColorInput.value = vm.tourneyTextColor || '#ffffff';
+
+      const homeNameInput = document.getElementById('ctrlHomeNameInput');
+      if (activeEl !== homeNameInput) homeNameInput.value = vm.homeName || '';
+
+      const awayNameInput = document.getElementById('ctrlAwayNameInput');
+      if (activeEl !== awayNameInput) awayNameInput.value = vm.awayName || '';
+
+      const homeColorInput = document.getElementById('ctrlHomeColorInput');
+      if (activeEl !== homeColorInput) homeColorInput.value = vm.homeColor || '#2b3244';
+
+      const awayColorInput = document.getElementById('ctrlAwayColorInput');
+      if (activeEl !== awayColorInput) awayColorInput.value = vm.awayColor || '#1d294b';
+
+      const homeTextColorInput = document.getElementById('ctrlHomeTextColorInput');
+      if (activeEl !== homeTextColorInput) homeTextColorInput.value = vm.homeTextColor || '#ffffff';
+
+      const awayTextColorInput = document.getElementById('ctrlAwayTextColorInput');
+      if (activeEl !== awayTextColorInput) awayTextColorInput.value = vm.awayTextColor || '#ffffff';
+
+      const homeScoreInput = document.getElementById('ctrlHomeScoreInput');
+      if (activeEl !== homeScoreInput) homeScoreInput.value = vm.homeScore;
+
+      const awayScoreInput = document.getElementById('ctrlAwayScoreInput');
+      if (activeEl !== awayScoreInput) awayScoreInput.value = vm.awayScore;
+
+      // Reloj en controles
+      document.getElementById('ctrlClockBigReadout').textContent = vm.isFinal ? 'FINAL' : formatSecondsMMSS(vm.clockSeconds);
+      const sec = Math.max(0, Math.floor(vm.clockSeconds || 0));
+      const minIn = document.getElementById('ctrlClockMinInput');
+      const secIn = document.getElementById('ctrlClockSecInput');
+      if (activeEl !== minIn) minIn.value = Math.floor(sec / 60);
+      if (activeEl !== secIn) secIn.value = sec % 60;
+
+      const btnClock = document.getElementById('btnCtrlToggleClock');
+      if (vm.clockRunning) {
+        btnClock.textContent = '⏸️ Pausar Reloj';
+        btnClock.className = 'btn btn-sm btn-red';
+      } else {
+        btnClock.textContent = '▶️ Iniciar Reloj';
+        btnClock.className = 'btn btn-sm btn-green';
+      }
+
+      // Botones de Período y FINAL
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        const pVal = Number(btn.getAttribute('data-p'));
+        btn.classList.toggle('btn-primary', !vm.isFinal && vm.period === pVal);
+        btn.classList.toggle('btn-outline', vm.isFinal || vm.period !== pVal);
+      });
+      const btnFinalEl = document.getElementById('btnOverlayFinalState');
+      if (btnFinalEl) {
+        btnFinalEl.classList.toggle('btn-red', Boolean(vm.isFinal));
+        btnFinalEl.classList.toggle('btn-outline', !vm.isFinal);
+      }
+    }
+
+    function renderGamePlayersQuickBannerButtons(store, game) {
+      const container = document.getElementById('gamePlayersQuickBannerList');
+      if (!container) return;
+      if (!game) {
+        container.innerHTML = '';
+        return;
+      }
+      const homePlayers = store.players.filter(p => p.teamId === game.homeTeamId);
+      const awayPlayers = store.players.filter(p => p.teamId === game.awayTeamId);
+      const allPlayers = [
+        ...homePlayers.map(p => ({ p, side: 'home' })),
+        ...awayPlayers.map(p => ({ p, side: 'away' }))
+      ];
+      if (allPlayers.length === 0) {
+        container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted);">No hay jugadores registrados en este partido.</span>`;
+        return;
+      }
+      container.innerHTML = allPlayers.map(({ p, side }) => {
+        const c = getPlayerGameStats(game, p.id);
+        const topSummary = c.totalPts > 0 ? `${c.totalPts} PTS` : (c.totalReb > 0 ? `${c.totalReb} REB` : '0 PTS');
+        return `<button type="button" class="btn btn-sm btn-outline" onclick="deployGamePlayerBannerFromPizarra('${p.id}', '${side}')">
+          📺 #${escapeHtml(p.number)} ${escapeHtml(p.name)} (${topSummary})
+        </button>`;
+      }).join('');
+    }
+
+    function updateObsGeneratedUrl() {
+      const baseUrl = window.location.href.split('?')[0];
+      const query = currentMode === 'game'
+        ? `?obs=1&mode=game&gameId=${encodeURIComponent(currentGameId)}`
+        : `?obs=1&mode=manual&boardId=${encodeURIComponent(currentBoardId)}`;
+      const fullUrl = baseUrl + query;
+      const inputEl = document.getElementById('obsBrowserUrlInput');
+      if (inputEl) inputEl.value = fullUrl;
+    }
+
+    function copyObsOverlayUrl() {
+      const inputEl = document.getElementById('obsBrowserUrlInput');
+      if (!inputEl || !inputEl.value) return;
+      inputEl.select();
+      navigator.clipboard.writeText(inputEl.value).then(() => {
+        alert('✅ ¡Enlace de Overlay copiado!\n\nAhora abre OBS Studio → Fuentes → (+) → Navegador → Pega este enlace.\nDimensiones recomendadas: Ancho 1020, Alto 170.');
+      }).catch(() => {
+        document.execCommand('copy');
+        alert('✅ ¡Enlace copiado al portapapeles!');
+      });
+    }
+
+    function openObsUrlPreviewTab() {
+      const inputEl = document.getElementById('obsBrowserUrlInput');
+      if (inputEl && inputEl.value) {
+        window.open(inputEl.value, '_blank');
+      }
+    }
+
+    function promptEditTournamentHeader() {
+      if (isObsOverlayMode) return;
+      const store = loadStore();
+      const vm = getOverlayViewModel(store);
+      const nextVal = prompt('🏆 Escribe el nombre del torneo o texto superior de la pizarra:', vm.tournamentName || '');
+      if (nextVal !== null) {
+        updateOverlayField('tournamentName', nextVal);
+      }
+    }
+
+    // =========================================================================
+    // DESPLEGAR TIRA DE 5 SEGUNDOS (PERSONALIZADA O DE JUGADOR)
+    // =========================================================================
+    function triggerCustomBannerOverlay() {
+      const playerInput = document.getElementById('bannerCustomPlayerInput');
+      const teamInput = document.getElementById('bannerCustomTeamInput');
+      const statsInput = document.getElementById('bannerCustomStatsInput');
+
+      const playerText = (playerInput && playerInput.value.trim()) || 'JUGADOR DESTACADO';
+      const teamText = (teamInput && teamInput.value.trim()) || '';
+      const statsText = (statsInput && statsInput.value.trim()) || '';
+
+      const store = loadStore();
+      const vm = getOverlayViewModel(store);
+
+      const bannerPayload = {
+        id: uid('banner'),
+        playerText,
+        teamText,
+        statsText,
+        bgColor: vm.homeColor || '#2b3244',
+        textColor: vm.homeTextColor || '#ffffff',
+        triggeredAt: Date.now(),
+        durationMs: 5000
+      };
+
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig.activeBanner = bannerPayload;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.activeBanner = bannerPayload;
+      }
+
+      saveStoreAndBroadcast(store);
+    }
+
+    function deployGamePlayerBannerFromPizarra(playerId, side) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === currentGameId);
+      if (!game) return;
+      const player = store.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      const team = store.teams.find(t => t.id === player.teamId);
+      const cfg = game.overlayConfig || {};
+      const teamLabel = side === 'home'
+        ? (cfg.homeName || (team && (team.shortName || team.name)) || 'LOCAL')
+        : (cfg.awayName || (team && (team.shortName || team.name)) || 'VISITANTE');
+      const teamBg = side === 'home'
+        ? (cfg.homeColor || (team && team.color) || '#2b3244')
+        : (cfg.awayColor || (team && team.color) || '#1d294b');
+      const teamTxtColor = side === 'home'
+        ? (cfg.homeTextColor || '#ffffff')
+        : (cfg.awayTextColor || '#ffffff');
+
+      const c = getPlayerGameStats(game, player.id);
+      const statItems = [
+        { label: 'PTS', val: c.totalPts },
+        { label: 'REB', val: c.totalReb },
+        { label: 'AST', val: c.ast },
+        { label: 'ROB', val: c.stl },
+        { label: 'TAP', val: c.blk },
+        { label: '3PT', val: c.t3Made }
+      ];
+      const nonZero = statItems.filter(item => item.val > 0).sort((a, b) => b.val - a.val).slice(0, 4);
+      const statsSummary = nonZero.length > 0
+        ? nonZero.map(item => `${item.val} ${item.label}`).join('  •  ')
+        : 'EN CANCHA';
+
+      if (!game.overlayConfig) game.overlayConfig = {};
+      game.overlayConfig.activeBanner = {
+        id: uid('banner'),
+        playerText: `#${player.number} ${player.name}`,
+        teamText: teamLabel,
+        statsText: statsSummary,
+        bgColor: teamBg,
+        textColor: teamTxtColor,
+        triggeredAt: Date.now(),
+        durationMs: 5000
+      };
+
+      saveStoreAndBroadcast(store);
+    }
+
+    // =========================================================================
+    // ACCIONES DE EDICIÓN EN TIEMPO REAL (NOMBRES, COLORES, LOGOS, PUNTOS, RELOJ)
+    // =========================================================================
+    function onChangeManualBoard(boardId) {
+      currentBoardId = boardId;
+      try { localStorage.setItem(DEVICE_BOARD_STORAGE_KEY, currentBoardId); } catch (e) {}
+      ensureClockTimerState();
+      renderAll();
+    }
+
+    function createNewManualBoard() {
+      const store = loadStore();
+      const newBoard = {
+        id: uid('board'),
+        tournamentName: 'TORNEO DE BALONCESTO',
+        tourneyTextColor: '#ffffff',
+        homeName: 'WSH',
+        awayName: 'IND',
+        homeColor: '#2b3244',
+        awayColor: '#1d294b',
+        homeTextColor: '#ffffff',
+        awayTextColor: '#ffffff',
+        homeLogo: '',
+        awayLogo: '',
+        homeLogoFit: 'cover',
+        awayLogoFit: 'cover',
+        homeScore: 0,
+        awayScore: 0,
+        period: 1,
+        clockSeconds: 600,
+        clockRunning: false,
+        clockUpdatedAt: Date.now(),
+        activeBanner: null,
+        createdAt: Date.now()
+      };
+      store.standaloneBoards.unshift(newBoard);
+      currentBoardId = newBoard.id;
+      try { localStorage.setItem(DEVICE_BOARD_STORAGE_KEY, currentBoardId); } catch (e) {}
+      saveStoreAndBroadcast(store);
+    }
+
+    function deleteCurrentManualBoard() {
+      const store = loadStore();
+      if (store.standaloneBoards.length <= 1) {
+        alert('Debe existir al menos una pizarra independiente.');
+        return;
+      }
+      if (!confirm('¿Eliminar esta pizarra independiente?')) return;
+      store.standaloneBoards = store.standaloneBoards.filter(b => b.id !== currentBoardId);
+      currentBoardId = store.standaloneBoards[0].id;
+      try { localStorage.setItem(DEVICE_BOARD_STORAGE_KEY, currentBoardId); } catch (e) {}
+      saveStoreAndBroadcast(store);
+    }
+
+    function updateOverlayField(field, value) {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig[field] = value;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board[field] = value;
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function stepOverlayScore(side, delta) {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        const key = side === 'home' ? 'scoreOffsetHome' : 'scoreOffsetAway';
+        const totals = getTeamGameTotals(store, game, side === 'home' ? game.homeTeamId : game.awayTeamId);
+        const currentOffset = Number(game.overlayConfig[key] || 0);
+        const nextTotal = Math.max(0, totals.pts + currentOffset + delta);
+        game.overlayConfig[key] = nextTotal - totals.pts;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        const key = side === 'home' ? 'homeScore' : 'awayScore';
+        board[key] = Math.max(0, (board[key] || 0) + delta);
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function setOverlayScoreDirect(side, val) {
+      const num = Math.max(0, parseInt(val, 10) || 0);
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        const key = side === 'home' ? 'scoreOffsetHome' : 'scoreOffsetAway';
+        const totals = getTeamGameTotals(store, game, side === 'home' ? game.homeTeamId : game.awayTeamId);
+        game.overlayConfig[key] = num - totals.pts;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        const key = side === 'home' ? 'homeScore' : 'awayScore';
+        board[key] = num;
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function setOverlayPeriod(periodNum) {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        game.period = periodNum;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig.isFinal = false;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.period = periodNum;
+        board.isFinal = false;
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function toggleOverlayFinal() {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        const currentFinal = game.overlayConfig.isFinal !== undefined ? Boolean(game.overlayConfig.isFinal) : (game.status === 'Finalizado');
+        game.overlayConfig.isFinal = !currentFinal;
+        if (game.overlayConfig.isFinal) {
+          game.clockRunning = false;
+          isClockMasterInThisTab = false;
+        }
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.isFinal = !board.isFinal;
+        if (board.isFinal) {
+          board.clockRunning = false;
+          isClockMasterInThisTab = false;
+        }
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function cycleOverlayPeriod() {
+      const store = loadStore();
+      const vm = getOverlayViewModel(store);
+      const nextP = vm.period >= 5 ? 1 : vm.period + 1;
+      setOverlayPeriod(nextP);
+    }
+
+    // =========================================================================
+    // RELOJ INTERACTIVO CON SINCRONIZACIÓN EN VIVO PARA OBS
+    // =========================================================================
+    let isClockMasterInThisTab = false;
+
+    function toggleOverlayClock() {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        game.clockRunning = !game.clockRunning;
+        isClockMasterInThisTab = game.clockRunning;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.clockRunning = !board.clockRunning;
+        board.clockUpdatedAt = Date.now();
+        isClockMasterInThisTab = board.clockRunning;
+      }
+      saveStoreAndBroadcast(store);
+      ensureClockTimerState();
+    }
+
+    function adjustOverlayClock(deltaSeconds) {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        game.clockSeconds = Math.max(0, (game.clockSeconds || 0) + deltaSeconds);
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.clockSeconds = Math.max(0, (board.clockSeconds || 0) + deltaSeconds);
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function applyManualClockInput() {
+      const m = Math.max(0, parseInt(document.getElementById('ctrlClockMinInput').value, 10) || 0);
+      const s = Math.max(0, parseInt(document.getElementById('ctrlClockSecInput').value, 10) || 0);
+      resetOverlayClock(m * 60 + s);
+    }
+
+    function resetOverlayClock(totalSeconds) {
+      const store = loadStore();
+      isClockMasterInThisTab = false;
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        game.clockSeconds = Math.max(0, totalSeconds);
+        game.clockRunning = false;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.clockSeconds = Math.max(0, totalSeconds);
+        board.clockRunning = false;
+      }
+      saveStoreAndBroadcast(store);
+      ensureClockTimerState();
+    }
+
+    function ensureClockTimerState() {
+      if (localClockTimer) {
+        clearInterval(localClockTimer);
+        localClockTimer = null;
+      }
+      if (isObsOverlayMode) return;
+
+      localClockTimer = setInterval(() => {
+        if (!isClockMasterInThisTab) return;
+        const store = loadStore();
+        if (currentMode === 'game') {
+          const game = store.games.find(g => g.id === currentGameId);
+          if (!game || !game.clockRunning) {
+            isClockMasterInThisTab = false;
+            return;
+          }
+          if ((game.clockSeconds || 0) > 0) {
+            game.clockSeconds -= 1;
+            if (game.clockSeconds <= 0) {
+              game.clockSeconds = 0;
+              game.clockRunning = false;
+              isClockMasterInThisTab = false;
+            }
+            saveStoreAndBroadcast(store);
+          }
+        } else {
+          const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+          if (!board || !board.clockRunning) {
+            isClockMasterInThisTab = false;
+            return;
+          }
+          if ((board.clockSeconds || 0) > 0) {
+            board.clockSeconds -= 1;
+            if (board.clockSeconds <= 0) {
+              board.clockSeconds = 0;
+              board.clockRunning = false;
+              isClockMasterInThisTab = false;
+            }
+            saveStoreAndBroadcast(store);
+          }
+        }
+      }, 1000);
+    }
+
+    // =========================================================================
+    // SUBIDA Y COMPRESIÓN DE LOGOS DESDE PC O FOTOS DE TABLETA
+    // =========================================================================
+    function handleLogoUpload(event, side) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Redimensionar a tamaño óptimo (máx 260px) para sincronización instantánea en Firebase y OBS
+          const maxDim = 260;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/png', 0.92);
+
+          const store = loadStore();
+          const field = side === 'home' ? 'homeLogo' : 'awayLogo';
+          if (currentMode === 'game') {
+            const game = store.games.find(g => g.id === currentGameId);
+            if (game) {
+              if (!game.overlayConfig) game.overlayConfig = {};
+              game.overlayConfig[field] = dataUrl;
+              const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+              const team = store.teams.find(t => t.id === teamId);
+              if (team) team.logo = dataUrl;
+            }
+          } else {
+            const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+            if (board) board[field] = dataUrl;
+          }
+          saveStoreAndBroadcast(store);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function toggleLogoFit(side) {
+      const store = loadStore();
+      const field = side === 'home' ? 'homeLogoFit' : 'awayLogoFit';
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig[field] = game.overlayConfig[field] === 'contain' ? 'cover' : 'contain';
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board[field] = board[field] === 'contain' ? 'cover' : 'contain';
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    function clearTeamLogo(side) {
+      const store = loadStore();
+      const field = side === 'home' ? 'homeLogo' : 'awayLogo';
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig[field] = '';
+        const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+        const team = store.teams.find(t => t.id === teamId);
+        if (team) team.logo = '';
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board[field] = '';
+      }
+      saveStoreAndBroadcast(store);
+    }
+
+    // =========================================================================
+    // CLIENTE OBS WEBSOCKET v5 (PARA ENVIAR EVENTOS EN TIEMPO REAL A OBS)
+    // =========================================================================
+    function connectObsWebSocket() {
+      const url = (document.getElementById('obsWsUrlInput') && document.getElementById('obsWsUrlInput').value.trim()) || 'ws://127.0.0.1:4455';
+      const badge = document.getElementById('obsWsStatusBadge');
+
+      try {
+        if (obsSocket) {
+          obsSocket.close();
+          obsSocket = null;
+        }
+        if (badge) {
+          badge.className = 'badge badge-pending';
+          badge.textContent = '⏳ Conectando a OBS...';
+        }
+
+        obsSocket = new WebSocket(url);
+
+        obsSocket.onopen = () => {
+          obsSocket.send(JSON.stringify({
+            op: 1,
+            d: { rpcVersion: 1 }
+          }));
+        };
+
+        obsSocket.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.op === 2) {
+              obsSocketConnected = true;
+              if (badge) {
+                badge.className = 'badge badge-live';
+                badge.textContent = '🟢 OBS WebSocket Conectado';
+              }
+              broadcastStateOverObsWs(loadStore());
+            } else if (msg.op === 5 && msg.d && msg.d.eventType === 'CustomEvent') {
+              const evData = msg.d.eventData;
+              if (evData && evData.source === 'basket_pizarra_ws' && evData.store) {
+                saveStore(evData.store);
+              }
+            }
+          } catch (e) {}
+        };
+
+        obsSocket.onerror = () => {
+          obsSocketConnected = false;
+          if (badge) {
+            badge.className = 'badge badge-pending';
+            badge.textContent = '⚠️ OBS WS no detectado (Usando Sync Firebase/Local)';
+          }
+        };
+
+        obsSocket.onclose = () => {
+          obsSocketConnected = false;
+        };
+      } catch (err) {
+        if (badge) {
+          badge.className = 'badge badge-pending';
+          badge.textContent = '⚪ OBS WebSocket Desconectado';
+        }
+      }
+    }
+
+    function broadcastStateOverObsWs(store) {
+      if (!obsSocket || !obsSocketConnected || obsSocket.readyState !== WebSocket.OPEN) return;
+      try {
+        obsSocket.send(JSON.stringify({
+          op: 6,
+          d: {
+            requestType: 'BroadcastCustomEvent',
+            requestId: uid('obsws'),
+            requestData: {
+              eventData: {
+                source: 'basket_pizarra_ws',
+                store
+              }
+            }
+          }
+        }));
+      } catch (e) {}
+    }
+
+    function saveStoreAndBroadcast(store) {
+      saveStore(store);
+      broadcastStateOverObsWs(store);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.addEventListener('storeUpdated', renderAll);
+    renderAll();
+    ensureClockTimerState();
+    updateFirebaseBadge();
+  </script>
+</body>
+</html>

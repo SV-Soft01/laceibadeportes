@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administración de Torneos, Equipos y Jugadores - Basketball</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Barra de navegación -->
+  <nav class="navbar">
+    <a href="index.html" class="brand">
+      🏀 Basket & Baseball Stats <span class="badge-sport">Admin</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status" title="Estado de conexión con Firebase Realtime Database">
+        ⏳ Conectando Firebase...
+      </span>
+      <a href="index.html" class="nav-link active">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- Aviso automático si Firebase tiene reglas .read: false / .write: false -->
+    <div id="firebaseRulesAlert" class="alert-warning hidden">
+      <strong>⚠️ Atención con las Reglas de tu Firebase Realtime Database:</strong>
+      Actualmente tus reglas en Firebase tienen <code>".read": false</code> y <code>".write": false</code>, lo que bloquea el guardado en la nube.
+      Ve a tu consola de Firebase → <strong>Realtime Database → Reglas (Rules)</strong> y cámbialas por:
+      <pre style="background:#0b1120; padding:0.6rem; border-radius:8px; margin-top:0.5rem; color:#4ade80; overflow-x:auto;">{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}</pre>
+      <div style="margin-top:0.4rem; font-size:0.8rem; color:var(--text-muted);">
+        Mientras tanto, tus cambios se están guardando localmente y se subirán automáticamente en cuanto publiques esas reglas.
+      </div>
+    </div>
+
+    <!-- =========================================================
+         PANTALLA 1: LISTA DE TORNEOS Y CREAR TORNEO
+         ========================================================= -->
+    <section id="viewTournaments">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">🏆 Mis Torneos</h1>
+          <p class="page-subtitle">Crea un nuevo torneo de Basketball o Baseball o selecciona uno existente para administrar sus equipos, jugadores y juegos.</p>
+        </div>
+      </div>
+
+      <div class="layout-sidebar">
+        <!-- Formulario Crear Torneo -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">➕ Crear Nuevo Torneo</h2>
+          </div>
+          <form id="formCreateTournament">
+            <div class="form-group">
+              <label class="form-label">Nombre del Torneo *</label>
+              <input type="text" id="tName" placeholder="Ej. Torneo Superior Navideño 2026" required />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Categoría / Rama</label>
+                <input type="text" id="tCategory" placeholder="Ej. Libre Masculino" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Deporte *</label>
+                <select id="tSport">
+                  <option value="basketball">🏀 Basketball</option>
+                  <option value="baseball">⚾ Baseball</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha de Inicio</label>
+              <input type="date" id="tDate" />
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">
+              🚀 Crear Torneo y Configurar Equipos
+            </button>
+          </form>
+        </div>
+
+        <!-- Lista de Torneos -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📋 Lista de Torneos Registrados</h2>
+            <span id="tournamentCountBadge" class="badge badge-pending">0 torneos</span>
+          </div>
+          <div id="tournamentsListContainer" class="grid-2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 2: ADMINISTRACIÓN INTERNA DEL TORNEO
+         (Se abre al crear un torneo o al hacer clic en Administrar)
+         ========================================================= -->
+    <section id="viewTournamentDetail" class="hidden">
+      <div class="page-header">
+        <div>
+          <div style="margin-bottom:0.4rem;">
+            <button class="btn btn-sm btn-outline" onclick="backToTournamentsList()">
+              ← Volver a Lista de Torneos
+            </button>
+          </div>
+          <h1 class="page-title">
+            <span id="detailTournamentName">Nombre del Torneo</span>
+            <button class="btn btn-sm btn-outline" onclick="openEditTournamentModal(currentTournamentId)">✏️ Editar Torneo</button>
+          </h1>
+          <p class="page-subtitle" id="detailTournamentMeta"></p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-red btn-sm" onclick="deleteTournament(currentTournamentId)">🗑️ Eliminar Torneo</button>
+        </div>
+      </div>
+
+      <!-- Pestañas del Torneo -->
+      <div class="tabs-bar">
+        <button id="tabBtnTeams" class="tab-btn active" onclick="switchTournamentTab('teams')">
+          🛡️ 1. Equipos y Jugadores por Equipo
+        </button>
+        <button id="tabBtnGames" class="tab-btn" onclick="switchTournamentTab('games')">
+          📅 2. Armar Juegos del Torneo
+        </button>
+      </div>
+
+      <!-- SUB-VISTA A: EQUIPOS Y JUGADORES -->
+      <div id="subViewTeams">
+        <div class="layout-sidebar">
+          <!-- Columna Izquierda: Crear Equipo y Lista de Equipos -->
+          <div>
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">🛡️ Crear Equipo</h2>
+              </div>
+              <form id="formCreateTeam">
+                <div class="form-group">
+                  <label class="form-label">Nombre del Equipo *</label>
+                  <input type="text" id="teamNameInput" placeholder="Ej. Leones del Norte" required />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Siglas / Abrev. (3 letras)</label>
+                    <input type="text" id="teamShortInput" placeholder="Ej. LEO" maxlength="5" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Color del Equipo</label>
+                    <input type="color" id="teamColorInput" value="#f97316" style="height:42px; padding:4px;" />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">+ Agregar Equipo al Torneo</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">📋 Equipos del Torneo</h2>
+                <span id="teamsCountBadge" class="badge badge-pending">0</span>
+              </div>
+              <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.8rem;">
+                Haz clic en un equipo para ver y agregar sus jugadores a la derecha.
+              </p>
+              <div id="teamsListContainer" style="display:flex; flex-direction:column; gap:0.75rem;"></div>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Jugadores del Equipo Seleccionado -->
+          <div class="card">
+            <div id="playersPanelEmpty" class="empty-state">
+              <h3>👈 Selecciona o crea un equipo a la izquierda</h3>
+              <p style="margin-top:0.4rem;">Aquí podrás agregar, editar o eliminar todos los jugadores de cada equipo.</p>
+            </div>
+
+            <div id="playersPanelContent" class="hidden">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">
+                    <span id="selectedTeamColorDot" style="display:inline-block;width:14px;height:14px;border-radius:50%;"></span>
+                    Jugadores de: <span id="selectedTeamTitle" style="color:var(--accent-orange);">Equipo</span>
+                  </h2>
+                  <p style="font-size:0.82rem; color:var(--text-muted);" id="selectedTeamSubtitle"></p>
+                </div>
+                <div style="display:flex; gap:0.4rem;">
+                  <button class="btn btn-sm btn-outline" onclick="openEditTeamModal(selectedTeamId)">✏️ Editar Equipo</button>
+                  <button class="btn btn-sm btn-red" onclick="deleteTeam(selectedTeamId)">🗑️ Eliminar Equipo</button>
+                </div>
+              </div>
+
+              <!-- Formulario Agregar Jugador al Equipo Seleccionado -->
+              <form id="formCreatePlayer" style="background:var(--bg-card-alt); padding:1rem; border-radius:10px; border:1px solid var(--border-color); margin-bottom:1.25rem;">
+                <h3 style="font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-main);" id="formCreatePlayerHeading">➕ Agregar Jugador a este Equipo</h3>
+                <div class="grid-3">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Nombre Completo *</label>
+                    <input type="text" id="playerNameInput" placeholder="Ej. Carlos Mendoza" required />
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Número / Dorsal (#) *</label>
+                    <input type="number" id="playerNumberInput" placeholder="Ej. 23" min="0" max="99" required />
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;" id="playerPositionGroup">
+                    <label class="form-label">Posición</label>
+                    <select id="playerPositionInput">
+                      <option value="Base (PG)">Base (PG)</option>
+                      <option value="Escolta (SG)">Escolta (SG)</option>
+                      <option value="Alero (SF)">Alero (SF)</option>
+                      <option value="Ala-Pívot (PF)">Ala-Pívot (PF)</option>
+                      <option value="Pívot (C)">Pívot (C)</option>
+                    </select>
+                  </div>
+                  <div class="form-group hidden" style="margin-bottom:0;" id="playerBattingOrderInfoGroup">
+                    <label class="form-label">🏏 Turno en el Orden al Bate</label>
+                    <div id="nextBattingOrderBadge" style="height:41px; display:flex; align-items:center; padding:0 0.85rem; background:rgba(250,204,21,0.14); border:1px solid rgba(250,204,21,0.45); border-radius:8px; color:#fde047; font-weight:900; font-size:0.92rem;">
+                      1° Bate (Automático por orden)
+                    </div>
+                  </div>
+                </div>
+                <div style="margin-top:0.85rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                  <span id="baseballOrderHint" class="hidden" style="font-size:0.78rem; color:var(--text-muted);">
+                    ⚾ En Baseball no importa la posición defensiva: se organizan como <strong>1° Bate, 2° Bate, 3° Bate...</strong> sin límite en el orden en que los creas (y puedes cambiar el orden cuando quieras).
+                  </span>
+                  <button type="submit" class="btn btn-green" style="margin-left:auto;">+ Guardar Jugador</button>
+                </div>
+              </form>
+
+              <!-- Tabla de Jugadores del Equipo -->
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th># Dorsal</th>
+                      <th>Nombre del Jugador</th>
+                      <th id="thPositionOrBattingOrder">Posición</th>
+                      <th style="text-align:right;">Acciones (Orden / Editar / Eliminar)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="teamPlayersTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-VISTA B: ARMAR JUEGOS DEL TORNEO -->
+      <div id="subViewGames" class="hidden">
+        <div class="layout-sidebar">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">📅 Armar Nuevo Juego</h2>
+            </div>
+            <form id="formCreateGame">
+              <div class="form-group">
+                <label class="form-label">Equipo Local (Home) *</label>
+                <select id="gameHomeSelect" required></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Equipo Visitante (Away) *</label>
+                <select id="gameAwaySelect" required></select>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Fecha</label>
+                  <input type="date" id="gameDateInput" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Hora</label>
+                  <input type="time" id="gameTimeInput" value="19:30" required />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Jornada / Nota (Opcional)</label>
+                <input type="text" id="gameNoteInput" placeholder="Ej. Jornada 1 - Cancha Central" />
+              </div>
+              <button type="submit" class="btn btn-green btn-block">+ Crear Partido</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🏀 Juegos Programados en el Torneo</h2>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Partido</th>
+                    <th>Fecha / Jornada</th>
+                    <th>Marcador</th>
+                    <th>Estado</th>
+                    <th>Ir a Mesa / Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tournamentGamesTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================
+       MODALES DE EDICIÓN (TORNEO, EQUIPO, JUGADOR, JUEGO)
+       ========================================================= -->
+
+  <!-- Modal Editar Torneo -->
+  <div id="modalEditTournament" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="card-title">✏️ Editar Torneo</h3>
+        <button class="btn btn-sm btn-outline" onclick="closeModal('modalEditTournament')">✕</button>
+      </div>
+      <form id="formEditTournament">
+        <input type="hidden" id="editTournamentId" />
+        <div class="form-group">
+          <label class="form-label">Nombre del Torneo *</label>
+          <input type="text" id="editTournamentName" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Categoría / Rama</label>
+            <input type="text" id="editTournamentCategory" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deporte</label>
+            <select id="editTournamentSport">
+              <option value="basketball">🏀 Basketball</option>
+              <option value="baseball">⚾ Baseball</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de Inicio</label>
+          <input type="date" id="editTournamentDate" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditTournament')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Equipo -->
+  <div id="modalEditTeam" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="card-title">✏️ Editar Equipo</h3>
+        <button class="btn btn-sm btn-outline" onclick="closeModal('modalEditTeam')">✕</button>
+      </div>
+      <form id="formEditTeam">
+        <input type="hidden" id="editTeamId" />
+        <div class="form-group">
+          <label class="form-label">Nombre del Equipo *</label>
+          <input type="text" id="editTeamName" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Siglas / Abreviatura</label>
+            <input type="text" id="editTeamShort" maxlength="5" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color del Equipo</label>
+            <input type="color" id="editTeamColor" style="height:42px; padding:4px;" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditTeam')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Jugador -->
+  <div id="modalEditPlayer" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="card-title">✏️ Editar Jugador</h3>
+        <button class="btn btn-sm btn-outline" onclick="closeModal('modalEditPlayer')">✕</button>
+      </div>
+      <form id="formEditPlayer">
+        <input type="hidden" id="editPlayerId" />
+        <div class="form-group">
+          <label class="form-label">Nombre Completo *</label>
+          <input type="text" id="editPlayerName" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Número / Dorsal (#) *</label>
+            <input type="number" id="editPlayerNumber" min="0" max="99" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Posición</label>
+            <select id="editPlayerPosition">
+              <option value="Base (PG)">Base (PG)</option>
+              <option value="Escolta (SG)">Escolta (SG)</option>
+              <option value="Alero (SF)">Alero (SF)</option>
+              <option value="Ala-Pívot (PF)">Ala-Pívot (PF)</option>
+              <option value="Pívot (C)">Pívot (C)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Equipo</label>
+          <select id="editPlayerTeamSelect"></select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditPlayer')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Juego -->
+  <div id="modalEditGame" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="card-title">✏️ Editar Juego</h3>
+        <button class="btn btn-sm btn-outline" onclick="closeModal('modalEditGame')">✕</button>
+      </div>
+      <form id="formEditGame">
+        <input type="hidden" id="editGameId" />
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Equipo Local</label>
+            <select id="editGameHome" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Equipo Visitante</label>
+            <select id="editGameAway" required></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="editGameDate" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hora</label>
+            <input type="time" id="editGameTime" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Jornada / Nota</label>
+            <input type="text" id="editGameNote" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select id="editGameStatus">
+              <option value="Programado">Programado</option>
+              <option value="En Vivo">En Vivo</option>
+              <option value="Finalizado">Finalizado</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditGame')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentView = 'list'; // 'list' | 'detail'
+    let currentTournamentId = null;
+    let selectedTeamId = null;
+    let activeTab = 'teams'; // 'teams' | 'games'
+
+    // Inicializar fechas por defecto en formularios
+    document.getElementById('tDate').valueAsDate = new Date();
+    document.getElementById('gameDateInput').valueAsDate = new Date();
+
+    // Estado de conexión con Firebase
+    function updateFirebaseIndicator() {
+      const info = getFirebaseStatus();
+      const badge = document.getElementById('firebaseBadge');
+      const alertBox = document.getElementById('firebaseRulesAlert');
+
+      if (info.status === 'connected') {
+        badge.className = 'db-status connected';
+        badge.textContent = '🟢 Firebase Conectado';
+        alertBox.classList.add('hidden');
+      } else if (info.status === 'permission_denied') {
+        badge.className = 'db-status error';
+        badge.textContent = '🔒 Firebase: Reglas Bloqueadas';
+        alertBox.classList.remove('hidden');
+      } else if (info.status === 'offline') {
+        badge.className = 'db-status error';
+        badge.textContent = '⚠️ Modo Local (Sin red)';
+      } else {
+        badge.className = 'db-status';
+        badge.textContent = '⏳ Conectando Firebase...';
+      }
+    }
+
+    window.addEventListener('firebaseStatusChanged', updateFirebaseIndicator);
+
+    // =========================================================
+    // NAVEGACIÓN ENTRE PANTALLA DE TORNEOS Y DETALLE DE TORNEO
+    // =========================================================
+    function openTournamentDetail(tournamentId) {
+      const store = loadStore();
+      const t = store.tournaments.find(x => x.id === tournamentId);
+      if (!t) return;
+
+      currentTournamentId = tournamentId;
+      store.activeTournamentId = tournamentId;
+
+      // Seleccionar el primer equipo por defecto si existe
+      const tournamentTeams = store.teams.filter(tm => tm.tournamentId === tournamentId);
+      if (!selectedTeamId || !tournamentTeams.some(tm => tm.id === selectedTeamId)) {
+        selectedTeamId = tournamentTeams.length > 0 ? tournamentTeams[0].id : null;
+      }
+
+      currentView = 'detail';
+      saveStore(store);
+      renderAll();
+    }
+
+    function backToTournamentsList() {
+      currentView = 'list';
+      renderAll();
+    }
+
+    function switchTournamentTab(tab) {
+      activeTab = tab;
+      document.getElementById('tabBtnTeams').classList.toggle('active', tab === 'teams');
+      document.getElementById('tabBtnGames').classList.toggle('active', tab === 'games');
+      document.getElementById('subViewTeams').classList.toggle('hidden', tab !== 'teams');
+      document.getElementById('subViewGames').classList.toggle('hidden', tab !== 'games');
+    }
+
+    // =========================================================
+    // RENDERIZADO GENERAL
+    // =========================================================
+    function renderAll() {
+      const store = loadStore();
+
+      // Si estábamos viendo un torneo que fue eliminado, volver a la lista
+      if (currentView === 'detail' && !store.tournaments.some(t => t.id === currentTournamentId)) {
+        currentView = 'list';
+        currentTournamentId = null;
+      }
+
+      document.getElementById('viewTournaments').classList.toggle('hidden', currentView !== 'list');
+      document.getElementById('viewTournamentDetail').classList.toggle('hidden', currentView !== 'detail');
+
+      if (currentView === 'list') {
+        renderTournamentsList(store);
+      } else {
+        renderTournamentDetail(store);
+      }
+    }
+
+    // Renderizar Lista de Torneos (Pantalla 1)
+    function renderTournamentsList(store) {
+      const container = document.getElementById('tournamentsListContainer');
+      const countBadge = document.getElementById('tournamentCountBadge');
+      countBadge.textContent = `${store.tournaments.length} torneo(s)`;
+
+      if (store.tournaments.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <h3>🏀 No hay torneos creados todavía</h3>
+            <p style="margin-top:0.4rem;">Usa el formulario de la izquierda para crear tu primer torneo y empezar a registrar equipos y jugadores.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = store.tournaments.map(t => {
+        const tTeams = store.teams.filter(tm => tm.tournamentId === t.id);
+        const teamIds = new Set(tTeams.map(tm => tm.id));
+        const tPlayers = store.players.filter(p => teamIds.has(p.teamId));
+        const tGames = store.games.filter(g => g.tournamentId === t.id);
+        const isBaseball = t.sport === 'baseball';
+
+        return `
+          <div class="item-card">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${escapeHtml(t.name)}</h3>
+                <span class="badge ${isBaseball ? 'badge-live' : 'badge-pending'}" style="${isBaseball ? 'background:rgba(234,179,8,0.18);color:#fde047;border-color:rgba(234,179,8,0.4);' : ''}">
+                  ${isBaseball ? '⚾ Baseball' : '🏀 Basketball'}
+                </span>
+              </div>
+              <div style="font-size:0.83rem; color:var(--text-muted); margin-top:0.25rem;">
+                ${t.category ? escapeHtml(t.category) + ' • ' : ''}${t.createdAt || ''}
+              </div>
+              <div style="display:flex; gap:0.75rem; margin-top:0.85rem; font-size:0.82rem; color:var(--text-muted);">
+                <span>🛡️ <strong>${tTeams.length}</strong> Equipos</span>
+                <span>${isBaseball ? '⚾' : '⛹️‍♂️'} <strong>${tPlayers.length}</strong> Jugadores</span>
+                <span>📅 <strong>${tGames.length}</strong> Juegos</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:0.45rem; flex-wrap:wrap; border-top:1px solid var(--border-color); padding-top:0.75rem;">
+              <button class="btn btn-sm btn-primary" style="flex:1;" onclick="openTournamentDetail('${t.id}')">
+                ⚙️ Administrar Equipos y Jugadores
+              </button>
+              <button class="btn btn-sm btn-outline" title="Editar Torneo" onclick="openEditTournamentModal('${t.id}')">✏️</button>
+              <button class="btn btn-sm btn-red" title="Eliminar Torneo" onclick="deleteTournament('${t.id}')">🗑️</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const BASKETBALL_POSITIONS = [
+      'Base (PG)',
+      'Escolta (SG)',
+      'Alero (SF)',
+      'Ala-Pívot (PF)',
+      'Pívot (C)'
+    ];
+
+    const BASEBALL_POSITIONS = [
+      'Pitcher (P)',
+      'Catcher (C)',
+      '1ra Base (1B)',
+      '2da Base (2B)',
+      '3ra Base (3B)',
+      'Shortstop (SS)',
+      'Jardinero Izq (LF)',
+      'Jardinero Central (CF)',
+      'Jardinero Der (RF)',
+      'Bateador Designado (DH)',
+      'Utility (UT)'
+    ];
+
+    function populatePositionSelect(selectEl, sport, selectedVal = '') {
+      if (!selectEl) return;
+      const list = sport === 'baseball' ? BASEBALL_POSITIONS : BASKETBALL_POSITIONS;
+      const currentVal = selectedVal || selectEl.value;
+      const options = [...list];
+      if (currentVal && !options.includes(currentVal)) {
+        options.push(currentVal);
+      }
+      selectEl.innerHTML = options.map(pos => `<option value="${escapeHtml(pos)}">${escapeHtml(pos)}</option>`).join('');
+      if (currentVal && options.includes(currentVal)) {
+        selectEl.value = currentVal;
+      } else {
+        selectEl.value = options[0];
+      }
+    }
+
+    // Renderizar Pantalla Interna del Torneo (Pantalla 2)
+    function renderTournamentDetail(store) {
+      const t = store.tournaments.find(x => x.id === currentTournamentId);
+      if (!t) return;
+
+      const isBaseball = t.sport === 'baseball';
+      document.getElementById('detailTournamentName').textContent = `${isBaseball ? '⚾' : '🏆'} ${t.name}`;
+      const teams = store.teams.filter(tm => tm.tournamentId === t.id);
+      const teamIds = new Set(teams.map(tm => tm.id));
+      const totalPlayers = store.players.filter(p => teamIds.has(p.teamId)).length;
+      const games = store.games.filter(g => g.tournamentId === t.id);
+
+      document.getElementById('detailTournamentMeta').textContent =
+        `${isBaseball ? '⚾ Baseball' : '🏀 Basketball'} • ${t.category ? t.category + ' • ' : ''}Inicio: ${t.createdAt || '-'} • ${teams.length} Equipos • ${totalPlayers} Jugadores • ${games.length} Juegos`;
+
+      document.getElementById('playerPositionGroup').classList.toggle('hidden', isBaseball);
+      document.getElementById('playerBattingOrderInfoGroup').classList.toggle('hidden', !isBaseball);
+      document.getElementById('baseballOrderHint').classList.toggle('hidden', !isBaseball);
+      document.getElementById('thPositionOrBattingOrder').textContent = isBaseball ? 'Orden al Bate' : 'Posición';
+      if (!isBaseball) {
+        populatePositionSelect(document.getElementById('playerPositionInput'), t.sport);
+      }
+
+      // Validar equipo seleccionado
+      if (teams.length === 0) {
+        selectedTeamId = null;
+      } else if (!selectedTeamId || !teams.some(tm => tm.id === selectedTeamId)) {
+        selectedTeamId = teams[0].id;
+      }
+
+      // Renderizar Lista de Equipos
+      document.getElementById('teamsCountBadge').textContent = `${teams.length} equipo(s)`;
+      const teamsContainer = document.getElementById('teamsListContainer');
+
+      if (teams.length === 0) {
+        teamsContainer.innerHTML = `<div class="empty-state" style="padding:1rem;">Crea el primer equipo arriba para agregar sus jugadores.</div>`;
+      } else {
+        teamsContainer.innerHTML = teams.map(tm => {
+          const pCount = store.players.filter(p => p.teamId === tm.id).length;
+          const isSelected = tm.id === selectedTeamId;
+          return `
+            <div class="item-card ${isSelected ? 'selected' : ''}" style="cursor:pointer; padding:0.85rem;" onclick="selectTeamForPlayers('${tm.id}')">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:0.55rem;">
+                  <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:${tm.color || '#f97316'};"></span>
+                  <strong>${escapeHtml(tm.name)}</strong>
+                  ${tm.shortName ? `<span class="badge badge-pending">${escapeHtml(tm.shortName)}</span>` : ''}
+                </div>
+                <span style="font-size:0.8rem; color:var(--text-muted);">${pCount} jug.</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem;" onclick="event.stopPropagation();">
+                <button class="btn btn-sm ${isSelected ? 'btn-primary' : 'btn-outline'}" style="flex:1;" onclick="selectTeamForPlayers('${tm.id}')">
+                  ${isBaseball ? '⚾' : '⛹️‍♂️'} Ver / Agregar Jugadores (${pCount})
+                </button>
+                <button class="btn btn-sm btn-outline" title="Editar Equipo" onclick="openEditTeamModal('${tm.id}')">✏️</button>
+                <button class="btn btn-sm btn-red" title="Eliminar Equipo" onclick="deleteTeam('${tm.id}')">🗑️</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Renderizar Panel de Jugadores del Equipo Seleccionado
+      const emptyPanel = document.getElementById('playersPanelEmpty');
+      const contentPanel = document.getElementById('playersPanelContent');
+
+      if (!selectedTeamId) {
+        emptyPanel.classList.remove('hidden');
+        contentPanel.classList.add('hidden');
+      } else {
+        emptyPanel.classList.add('hidden');
+        contentPanel.classList.remove('hidden');
+
+        const activeTeam = teams.find(tm => tm.id === selectedTeamId);
+        const teamPlayers = isBaseball
+          ? getTeamBaseballLineup(store, null, selectedTeamId)
+          : store.players
+              .filter(p => p.teamId === selectedTeamId)
+              .sort((a, b) => Number(a.number) - Number(b.number));
+
+        if (isBaseball) {
+          const nextNum = teamPlayers.length + 1;
+          document.getElementById('nextBattingOrderBadge').textContent = `🏏 ${nextNum}° Bate (Por orden de creación)`;
+          document.getElementById('formCreatePlayerHeading').textContent = `➕ Agregar Bateador al Lineup (${nextNum}° Bate)`;
+        } else {
+          document.getElementById('formCreatePlayerHeading').textContent = `➕ Agregar Jugador a este Equipo`;
+        }
+
+        document.getElementById('selectedTeamColorDot').style.background = activeTeam.color || '#f97316';
+        document.getElementById('selectedTeamTitle').textContent = activeTeam.name;
+        document.getElementById('selectedTeamSubtitle').textContent = isBaseball
+          ? `${teamPlayers.length} bateador(es) en el orden al bate (del 1° al ${teamPlayers.length || 1}° Bate, sin límite)`
+          : `${teamPlayers.length} jugador(es) registrados en la plantilla`;
+
+        const tbody = document.getElementById('teamPlayersTableBody');
+        if (teamPlayers.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Este equipo aún no tiene jugadores. Agrégalos con el formulario de arriba${isBaseball ? ' (empezando por el 1° Bate, 2° Bate, etc.)' : ''}.</td></tr>`;
+        } else {
+          tbody.innerHTML = teamPlayers.map((p, idx) => `
+            <tr>
+              <td><span class="jersey-badge">#${escapeHtml(String(p.number))}</span></td>
+              <td><strong>${escapeHtml(p.name)}</strong></td>
+              <td>
+                ${isBaseball
+                  ? `<span class="badge badge-live" style="background:rgba(250,204,21,0.18); color:#fde047; border-color:rgba(250,204,21,0.45);">🏏 ${idx + 1}° Bate</span>`
+                  : `<span class="badge badge-pending">${escapeHtml(p.position || 'Jugador')}</span>`
+                }
+              </td>
+              <td style="text-align:right;">
+                <div style="display:inline-flex; gap:0.35rem; align-items:center;">
+                  ${isBaseball ? `
+                    <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.45rem;" onclick="moveTeamPlayerBattingOrder('${p.id}', -1)" ${idx === 0 ? 'disabled' : ''} title="Subir en el orden al bate">⬆️</button>
+                    <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.45rem;" onclick="moveTeamPlayerBattingOrder('${p.id}', 1)" ${idx === teamPlayers.length - 1 ? 'disabled' : ''} title="Bajar en el orden al bate">⬇️</button>
+                  ` : ''}
+                  <button class="btn btn-sm btn-outline" onclick="openEditPlayerModal('${p.id}')">✏️ Editar</button>
+                  <button class="btn btn-sm btn-red" onclick="deletePlayer('${p.id}')">🗑️ Eliminar</button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        }
+      }
+
+      // Renderizar Sub-vista de Juegos del Torneo
+      const homeSel = document.getElementById('gameHomeSelect');
+      const awaySel = document.getElementById('gameAwaySelect');
+      const teamOpts = teams.map(tm => `<option value="${tm.id}">${escapeHtml(tm.name)}</option>`).join('');
+      homeSel.innerHTML = teamOpts || '<option value="">Crea al menos 2 equipos primero</option>';
+      awaySel.innerHTML = teamOpts || '<option value="">Crea al menos 2 equipos primero</option>';
+      if (teams.length >= 2 && homeSel.value === awaySel.value) {
+        awaySel.value = teams[1].id;
+      }
+
+      const gamesTbody = document.getElementById('tournamentGamesTableBody');
+      if (games.length === 0) {
+        gamesTbody.innerHTML = `<tr><td colspan="5" class="empty-state">No hay juegos programados en este torneo.</td></tr>`;
+      } else {
+        gamesTbody.innerHTML = games.map(g => {
+          const home = store.teams.find(tm => tm.id === g.homeTeamId);
+          const away = store.teams.find(tm => tm.id === g.awayTeamId);
+          const gSport = getGameSport(store, g);
+
+          if (gSport === 'baseball') {
+            const awayBb = getBaseballTeamTotals(store, g, g.awayTeamId);
+            const homeBb = getBaseballTeamTotals(store, g, g.homeTeamId);
+            const innArrow = g.half === 'bottom' ? '▼' : '▲';
+            const innLabel = g.status === 'Finalizado' ? 'FINAL' : `${innArrow}${g.inning || 1}`;
+            return `
+              <tr>
+                <td>
+                  <strong>⚾ ${away ? escapeHtml(away.name) : 'Visitante'} @ ${home ? escapeHtml(home.name) : 'Local'}</strong>
+                </td>
+                <td style="font-size:0.82rem; color:var(--text-muted);">
+                  ${g.date || ''} ${g.time || ''}
+                  ${g.note ? `<div>${escapeHtml(g.note)}</div>` : ''}
+                </td>
+                <td>
+                  <strong style="font-size:1.1rem; color:#facc15;">${awayBb.runs} - ${homeBb.runs}</strong>
+                  <span style="font-size:0.75rem; color:var(--text-muted);">(${innLabel})</span>
+                </td>
+                <td>
+                  <span class="badge ${g.status === 'En Vivo' ? 'badge-live' : (g.status === 'Finalizado' ? 'badge-finished' : 'badge-pending')}">
+                    ${g.status || 'Programado'}
+                  </span>
+                </td>
+                <td>
+                  <div class="stat-buttons">
+                    <button class="btn btn-sm btn-primary" onclick="goToGamePage('${g.id}', 'baseball.html')">⚾ Anotar Baseball</button>
+                    <button class="btn btn-sm btn-blue" onclick="goToGamePage('${g.id}', 'pizarrabaseball.html?mode=game&gameId=${g.id}')">🎥 Pizarra OBS</button>
+                    <button class="btn btn-sm btn-outline" title="Editar Juego" onclick="openEditGameModal('${g.id}')">✏️</button>
+                    <button class="btn btn-sm btn-red" title="Eliminar Juego" onclick="deleteGame('${g.id}')">🗑️</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }
+
+          const homeTotals = getTeamGameTotals(store, g, g.homeTeamId);
+          const awayTotals = getTeamGameTotals(store, g, g.awayTeamId);
+
+          return `
+            <tr>
+              <td>
+                <strong>🏀 ${home ? escapeHtml(home.name) : 'Equipo Eliminado'} vs ${away ? escapeHtml(away.name) : 'Equipo Eliminado'}</strong>
+              </td>
+              <td style="font-size:0.82rem; color:var(--text-muted);">
+                ${g.date || ''} ${g.time || ''}
+                ${g.note ? `<div>${escapeHtml(g.note)}</div>` : ''}
+              </td>
+              <td>
+                <strong style="font-size:1.1rem; color:var(--accent-orange);">${homeTotals.pts} - ${awayTotals.pts}</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted);">(Q${g.period || 1})</span>
+              </td>
+              <td>
+                <span class="badge ${g.status === 'En Vivo' ? 'badge-live' : (g.status === 'Finalizado' ? 'badge-finished' : 'badge-pending')}">
+                  ${g.status || 'Programado'}
+                </span>
+              </td>
+              <td>
+                <div class="stat-buttons">
+                  <button class="btn btn-sm btn-primary" onclick="goToGamePage('${g.id}', 'puntos.html')">🎯 Puntos</button>
+                  <button class="btn btn-sm btn-blue" onclick="goToGamePage('${g.id}', 'ra.html')">📊 R&A</button>
+                  <button class="btn btn-sm btn-outline" onclick="goToGamePage('${g.id}', 'pizarrabasket.html?mode=game&gameId=${g.id}')">🎥 Pizarra OBS</button>
+                  <button class="btn btn-sm btn-outline" onclick="goToGamePage('${g.id}', 'public.html')">📺 Público</button>
+                  <button class="btn btn-sm btn-outline" title="Editar Juego" onclick="openEditGameModal('${g.id}')">✏️</button>
+                  <button class="btn btn-sm btn-red" title="Eliminar Juego" onclick="deleteGame('${g.id}')">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    function selectTeamForPlayers(teamId) {
+      selectedTeamId = teamId;
+      renderAll();
+    }
+
+    // =========================================================
+    // CRUD 1: TORNEOS (CREAR, EDITAR, ELIMINAR)
+    // =========================================================
+    document.getElementById('formCreateTournament').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('tName').value.trim();
+      const category = document.getElementById('tCategory').value.trim();
+      const sport = document.getElementById('tSport').value;
+      const createdAt = document.getElementById('tDate').value;
+
+      if (!name) return;
+
+      const store = loadStore();
+      const newTournament = {
+        id: uid('tourney'),
+        name,
+        category,
+        sport,
+        createdAt
+      };
+
+      store.tournaments.push(newTournament);
+      store.activeTournamentId = newTournament.id;
+      saveStore(store);
+
+      // Limpiar formulario
+      document.getElementById('tName').value = '';
+      document.getElementById('tCategory').value = '';
+
+      // Abrir automáticamente la pantalla de administración de equipos y jugadores de este torneo
+      selectedTeamId = null;
+      openTournamentDetail(newTournament.id);
+    });
+
+    function openEditTournamentModal(tournamentId) {
+      const store = loadStore();
+      const t = store.tournaments.find(x => x.id === tournamentId);
+      if (!t) return;
+
+      document.getElementById('editTournamentId').value = t.id;
+      document.getElementById('editTournamentName').value = t.name || '';
+      document.getElementById('editTournamentCategory').value = t.category || '';
+      document.getElementById('editTournamentSport').value = t.sport || 'basketball';
+      document.getElementById('editTournamentDate').value = t.createdAt || '';
+      openModal('modalEditTournament');
+    }
+
+    document.getElementById('formEditTournament').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editTournamentId').value;
+      const store = loadStore();
+      const t = store.tournaments.find(x => x.id === id);
+      if (!t) return;
+
+      t.name = document.getElementById('editTournamentName').value.trim();
+      t.category = document.getElementById('editTournamentCategory').value.trim();
+      t.sport = document.getElementById('editTournamentSport').value || 'basketball';
+      t.createdAt = document.getElementById('editTournamentDate').value;
+
+      saveStore(store);
+      closeModal('modalEditTournament');
+    });
+
+    function deleteTournament(tournamentId) {
+      const store = loadStore();
+      const t = store.tournaments.find(x => x.id === tournamentId);
+      if (!t) return;
+
+      if (!confirm(`¿Seguro que deseas eliminar el torneo "${t.name}" junto con todos sus equipos, jugadores y juegos?`)) {
+        return;
+      }
+
+      const teamIds = new Set(store.teams.filter(tm => tm.tournamentId === tournamentId).map(tm => tm.id));
+      store.tournaments = store.tournaments.filter(x => x.id !== tournamentId);
+      store.teams = store.teams.filter(tm => tm.tournamentId !== tournamentId);
+      store.players = store.players.filter(p => !teamIds.has(p.teamId));
+      store.games = store.games.filter(g => g.tournamentId !== tournamentId);
+
+      if (store.activeTournamentId === tournamentId) {
+        store.activeTournamentId = store.tournaments[0] ? store.tournaments[0].id : '';
+      }
+
+      saveStore(store);
+    }
+
+    // =========================================================
+    // CRUD 2: EQUIPOS (CREAR, EDITAR, ELIMINAR)
+    // =========================================================
+    document.getElementById('formCreateTeam').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!currentTournamentId) return;
+
+      const name = document.getElementById('teamNameInput').value.trim();
+      const shortName = document.getElementById('teamShortInput').value.trim().toUpperCase();
+      const color = document.getElementById('teamColorInput').value;
+
+      if (!name) return;
+
+      const store = loadStore();
+      const newTeam = {
+        id: uid('team'),
+        tournamentId: currentTournamentId,
+        name,
+        shortName,
+        color
+      };
+
+      store.teams.push(newTeam);
+      selectedTeamId = newTeam.id; // Seleccionar automáticamente el equipo recién creado para meter sus jugadores
+      saveStore(store);
+
+      document.getElementById('teamNameInput').value = '';
+      document.getElementById('teamShortInput').value = '';
+    });
+
+    function openEditTeamModal(teamId) {
+      const store = loadStore();
+      const tm = store.teams.find(x => x.id === teamId);
+      if (!tm) return;
+
+      document.getElementById('editTeamId').value = tm.id;
+      document.getElementById('editTeamName').value = tm.name || '';
+      document.getElementById('editTeamShort').value = tm.shortName || '';
+      document.getElementById('editTeamColor').value = tm.color || '#f97316';
+      openModal('modalEditTeam');
+    }
+
+    document.getElementById('formEditTeam').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editTeamId').value;
+      const store = loadStore();
+      const tm = store.teams.find(x => x.id === id);
+      if (!tm) return;
+
+      tm.name = document.getElementById('editTeamName').value.trim();
+      tm.shortName = document.getElementById('editTeamShort').value.trim().toUpperCase();
+      tm.color = document.getElementById('editTeamColor').value;
+
+      saveStore(store);
+      closeModal('modalEditTeam');
+    });
+
+    function deleteTeam(teamId) {
+      const store = loadStore();
+      const tm = store.teams.find(x => x.id === teamId);
+      if (!tm) return;
+
+      if (!confirm(`¿Seguro que deseas eliminar el equipo "${tm.name}" y todos sus jugadores?`)) {
+        return;
+      }
+
+      store.teams = store.teams.filter(x => x.id !== teamId);
+      store.players = store.players.filter(p => p.teamId !== teamId);
+      store.games = store.games.filter(g => g.homeTeamId !== teamId && g.awayTeamId !== teamId);
+
+      if (selectedTeamId === teamId) {
+        selectedTeamId = null;
+      }
+
+      saveStore(store);
+    }
+
+    // =========================================================
+    // CRUD 3: JUGADORES (CREAR, EDITAR, ELIMINAR Y ORDEN AL BATE)
+    // =========================================================
+    document.getElementById('formCreatePlayer').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!selectedTeamId) return;
+
+      const name = document.getElementById('playerNameInput').value.trim();
+      const number = document.getElementById('playerNumberInput').value.trim();
+
+      if (!name || number === '') return;
+
+      const store = loadStore();
+      const t = store.tournaments.find(x => x.id === currentTournamentId);
+      const isBaseball = t && t.sport === 'baseball';
+      const existingTeamPlayers = getTeamBaseballLineup(store, null, selectedTeamId);
+      const nextOrder = existingTeamPlayers.length + 1;
+      const position = isBaseball ? `${nextOrder}° Bate` : document.getElementById('playerPositionInput').value;
+
+      store.players.push({
+        id: uid('player'),
+        teamId: selectedTeamId,
+        name,
+        number,
+        position,
+        battingOrder: nextOrder
+      });
+
+      saveStore(store);
+
+      document.getElementById('playerNameInput').value = '';
+      document.getElementById('playerNumberInput').value = '';
+      document.getElementById('playerNameInput').focus();
+    });
+
+    function moveTeamPlayerBattingOrder(playerId, dir) {
+      const store = loadStore();
+      const p = store.players.find(x => x.id === playerId);
+      if (!p) return;
+
+      const lineup = getTeamBaseballLineup(store, null, p.teamId);
+      const idx = lineup.findIndex(x => x.id === playerId);
+      const targetIdx = idx + dir;
+      if (idx < 0 || targetIdx < 0 || targetIdx >= lineup.length) return;
+
+      // Intercambiar lugares
+      const temp = lineup[idx];
+      lineup[idx] = lineup[targetIdx];
+      lineup[targetIdx] = temp;
+
+      lineup.forEach((item, i) => {
+        const realPlayer = store.players.find(x => x.id === item.id);
+        if (realPlayer) {
+          realPlayer.battingOrder = i + 1;
+          realPlayer.position = `${i + 1}° Bate`;
+        }
+      });
+
+      saveStore(store);
+    }
+
+    function openEditPlayerModal(playerId) {
+      const store = loadStore();
+      const p = store.players.find(x => x.id === playerId);
+      if (!p) return;
+
+      const t = store.tournaments.find(x => x.id === currentTournamentId);
+      const isBaseball = t && t.sport === 'baseball';
+      const tournamentTeams = store.teams.filter(tm => tm.tournamentId === currentTournamentId);
+      const teamSelect = document.getElementById('editPlayerTeamSelect');
+      teamSelect.innerHTML = tournamentTeams.map(tm =>
+        `<option value="${tm.id}" ${tm.id === p.teamId ? 'selected' : ''}>${escapeHtml(tm.name)}</option>`
+      ).join('');
+
+      document.getElementById('editPlayerId').value = p.id;
+      document.getElementById('editPlayerName').value = p.name || '';
+      document.getElementById('editPlayerNumber').value = p.number || '0';
+
+      const posEl = document.getElementById('editPlayerPosition');
+      if (isBaseball) {
+        const teamLineup = getTeamBaseballLineup(store, null, p.teamId);
+        const count = Math.max(teamLineup.length, 9);
+        const opts = [];
+        for (let i = 1; i <= count; i++) opts.push(`${i}° Bate`);
+        posEl.innerHTML = opts.map(o => `<option value="${o}">${o}</option>`).join('');
+        const currIdx = teamLineup.findIndex(x => x.id === p.id);
+        posEl.value = `${currIdx >= 0 ? currIdx + 1 : 1}° Bate`;
+      } else {
+        populatePositionSelect(posEl, 'basketball', p.position);
+      }
+
+      openModal('modalEditPlayer');
+    }
+
+    document.getElementById('formEditPlayer').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editPlayerId').value;
+      const store = loadStore();
+      const p = store.players.find(x => x.id === id);
+      if (!p) return;
+
+      const t = store.tournaments.find(x => x.id === currentTournamentId);
+      const isBaseball = t && t.sport === 'baseball';
+
+      p.name = document.getElementById('editPlayerName').value.trim();
+      p.number = document.getElementById('editPlayerNumber').value.trim();
+      p.position = document.getElementById('editPlayerPosition').value;
+      p.teamId = document.getElementById('editPlayerTeamSelect').value;
+
+      if (isBaseball) {
+        const parsedOrder = parseInt(p.position, 10);
+        if (!isNaN(parsedOrder) && parsedOrder > 0) {
+          p.battingOrder = parsedOrder;
+        }
+      }
+
+      saveStore(store);
+      closeModal('modalEditPlayer');
+    });
+
+    function deletePlayer(playerId) {
+      const store = loadStore();
+      const p = store.players.find(x => x.id === playerId);
+      if (!p) return;
+
+      if (!confirm(`¿Eliminar al jugador #${p.number} ${p.name}?`)) {
+        return;
+      }
+
+      const teamId = p.teamId;
+      store.players = store.players.filter(x => x.id !== playerId);
+
+      // Reenumerar orden al bate si es equipo de baseball
+      const t = store.tournaments.find(x => x.id === currentTournamentId);
+      if (t && t.sport === 'baseball') {
+        const remaining = getTeamBaseballLineup(store, null, teamId);
+        remaining.forEach((item, i) => {
+          const rp = store.players.find(x => x.id === item.id);
+          if (rp) {
+            rp.battingOrder = i + 1;
+            rp.position = `${i + 1}° Bate`;
+          }
+        });
+      }
+
+      saveStore(store);
+    }
+
+    // =========================================================
+    // CRUD 4: JUEGOS (CREAR, EDITAR, ELIMINAR)
+    // =========================================================
+    document.getElementById('formCreateGame').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!currentTournamentId) return;
+
+      const homeTeamId = document.getElementById('gameHomeSelect').value;
+      const awayTeamId = document.getElementById('gameAwaySelect').value;
+      const date = document.getElementById('gameDateInput').value;
+      const time = document.getElementById('gameTimeInput').value;
+      const note = document.getElementById('gameNoteInput').value.trim();
+
+      if (!homeTeamId || !awayTeamId) return;
+      if (homeTeamId === awayTeamId) {
+        alert('El equipo Local y el Visitante deben ser diferentes.');
+        return;
+      }
+
+      const store = loadStore();
+      const t = store.tournaments.find(x => x.id === currentTournamentId);
+      const sport = t && t.sport === 'baseball' ? 'baseball' : 'basketball';
+      const awayLineup = getTeamBaseballLineup(store, null, awayTeamId).map(p => p.id);
+      const homeLineup = getTeamBaseballLineup(store, null, homeTeamId).map(p => p.id);
+
+      const newGame = {
+        id: uid('game'),
+        tournamentId: currentTournamentId,
+        sport,
+        homeTeamId,
+        awayTeamId,
+        date,
+        time,
+        note,
+        status: 'En Vivo',
+        period: 1,
+        inning: 1,
+        half: 'top',
+        outs: 0,
+        balls: 0,
+        strikes: 0,
+        bases: { first: '', second: '', third: '' },
+        battingOrderAway: awayLineup,
+        battingOrderHome: homeLineup,
+        nextBatterAwayId: awayLineup[0] || '',
+        nextBatterHomeId: homeLineup[0] || '',
+        currentBatterId: awayLineup[0] || '',
+        stats: {},
+        baseballStats: {},
+        logs: [],
+        logsBaseball: []
+      };
+
+      store.games.push(newGame);
+      store.activeGameId = newGame.id;
+      saveStore(store);
+
+      document.getElementById('gameNoteInput').value = '';
+    });
+
+    function openEditGameModal(gameId) {
+      const store = loadStore();
+      const g = store.games.find(x => x.id === gameId);
+      if (!g) return;
+
+      const teams = store.teams.filter(tm => tm.tournamentId === g.tournamentId);
+      const opts = teams.map(tm => `<option value="${tm.id}">${escapeHtml(tm.name)}</option>`).join('');
+
+      const homeEl = document.getElementById('editGameHome');
+      const awayEl = document.getElementById('editGameAway');
+      homeEl.innerHTML = opts;
+      awayEl.innerHTML = opts;
+
+      document.getElementById('editGameId').value = g.id;
+      homeEl.value = g.homeTeamId;
+      awayEl.value = g.awayTeamId;
+      document.getElementById('editGameDate').value = g.date || '';
+      document.getElementById('editGameTime').value = g.time || '19:00';
+      document.getElementById('editGameNote').value = g.note || '';
+      document.getElementById('editGameStatus').value = g.status || 'Programado';
+
+      openModal('modalEditGame');
+    }
+
+    document.getElementById('formEditGame').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editGameId').value;
+      const homeTeamId = document.getElementById('editGameHome').value;
+      const awayTeamId = document.getElementById('editGameAway').value;
+
+      if (homeTeamId === awayTeamId) {
+        alert('El equipo Local y el Visitante deben ser diferentes.');
+        return;
+      }
+
+      const store = loadStore();
+      const g = store.games.find(x => x.id === id);
+      if (!g) return;
+
+      const newStatus = document.getElementById('editGameStatus').value;
+      if (newStatus === 'Finalizado' && g.status !== 'Finalizado') {
+        g.finishedAt = Date.now();
+      }
+      g.homeTeamId = homeTeamId;
+      g.awayTeamId = awayTeamId;
+      g.date = document.getElementById('editGameDate').value;
+      g.time = document.getElementById('editGameTime').value;
+      g.note = document.getElementById('editGameNote').value.trim();
+      g.status = newStatus;
+
+      saveStore(store);
+      closeModal('modalEditGame');
+    });
+
+    function deleteGame(gameId) {
+      const store = loadStore();
+      if (!confirm('¿Seguro que deseas eliminar este partido y sus estadísticas?')) return;
+
+      store.games = store.games.filter(g => g.id !== gameId);
+      saveStore(store);
+    }
+
+    function goToGamePage(gameId, page) {
+      const store = loadStore();
+      store.activeGameId = gameId;
+      saveStore(store);
+      window.location.href = page;
+    }
+
+    // =========================================================
+    // UTILIDADES DE MODALES Y ESCAPE HTML
+    // =========================================================
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.addEventListener('storeUpdated', renderAll);
+    renderAll();
+    updateFirebaseIndicator();
+  </script>
+</body>
+</html>

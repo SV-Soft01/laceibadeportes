@@ -1,0 +1,3173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Centro de Estadísticas y Resultados en Vivo - Vista Pública Basketball</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- Barra de navegación exclusiva para el Público (sin enlaces a paneles de administración ni anotación) -->
+  <nav class="navbar no-print">
+    <a href="public.html" class="brand" onclick="goPublicHome(); return false;">
+      🏀⚾ LA CEIBA DEPORTES <span class="badge-sport">Centro Público en Vivo</span>
+    </a>
+    <div class="nav-links">
+      <span id="fbStatusBadge" class="badge badge-pending" style="align-self:center;">☁️ Conectando...</span>
+      <a href="public.html" class="nav-link active" onclick="goPublicHome(); return false;">📺 Partidos en Directo & Torneos</a>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- =========================================================
+         PANTALLA 1: PORTAL PRINCIPAL (JUEGOS EN DIRECTO ARRIBA + TORNEOS ABAJO)
+         ========================================================= -->
+    <section id="viewPublicHome">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">📺 Centro de Resultados y Estadísticas en Vivo</h1>
+          <p class="page-subtitle">Sigue al instante los partidos que se están jugando en directo o entra a cualquier torneo para ver posiciones FIBA, líderes y resultados.</p>
+        </div>
+      </div>
+
+      <!-- 1A: CUADROS DE JUEGOS EN DIRECTO (ARRIBA) -->
+      <div class="card" style="border-color:rgba(239,68,68,0.45); margin-bottom:1.75rem;">
+        <div class="card-header">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="live-pulse-dot"></span>
+            <h2 class="card-title">🔴 Juegos en Directo Ahora Mismo</h2>
+          </div>
+          <span class="badge badge-live" id="homeLiveGamesCount">0 En Directo</span>
+        </div>
+        <div id="homeLiveGamesGrid" class="cards-grid"></div>
+      </div>
+
+      <!-- 1B: CUADROS DE TORNEOS (ABAJO) -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">🏆 Torneos Oficiales</h2>
+            <p class="page-subtitle" style="font-size:0.82rem;">Selecciona un torneo para ver sus juegos en directo, juegos anteriores, tabla de posiciones FIBA y líderes en todas las estadísticas.</p>
+          </div>
+          <span class="badge badge-pending" id="homeTournamentsCount">0 Torneos</span>
+        </div>
+        <div id="homeTournamentsGrid" class="cards-grid"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 2: INTERIOR DE UN TORNEO
+         (Juegos en Directo, Juegos Anteriores, Posiciones FIBA, Líderes, Equipos)
+         ========================================================= -->
+    <section id="viewPublicTournament" class="hidden">
+      <div class="page-header">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="goPublicHome()">
+            ← Volver a Juegos en Directo y Torneos
+          </button>
+          <h1 class="page-title" id="tourneyViewTitle" style="margin-top:0.4rem;">🏆 Nombre del Torneo</h1>
+          <p class="page-subtitle" id="tourneyViewMeta">Categoría • Sede • Fechas</p>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Resumen Rápido del Torneo -->
+      <div class="summary-metrics-grid" id="tourneyQuickStatsGrid" style="margin-bottom:1.25rem;"></div>
+
+      <!-- Barra de Pestañas del Torneo -->
+      <div class="public-tabs">
+        <button class="public-tab-btn active" id="tabBtn_live" onclick="switchTournamentTab('live')">
+          🔴 Juegos en Directo & Próximos <span class="badge badge-live" id="tabBadgeLive" style="padding:0.1rem 0.45rem; font-size:0.7rem;">0</span>
+        </button>
+        <button class="public-tab-btn" id="tabBtn_previous" onclick="switchTournamentTab('previous')">
+          🏁 Juegos Anteriores <span class="badge badge-finished" id="tabBadgePrev" style="padding:0.1rem 0.45rem; font-size:0.7rem;">0</span>
+        </button>
+        <button class="public-tab-btn" id="tabBtn_standings" onclick="switchTournamentTab('standings')">
+          📊 Tabla de Posiciones FIBA
+        </button>
+        <button class="public-tab-btn" id="tabBtn_leaders" onclick="switchTournamentTab('leaders')">
+          ⭐ Líderes Estadísticos
+        </button>
+        <button class="public-tab-btn" id="tabBtn_teams" onclick="switchTournamentTab('teams')">
+          🛡️ Equipos & Estadísticas Colectivas
+        </button>
+      </div>
+
+      <!-- PESTAÑA 1: JUEGOS EN DIRECTO Y PRÓXIMOS DEL TORNEO -->
+      <div id="tourneyTab_live">
+        <div class="card" style="margin-bottom:1.5rem; border-color:rgba(239,68,68,0.4);">
+          <div class="card-header">
+            <div style="display:flex; align-items:center; gap:0.55rem;">
+              <span class="live-pulse-dot"></span>
+              <h3 class="card-title">🔴 Partidos en Directo en este Torneo</h3>
+            </div>
+          </div>
+          <div id="tourneyLiveGamesGrid" class="cards-grid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">📅 Próximos Juegos Programados</h3>
+          </div>
+          <div id="tourneyScheduledGamesGrid" class="cards-grid"></div>
+        </div>
+      </div>
+
+      <!-- PESTAÑA 2: JUEGOS ANTERIORES (FINALIZADOS) -->
+      <div id="tourneyTab_previous" class="hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">🏁 Juegos Anteriores (Resultados Oficiales)</h3>
+              <p class="page-subtitle" style="font-size:0.8rem;">Haz clic en cualquier juego finalizado para ver su Box Score completo, cuarto por cuarto, MVP y descargar la Planilla Oficial en PDF.</p>
+            </div>
+          </div>
+          <div id="tourneyFinishedGamesGrid" class="cards-grid"></div>
+        </div>
+      </div>
+
+      <!-- PESTAÑA 3: TABLA DE POSICIONES OFICIAL (FIBA / BASEBALL) -->
+      <div id="tourneyTab_standings" class="hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title" id="standingsCardTitle">📊 Tabla de Posiciones Oficial FIBA</h3>
+              <p class="page-subtitle" id="standingsCardSubtitle" style="font-size:0.8rem;">
+                Reglamento Oficial FIBA: <strong>2 puntos</strong> por Victoria (PG) • <strong>1 punto</strong> por Derrota (PP) • Desempate por Puntos FIBA, Diferencia de Puntos (DIF) y Puntos a Favor (PF).
+              </p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead id="fibaStandingsThead">
+                <tr>
+                  <th>POS</th>
+                  <th>EQUIPO</th>
+                  <th>PJ</th>
+                  <th>PG</th>
+                  <th>PP</th>
+                  <th>% VIC</th>
+                  <th>PF (A Favor)</th>
+                  <th>PC (En Contra)</th>
+                  <th>DIF (+/-)</th>
+                  <th>PROM (PF - PC)</th>
+                  <th>RACHA</th>
+                  <th style="background:rgba(249,115,22,0.18); color:var(--accent-orange);">PTS FIBA</th>
+                </tr>
+              </thead>
+              <tbody id="fibaStandingsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PESTAÑA 4: LÍDERES EN TODAS LAS ESTADÍSTICAS DEL TORNEO -->
+      <div id="tourneyTab_leaders" class="hidden">
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0;">
+            <div>
+              <h3 class="card-title" id="leadersCardTitle">⭐ Líderes Individuales del Torneo en Todas las Estadísticas</h3>
+              <p class="page-subtitle" id="leadersCardSubtitle" style="font-size:0.8rem;">Top 5 de jugadores en Puntos, Rebotes, Asistencias, Triples, Robos, Tapones, Valoración MVP y Más/Menos (+/-).</p>
+            </div>
+            <div id="leadersModeToggleWrap" style="display:flex; gap:0.4rem; align-items:center;">
+              <span style="font-size:0.8rem; color:var(--text-muted); font-weight:700;">Modo:</span>
+              <button class="btn btn-sm btn-primary" id="btnModeTotals" onclick="setLeadersMode('totals')">📊 Totales</button>
+              <button class="btn btn-sm btn-outline" id="btnModeAverages" onclick="setLeadersMode('averages')">📈 Promedio por Juego</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cuadrícula con las 8 categorías de Líderes -->
+        <div class="leaders-grid" id="tourneyLeadersCardsGrid"></div>
+
+        <!-- Tabla General Completa de Estadísticas de Todos los Jugadores del Torneo -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title" id="allPlayersTableTitle">📋 Ranking General de Jugadores del Torneo</h3>
+              <p class="page-subtitle" style="font-size:0.8rem;">Busca cualquier jugador o filtra por su estadística principal.</p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+              <input type="text" id="leaderSearchInput" placeholder="🔍 Buscar jugador o equipo..." oninput="renderTournamentAllPlayersTable()" style="width:220px; padding:0.45rem 0.7rem;" />
+              <select id="leaderSortSelect" onchange="renderTournamentAllPlayersTable()" style="width:auto; padding:0.45rem 0.7rem;">
+                <option value="pts">Ordenar por: Puntos (PTS)</option>
+                <option value="ppg">Ordenar por: Puntos por Juego (PPP)</option>
+                <option value="efficiency">Ordenar por: Valoración MVP (VAL)</option>
+                <option value="reb">Ordenar por: Rebotes Totales (REB)</option>
+                <option value="ast">Ordenar por: Asistencias (AST)</option>
+                <option value="pts3">Ordenar por: Triples Anotados (3P)</option>
+                <option value="stl">Ordenar por: Robos (ROB)</option>
+                <option value="blk">Ordenar por: Tapones (TAP)</option>
+                <option value="plusMinus">Ordenar por: Más / Menos (+/-)</option>
+                <option value="secondsPlayed">Ordenar por: Minutos Jugados (MIN)</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead id="allTournamentPlayersThead">
+                <tr>
+                  <th>RK</th>
+                  <th># Jugador</th>
+                  <th>Equipo</th>
+                  <th>PJ</th>
+                  <th>MIN</th>
+                  <th>PTS (PPP)</th>
+                  <th>+/-</th>
+                  <th>REB (O/D)</th>
+                  <th>AST</th>
+                  <th>ROB</th>
+                  <th>TAP</th>
+                  <th>PER</th>
+                  <th>T2 (C/I %)</th>
+                  <th>T3 (C/I %)</th>
+                  <th>TL (C/I %)</th>
+                  <th>VAL</th>
+                </tr>
+              </thead>
+              <tbody id="allTournamentPlayersBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PESTAÑA 5: ESTADÍSTICAS COLECTIVAS POR EQUIPO Y PLANTILLAS -->
+      <div id="tourneyTab_teams" class="hidden">
+        <div class="card" style="margin-bottom:1.5rem;">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">🛡️ Comparativa de Estadísticas Colectivas por Equipo</h3>
+              <p class="page-subtitle" id="teamsCompCardSubtitle" style="font-size:0.8rem;">Rendimiento colectivo acumulado y porcentajes de tiro de cada equipo en el torneo.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead id="tourneyTeamStatsComparisonThead">
+                <tr>
+                  <th>Equipo</th>
+                  <th>PJ</th>
+                  <th>PTS Totales (PPP)</th>
+                  <th>REB (O/D)</th>
+                  <th>AST</th>
+                  <th>ROB</th>
+                  <th>TAP</th>
+                  <th>PER</th>
+                  <th>% TC</th>
+                  <th>% Triples (3P)</th>
+                  <th>% Tiros Libres (TL)</th>
+                  <th>VAL Colectiva</th>
+                </tr>
+              </thead>
+              <tbody id="tourneyTeamStatsComparisonBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">👥 Plantillas Oficiales de los Equipos (Rosters)</h3>
+          </div>
+          <div id="tourneyRostersGrid" class="cards-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 3: DETALLE DE UN PARTIDO EN VIVO O FINALIZADO
+         (Marcador en tiempo real, En Cancha / Diamante, Cuartos / Entradas, Box Score y Jugada a Jugada)
+         ========================================================= -->
+    <section id="viewPublicGameDetail" class="hidden">
+      <div class="page-header no-print">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="backFromGameDetail()">
+            ← Volver Atrás
+          </button>
+          <h1 class="page-title" id="detailGameTitle" style="margin-top:0.35rem;">📺 Centro del Partido en Tiempo Real</h1>
+          <p class="page-subtitle" id="detailGameSubtitle">Torneo • Fecha • Hora</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="downloadPublicGamePDF()">
+            📥 Descargar Planilla Oficial PDF (1 Hoja B/N)
+          </button>
+          <button class="btn btn-outline" onclick="window.print()">
+            🖨️ Imprimir Planilla B/N
+          </button>
+        </div>
+      </div>
+
+      <div id="pdfSummarySheet" class="no-print">
+        <!-- Marcador Gigante en Tiempo Real -->
+        <div class="scoreboard" style="margin-bottom:1.25rem;">
+          <div class="team-side">
+            <div class="team-name-lg" id="detHomeName">Local</div>
+            <div class="coach-bar" id="detHomeCoach">👔 Entrenador: -</div>
+            <div class="team-score-lg" id="detHomeScore">0</div>
+            <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap; margin-top:0.35rem;">
+              <span class="badge badge-pending" id="detHomeFoulsBadge">Faltas Q: 0/5</span>
+              <span class="badge badge-bonus hidden" id="detHomeBonusBadge">🔥 BONUS</span>
+              <span class="badge badge-pending" id="detHomeTimeoutsBadge">TM: 2</span>
+            </div>
+          </div>
+
+          <div class="game-center-info">
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+              <span class="period-badge" id="detPeriodBadge">Q1</span>
+              <span class="badge badge-live" id="detStatusBadge">En Vivo</span>
+            </div>
+            <div class="clock-display" id="detClockDisplay" style="font-size:2.3rem; margin:0.2rem 0;">10:00</div>
+            <div style="font-size:0.78rem; color:var(--text-muted);" id="detDateMeta"></div>
+          </div>
+
+          <div class="team-side">
+            <div class="team-name-lg" id="detAwayName">Visitante</div>
+            <div class="coach-bar" id="detAwayCoach">👔 Entrenador: -</div>
+            <div class="team-score-lg" id="detAwayScore">0</div>
+            <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap; margin-top:0.35rem;">
+              <span class="badge badge-pending" id="detAwayFoulsBadge">Faltas Q: 0/5</span>
+              <span class="badge badge-bonus hidden" id="detAwayBonusBadge">🔥 BONUS</span>
+              <span class="badge badge-pending" id="detAwayTimeoutsBadge">TM: 2</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quintetos en Cancha (Basket) / Estado del Diamante y Bateador (Baseball) -->
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <h3 class="card-title" id="detOnCourtCardTitle" style="font-size:0.98rem;">👟 Quintetos en Cancha Ahora Mismo (5 vs 5)</h3>
+          </div>
+          <div class="grid-2" style="gap:1rem;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:800; color:var(--accent-orange); margin-bottom:0.4rem;" id="detOnCourtHomeTitle">🏠 En Cancha Local</div>
+              <div id="detOnCourtHomePills" style="display:flex; gap:0.4rem; flex-wrap:wrap;"></div>
+            </div>
+            <div>
+              <div style="font-size:0.8rem; font-weight:800; color:var(--accent-blue); margin-bottom:0.4rem;" id="detOnCourtAwayTitle">✈️ En Cancha Visitante</div>
+              <div id="detOnCourtAwayPills" style="display:flex; gap:0.4rem; flex-wrap:wrap;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Marcador Cuarto por Cuarto (Basket) / Pizarra por Entradas R-H-E (Baseball) -->
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <h3 class="card-title" id="detQuartersCardTitle" style="font-size:0.98rem;">🏁 Marcador Cuarto por Cuarto</h3>
+          </div>
+          <div class="table-responsive">
+            <table id="detQuartersTable"></table>
+          </div>
+        </div>
+
+        <!-- Métricas de Dominio, Mayor Ventaja, Cambios de Líder y MVP -->
+        <div class="summary-metrics-grid" id="detMetricsGrid"></div>
+
+        <!-- Box Score Equipo Local -->
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <div>
+              <h3 class="card-title" id="detBoxHomeTitle">🏠 Box Score Local</h3>
+              <div style="font-size:0.82rem; color:var(--accent-orange); font-weight:700;" id="detBoxHomeCoach">👔 Entrenador: -</div>
+            </div>
+            <div id="detBoxHomeShooting" style="font-size:0.8rem; color:var(--text-muted);"></div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead id="detBoxHomeThead">
+                <tr>
+                  <th># Jugador (* = Titular)</th>
+                  <th>MIN</th>
+                  <th>PTS</th>
+                  <th>+/-</th>
+                  <th>REB (O/D)</th>
+                  <th>AST</th>
+                  <th>ROB</th>
+                  <th>TAP</th>
+                  <th>PER</th>
+                  <th>T2 (C/I %)</th>
+                  <th>T3 (C/I %)</th>
+                  <th>TL (C/I %)</th>
+                  <th>Faltas (PF/OF/TF)</th>
+                  <th>VAL</th>
+                </tr>
+              </thead>
+              <tbody id="detBoxHomeBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Box Score Equipo Visitante -->
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <div>
+              <h3 class="card-title" id="detBoxAwayTitle">✈️ Box Score Visitante</h3>
+              <div style="font-size:0.82rem; color:var(--accent-blue); font-weight:700;" id="detBoxAwayCoach">👔 Entrenador: -</div>
+            </div>
+            <div id="detBoxAwayShooting" style="font-size:0.8rem; color:var(--text-muted);"></div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead id="detBoxAwayThead">
+                <tr>
+                  <th># Jugador (* = Titular)</th>
+                  <th>MIN</th>
+                  <th>PTS</th>
+                  <th>+/-</th>
+                  <th>REB (O/D)</th>
+                  <th>AST</th>
+                  <th>ROB</th>
+                  <th>TAP</th>
+                  <th>PER</th>
+                  <th>T2 (C/I %)</th>
+                  <th>T3 (C/I %)</th>
+                  <th>TL (C/I %)</th>
+                  <th>Faltas (PF/OF/TF)</th>
+                  <th>VAL</th>
+                </tr>
+              </thead>
+              <tbody id="detBoxAwayBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Historial Jugada a Jugada en Tiempo Real -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">⚡ Jugada a Jugada en Directo (Play-by-Play)</h3>
+            <span class="badge badge-pending" id="detLogsCountBadge">0 jugadas</span>
+          </div>
+          <div class="table-responsive" style="max-height:320px; overflow-y:auto;">
+            <table>
+              <thead id="detPlayByPlayThead">
+                <tr>
+                  <th>Reloj / Hora</th>
+                  <th>Cuarto</th>
+                  <th>Equipo</th>
+                  <th>Jugador / Evento</th>
+                  <th>Jugada</th>
+                  <th>Marcador</th>
+                </tr>
+              </thead>
+              <tbody id="detPlayByPlayBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLANILLA OFICIAL EN BLANCO Y NEGRO (1 SOLA PÁGINA PARA DESCARGAR EN PDF) -->
+      <div id="bwPrintWrapper" style="position:fixed; left:-9999px; top:0; overflow-x:auto;">
+        <div id="bwOfficialPdfSheet" class="bw-print-sheet"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // Estado de navegación de la Vista Pública
+    // 'home' | 'tournament' | 'game'
+    let publicScreen = 'home';
+    let selectedTournamentId = null;
+    let selectedTournamentTab = 'live'; // 'live' | 'previous' | 'standings' | 'leaders' | 'teams'
+    let selectedGameId = null;
+    let previousScreenBeforeGame = 'home';
+    let leadersMode = 'totals'; // 'totals' | 'averages'
+
+    function updateFirebaseBadge() {
+      const badge = document.getElementById('fbStatusBadge');
+      if (!badge) return;
+      if (window.firebaseSyncReady) {
+        badge.className = 'badge badge-live';
+        badge.textContent = '☁️ En Vivo';
+      } else if (window.firebaseSyncError) {
+        badge.className = 'badge badge-finished';
+        badge.textContent = '⚠️ Local';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // =========================================================
+    // NAVEGACIÓN ENTRE PANTALLAS PÚBLICAS
+    // =========================================================
+    function goPublicHome() {
+      publicScreen = 'home';
+      renderPublicAll();
+    }
+
+    function openPublicTournament(tournamentId, initialTab = 'live') {
+      selectedTournamentId = tournamentId;
+      selectedTournamentTab = initialTab;
+      publicScreen = 'tournament';
+      renderPublicAll();
+    }
+
+    function switchTournamentTab(tabName) {
+      selectedTournamentTab = tabName;
+      renderPublicTournamentView();
+    }
+
+    function openPublicGameDetail(gameId, fromScreen = null) {
+      selectedGameId = gameId;
+      previousScreenBeforeGame = fromScreen || publicScreen;
+      publicScreen = 'game';
+      renderPublicAll();
+    }
+
+    function backFromGameDetail() {
+      if (previousScreenBeforeGame === 'tournament' && selectedTournamentId) {
+        publicScreen = 'tournament';
+      } else {
+        publicScreen = 'home';
+      }
+      renderPublicAll();
+    }
+
+    function renderPublicAll() {
+      document.getElementById('viewPublicHome').classList.toggle('hidden', publicScreen !== 'home');
+      document.getElementById('viewPublicTournament').classList.toggle('hidden', publicScreen !== 'tournament');
+      document.getElementById('viewPublicGameDetail').classList.toggle('hidden', publicScreen !== 'game');
+
+      if (publicScreen === 'home') {
+        renderPublicHomeView();
+      } else if (publicScreen === 'tournament') {
+        renderPublicTournamentView();
+      } else if (publicScreen === 'game') {
+        renderPublicGameDetailView();
+      }
+    }
+
+    // =========================================================
+    // CÁLCULO DEL MVP DE UN PARTIDO (SIEMPRE DEL EQUIPO GANADOR)
+    // =========================================================
+    function getGameMvpData(store, game, homeTotals, awayTotals) {
+      let winningTeamId = null;
+      if (homeTotals.pts > awayTotals.pts) {
+        winningTeamId = game.homeTeamId;
+      } else if (awayTotals.pts > homeTotals.pts) {
+        winningTeamId = game.awayTeamId;
+      }
+
+      const candidates = winningTeamId
+        ? store.players.filter(p => p.teamId === winningTeamId)
+        : store.players.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+
+      let mvpPlayer = null;
+      let mvpStats = null;
+      candidates.forEach(p => {
+        const st = getPlayerGameStats(game, p.id);
+        if (
+          !mvpPlayer ||
+          st.efficiency > mvpStats.efficiency ||
+          (st.efficiency === mvpStats.efficiency && st.totalPts > mvpStats.totalPts) ||
+          (st.efficiency === mvpStats.efficiency && st.totalPts === mvpStats.totalPts && st.plusMinus > mvpStats.plusMinus)
+        ) {
+          mvpPlayer = p;
+          mvpStats = st;
+        }
+      });
+
+      const mvpTeam = mvpPlayer ? store.teams.find(t => t.id === mvpPlayer.teamId) : null;
+      return { mvpPlayer, mvpStats, mvpTeam, winningTeamId };
+    }
+
+    function getBaseballGameMvpData(store, game, homeTotals, awayTotals) {
+      let winningTeamId = null;
+      if (homeTotals.runs > awayTotals.runs) {
+        winningTeamId = game.homeTeamId;
+      } else if (awayTotals.runs > homeTotals.runs) {
+        winningTeamId = game.awayTeamId;
+      }
+
+      const candidates = winningTeamId
+        ? store.players.filter(p => p.teamId === winningTeamId)
+        : store.players.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+
+      let mvpPlayer = null;
+      let mvpStats = null;
+      let bestScore = -999999;
+
+      candidates.forEach(p => {
+        const st = getBaseballPlayerStats(game, p.id);
+        const score = (st.hr * 10) + (st.t3b * 6) + (st.d2b * 4) + (st.h * 5) + (st.rbi * 4) + (st.r * 3) + (st.bb * 1.5) - (st.k * 0.5);
+        if (score > bestScore && (st.h > 0 || st.r > 0 || st.rbi > 0 || st.ab > 0 || st.bb > 0)) {
+          bestScore = score;
+          mvpPlayer = p;
+          mvpStats = st;
+        }
+      });
+
+      const mvpTeam = mvpPlayer ? store.teams.find(t => t.id === mvpPlayer.teamId) : null;
+      return { mvpPlayer, mvpStats, mvpTeam, winningTeamId };
+    }
+
+    // =========================================================
+    // TARJETA REUTILIZABLE DE JUEGO (EN DIRECTO / FINALIZADO / PROGRAMADO)
+    // SOPORTA TANTO BALONCESTO COMO BASEBALL
+    // =========================================================
+    function buildPublicGameCardHTML(store, g, fromContext) {
+      const tourney = store.tournaments.find(t => t.id === g.tournamentId);
+      const home = store.teams.find(t => t.id === g.homeTeamId);
+      const away = store.teams.find(t => t.id === g.awayTeamId);
+      const isBaseball = getGameSport(store, g) === 'baseball';
+      const isLive = g.status === 'En Vivo';
+      const isFinished = g.status === 'Finalizado';
+
+      if (isBaseball) {
+        const homeTot = getBaseballTeamTotals(store, g, g.homeTeamId);
+        const awayTot = getBaseballTeamTotals(store, g, g.awayTeamId);
+        const homeLeading = homeTot.runs > awayTot.runs;
+        const awayLeading = awayTot.runs > homeTot.runs;
+        const innArrow = g.half === 'bottom' ? '▼' : '▲';
+        const innLabel = isFinished ? 'FINAL' : `${innArrow} Entrada ${g.inning || 1}`;
+        const { mvpPlayer, mvpStats, mvpTeam } = getBaseballGameMvpData(store, g, homeTot, awayTot);
+        const batterSummary = isLive ? getBaseballBatterSummaryText(store, g) : '';
+
+        return `
+          <div class="${isLive ? 'live-game-card' : 'card item-card'}" style="cursor:pointer;" onclick="openPublicGameDetail('${g.id}', '${fromContext}')">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap;">
+                <span class="badge badge-pending">⚾ ${tourney ? escapeHtml(tourney.name) : 'Torneo Baseball'}</span>
+                ${isLive
+                  ? `<span class="badge badge-live" style="display:inline-flex; align-items:center; gap:0.35rem;"><span class="live-pulse-dot" style="width:7px;height:7px;"></span> EN DIRECTO • ${innLabel} (${g.outs || 0} Outs • ${g.balls || 0}-${g.strikes || 0})</span>`
+                  : `<span class="badge ${isFinished ? 'badge-finished' : 'badge-pending'}">${escapeHtml(g.status || 'Programado')} • ${innLabel}</span>`
+                }
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-top:1px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+                <div style="display:flex; flex-direction:column; gap:0.45rem;">
+                  <div style="font-size:1.12rem; font-weight:${awayLeading ? '900' : '700'}; color:${awayLeading ? '#fff' : 'var(--text-main)'};">
+                    ✈️ ${away ? escapeHtml(away.name) : 'Equipo Visitante'}
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">(${awayTot.h} H, ${awayTot.errors} E, AVG ${awayTot.avg})</span>
+                    ${isFinished && awayLeading ? '<span style="color:#facc15; font-size:0.85rem;">🏆</span>' : ''}
+                  </div>
+                  <div style="font-size:1.12rem; font-weight:${homeLeading ? '900' : '700'}; color:${homeLeading ? '#fff' : 'var(--text-main)'};">
+                    🏠 ${home ? escapeHtml(home.name) : 'Equipo Local'}
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">(${homeTot.h} H, ${homeTot.errors} E, AVG ${homeTot.avg})</span>
+                    ${isFinished && homeLeading ? '<span style="color:#facc15; font-size:0.85rem;">🏆</span>' : ''}
+                  </div>
+                </div>
+                <div style="text-align:right; display:flex; flex-direction:column; gap:0.25rem;">
+                  <div style="font-size:1.5rem; font-weight:900; color:${awayLeading ? '#facc15' : 'var(--text-main)'};">${awayTot.runs}</div>
+                  <div style="font-size:1.5rem; font-weight:900; color:${homeLeading ? '#facc15' : 'var(--text-main)'};">${homeTot.runs}</div>
+                </div>
+              </div>
+
+              ${isLive && batterSummary ? `
+                <div style="margin-top:0.55rem; font-size:0.78rem; color:#fde047; background:rgba(250,204,21,0.08); padding:0.35rem 0.55rem; border-radius:7px; border:1px solid rgba(250,204,21,0.3); font-weight:800;">
+                  🏏 <strong>Al Bate:</strong> ${escapeHtml(batterSummary)}
+                </div>
+              ` : ''}
+
+              ${(isLive || isFinished) && mvpPlayer && mvpStats ? `
+                <div style="margin-top:0.5rem; font-size:0.78rem; color:var(--text-muted); background:rgba(255,255,255,0.03); padding:0.35rem 0.55rem; border-radius:7px; border:1px solid rgba(255,255,255,0.06);">
+                  ⭐ <strong>${isFinished ? 'MVP' : 'Destacado'}:</strong> #${escapeHtml(String(mvpPlayer.number))} ${escapeHtml(mvpPlayer.name)} (${mvpTeam ? escapeHtml(mvpTeam.name) : ''}) — <strong style="color:#facc15;">${mvpStats.h}-${mvpStats.ab}</strong>, ${mvpStats.r} R, ${mvpStats.rbi} RBI, ${mvpStats.hr} HR (AVG ${mvpStats.avg})
+                </div>
+              ` : ''}
+
+              <div style="font-size:0.76rem; color:var(--text-muted); margin-top:0.5rem;">
+                📅 ${escapeHtml(g.date || '-')} ${g.time ? '• 🕒 ' + escapeHtml(g.time) : ''} ${g.note ? '• ' + escapeHtml(g.note) : ''}
+              </div>
+            </div>
+
+            <button class="btn ${isLive ? 'btn-primary' : 'btn-outline'} btn-sm" style="width:100%;">
+              ${isLive ? '⚾ Ver Partido de Baseball en Directo (Box Score & Bases)' : (isFinished ? '📊 Ver Box Score de Baseball y Descargar PDF' : '👁️ Ver Ficha del Partido de Baseball')}
+            </button>
+          </div>
+        `;
+      }
+
+      // MODO BALONCESTO (FIBA)
+      const homeTotals = getTeamGameTotals(store, g, g.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, g, g.awayTeamId);
+      const { mvpPlayer, mvpStats, mvpTeam } = getGameMvpData(store, g, homeTotals, awayTotals);
+
+      const homeLeading = homeTotals.pts > awayTotals.pts;
+      const awayLeading = awayTotals.pts > homeTotals.pts;
+
+      // Cierre por cuartos resumido
+      const qHist = g.quarterHistory || [];
+      const qSummary = qHist.length > 0
+        ? qHist.map(q => `<span class="badge badge-pending" style="font-size:0.68rem; padding:0.12rem 0.4rem;">${escapeHtml(q.period)}: ${q.homeScore}-${q.awayScore}</span>`).join(' ')
+        : '';
+
+      return `
+        <div class="${isLive ? 'live-game-card' : 'card item-card'}" style="cursor:pointer;" onclick="openPublicGameDetail('${g.id}', '${fromContext}')">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-bottom:0.65rem;">
+              <span class="badge badge-pending">🏀 ${tourney ? escapeHtml(tourney.name) : 'Torneo'}</span>
+              ${isLive
+                ? `<span class="badge badge-live" style="display:inline-flex; align-items:center; gap:0.35rem;"><span class="live-pulse-dot" style="width:7px;height:7px;"></span> EN DIRECTO • ${getPeriodLabel(g.period)} (${formatSecondsMMSS(g.clockSeconds)})</span>`
+                : `<span class="badge ${isFinished ? 'badge-finished' : 'badge-pending'}">${escapeHtml(g.status || 'Programado')} • ${getPeriodLabel(g.period)}</span>`
+              }
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-top:1px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+              <div style="display:flex; flex-direction:column; gap:0.45rem;">
+                <div style="font-size:1.12rem; font-weight:${homeLeading ? '900' : '700'}; color:${homeLeading ? '#fff' : 'var(--text-main)'};">
+                  🏠 ${home ? escapeHtml(home.name) : 'Equipo Local'}
+                  ${isFinished && homeLeading ? '<span style="color:var(--accent-orange); font-size:0.85rem;">🏆</span>' : ''}
+                </div>
+                <div style="font-size:1.12rem; font-weight:${awayLeading ? '900' : '700'}; color:${awayLeading ? '#fff' : 'var(--text-main)'};">
+                  ✈️ ${away ? escapeHtml(away.name) : 'Equipo Visitante'}
+                  ${isFinished && awayLeading ? '<span style="color:var(--accent-orange); font-size:0.85rem;">🏆</span>' : ''}
+                </div>
+              </div>
+              <div style="text-align:right; display:flex; flex-direction:column; gap:0.25rem;">
+                <div style="font-size:1.5rem; font-weight:900; color:${homeLeading ? 'var(--accent-orange)' : 'var(--text-main)'};">${homeTotals.pts}</div>
+                <div style="font-size:1.5rem; font-weight:900; color:${awayLeading ? 'var(--accent-orange)' : 'var(--text-main)'};">${awayTotals.pts}</div>
+              </div>
+            </div>
+
+            ${qSummary ? `<div style="display:flex; gap:0.3rem; flex-wrap:wrap; margin-top:0.55rem;">${qSummary}</div>` : ''}
+
+            ${(isLive || isFinished) && mvpPlayer && mvpStats && (mvpStats.totalPts > 0 || mvpStats.totalReb > 0 || mvpStats.ast > 0) ? `
+              <div style="margin-top:0.55rem; font-size:0.78rem; color:var(--text-muted); background:rgba(255,255,255,0.03); padding:0.35rem 0.55rem; border-radius:7px; border:1px solid rgba(255,255,255,0.06);">
+                ⭐ <strong>${isFinished ? 'MVP' : 'Destacado'}:</strong> #${escapeHtml(String(mvpPlayer.number))} ${escapeHtml(mvpPlayer.name)} (${mvpTeam ? escapeHtml(mvpTeam.name) : ''}) — <strong style="color:var(--accent-orange);">${mvpStats.totalPts} PTS</strong>, ${mvpStats.totalReb} REB, ${mvpStats.ast} AST
+              </div>
+            ` : ''}
+
+            <div style="font-size:0.76rem; color:var(--text-muted); margin-top:0.5rem;">
+              📅 ${escapeHtml(g.date || '-')} ${g.time ? '• 🕒 ' + escapeHtml(g.time) : ''} ${g.note ? '• ' + escapeHtml(g.note) : ''}
+            </div>
+          </div>
+
+          <button class="btn ${isLive ? 'btn-primary' : 'btn-outline'} btn-sm" style="width:100%;">
+            ${isLive ? '📺 Ver Partido en Directo (Box Score & Jugadas)' : (isFinished ? '📊 Ver Resumen Completo y Descargar PDF' : '👁️ Ver Ficha del Partido')}
+          </button>
+        </div>
+      `;
+    }
+
+    // =========================================================
+    // PANTALLA 1: RENDER DEL PORTAL PRINCIPAL (DIRECTO + TORNEOS)
+    // =========================================================
+    function renderPublicHomeView() {
+      const store = loadStore();
+
+      // 1. Juegos en Directo (status === 'En Vivo')
+      const liveGames = store.games.filter(g => g.status === 'En Vivo');
+      document.getElementById('homeLiveGamesCount').textContent = `${liveGames.length} En Directo`;
+
+      const liveGrid = document.getElementById('homeLiveGamesGrid');
+      if (liveGames.length === 0) {
+        liveGrid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1; padding:1.5rem;">
+            📡 No hay partidos transmitiéndose <strong>En Directo</strong> en este instante.<br/>
+            <span style="font-size:0.82rem;">Cuando la mesa de anotación inicie un juego de <strong>Baloncesto</strong> o <strong>Baseball</strong>, aparecerá aquí automáticamente en tiempo real.</span>
+          </div>
+        `;
+      } else {
+        liveGrid.innerHTML = liveGames.map(g => buildPublicGameCardHTML(store, g, 'home')).join('');
+      }
+
+      // 2. Cuadros de Torneos Abajo
+      const tournaments = store.tournaments || [];
+      document.getElementById('homeTournamentsCount').textContent = `${tournaments.length} Torneos`;
+
+      const tourneyGrid = document.getElementById('homeTournamentsGrid');
+      if (tournaments.length === 0) {
+        tourneyGrid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1;">
+            No hay torneos creados todavía.
+          </div>
+        `;
+        return;
+      }
+
+      tourneyGrid.innerHTML = tournaments.map(t => {
+        const isBaseball = t.sport === 'baseball';
+        const tTeams = store.teams.filter(tm => tm.tournamentId === t.id);
+        const tGames = store.games.filter(g => g.tournamentId === t.id);
+        const liveCount = tGames.filter(g => g.status === 'En Vivo').length;
+        const finCount = tGames.filter(g => g.status === 'Finalizado').length;
+        const progCount = tGames.filter(g => g.status !== 'En Vivo' && g.status !== 'Finalizado').length;
+
+        const standings = isBaseball ? computeBaseballStandings(store, t.id) : computeFibaStandings(store, t.id);
+        const leader = standings.length > 0 && standings[0].pj > 0 ? standings[0] : null;
+
+        return `
+          <div class="card item-card" style="cursor:pointer;" onclick="openPublicTournament('${t.id}', '${liveCount > 0 ? 'live' : 'standings'}')">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                <div>
+                  <span class="badge badge-pending" style="margin-bottom:0.4rem;">
+                    ${isBaseball ? '⚾ Baseball' : '🏀 Baloncesto'} • ${escapeHtml(t.category || 'Libre')}
+                  </span>
+                  <h3 style="font-size:1.22rem; font-weight:900;">🏆 ${escapeHtml(t.name)}</h3>
+                </div>
+                ${liveCount > 0
+                  ? `<span class="badge badge-live" style="display:inline-flex; align-items:center; gap:0.3rem;"><span class="live-pulse-dot" style="width:7px;height:7px;"></span> ${liveCount} En Vivo</span>`
+                  : `<span class="badge badge-finished">${tTeams.length} Equipos</span>`
+                }
+              </div>
+
+              <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.45rem;">
+                📍 Sede: <strong>${escapeHtml(t.location || 'Por definir')}</strong> • 📅 Inicio: <strong>${escapeHtml(t.date || '-')}</strong>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.45rem; margin-top:0.85rem; background:var(--bg-card-alt); padding:0.6rem; border-radius:10px; border:1px solid var(--border-color); text-align:center;">
+                <div>
+                  <div style="font-size:0.68rem; color:var(--text-muted); font-weight:700;">EN DIRECTO</div>
+                  <div style="font-size:1.05rem; font-weight:900; color:#4ade80;">${liveCount}</div>
+                </div>
+                <div>
+                  <div style="font-size:0.68rem; color:var(--text-muted); font-weight:700;">FINALIZADOS</div>
+                  <div style="font-size:1.05rem; font-weight:900; color:var(--accent-orange);">${finCount}</div>
+                </div>
+                <div>
+                  <div style="font-size:0.68rem; color:var(--text-muted); font-weight:700;">PROGRAMADOS</div>
+                  <div style="font-size:1.05rem; font-weight:900; color:var(--accent-blue);">${progCount}</div>
+                </div>
+              </div>
+
+              ${leader ? `
+                <div style="margin-top:0.65rem; font-size:0.8rem; color:var(--text-muted);">
+                  🥇 <strong>${isBaseball ? 'Líder Baseball' : 'Líder FIBA'}:</strong> <span style="color:var(--accent-orange); font-weight:800;">${escapeHtml(leader.teamName)}</span> (${leader.pg}-${leader.pp}${isBaseball ? `, ${leader.winPct}% VIC` : `, ${leader.fibaPts} pts FIBA`})
+                </div>
+              ` : ''}
+            </div>
+
+            <div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-top:0.4rem;">
+              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="event.stopPropagation(); openPublicTournament('${t.id}', 'live')">
+                ${isBaseball ? '⚾ Entrar al Torneo' : '🏆 Entrar al Torneo'}
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPublicTournament('${t.id}', 'standings')">
+                ${isBaseball ? '📊 Tabla Posiciones' : '📊 Tabla FIBA'}
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPublicTournament('${t.id}', 'leaders')">
+                ⭐ Líderes
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // CÁLCULO DE TABLA DE POSICIONES OFICIAL FIBA (BALONCESTO)
+    // =========================================================
+    function computeFibaStandings(store, tournamentId) {
+      const teams = store.teams.filter(t => t.tournamentId === tournamentId);
+      const finishedGames = store.games.filter(g => g.tournamentId === tournamentId && g.status === 'Finalizado');
+
+      const map = {};
+      teams.forEach(t => {
+        map[t.id] = {
+          teamId: t.id,
+          teamName: t.name,
+          coach: t.coach || '',
+          pj: 0,
+          pg: 0,
+          pp: 0,
+          pf: 0,
+          pc: 0,
+          diff: 0,
+          fibaPts: 0,
+          streak: []
+        };
+      });
+
+      finishedGames.forEach(g => {
+        const homeRow = map[g.homeTeamId];
+        const awayRow = map[g.awayTeamId];
+        if (!homeRow && !awayRow) return;
+
+        const hTotals = getTeamGameTotals(store, g, g.homeTeamId);
+        const aTotals = getTeamGameTotals(store, g, g.awayTeamId);
+        const hPts = hTotals.pts;
+        const aPts = aTotals.pts;
+
+        if (homeRow) {
+          homeRow.pj += 1;
+          homeRow.pf += hPts;
+          homeRow.pc += aPts;
+          if (hPts > aPts) {
+            homeRow.pg += 1;
+            homeRow.fibaPts += 2;
+            homeRow.streak.push('G');
+          } else if (aPts > hPts) {
+            homeRow.pp += 1;
+            homeRow.fibaPts += 1;
+            homeRow.streak.push('P');
+          } else {
+            homeRow.fibaPts += 1;
+            homeRow.streak.push('E');
+          }
+        }
+
+        if (awayRow) {
+          awayRow.pj += 1;
+          awayRow.pf += aPts;
+          awayRow.pc += hPts;
+          if (aPts > hPts) {
+            awayRow.pg += 1;
+            awayRow.fibaPts += 2;
+            awayRow.streak.push('G');
+          } else if (hPts > aPts) {
+            awayRow.pp += 1;
+            awayRow.fibaPts += 1;
+            awayRow.streak.push('P');
+          } else {
+            awayRow.fibaPts += 1;
+            awayRow.streak.push('E');
+          }
+        }
+      });
+
+      const list = Object.values(map).map(r => {
+        r.diff = r.pf - r.pc;
+        r.winPct = r.pj > 0 ? Math.round((r.pg / r.pj) * 100) : 0;
+        r.ppgFor = r.pj > 0 ? (r.pf / r.pj).toFixed(1) : '0.0';
+        r.ppgAgainst = r.pj > 0 ? (r.pc / r.pj).toFixed(1) : '0.0';
+        return r;
+      });
+
+      list.sort((a, b) => {
+        if (b.fibaPts !== a.fibaPts) return b.fibaPts - a.fibaPts;
+        if (b.diff !== a.diff) return b.diff - a.diff;
+        if (b.pf !== a.pf) return b.pf - a.pf;
+        return a.teamName.localeCompare(b.teamName);
+      });
+
+      return list;
+    }
+
+    // =========================================================
+    // CÁLCULO DE TABLA DE POSICIONES DE BASEBALL
+    // (PJ, G, P, % VIC, CA Carreras Anotadas, CP Carreras Permitidas, DIF, RACHA)
+    // =========================================================
+    function computeBaseballStandings(store, tournamentId) {
+      const teams = store.teams.filter(t => t.tournamentId === tournamentId);
+      const finishedGames = store.games.filter(g => g.tournamentId === tournamentId && g.status === 'Finalizado');
+
+      const map = {};
+      teams.forEach(t => {
+        map[t.id] = {
+          teamId: t.id,
+          teamName: t.name,
+          pj: 0,
+          pg: 0,
+          pp: 0,
+          ca: 0,
+          cp: 0,
+          diff: 0,
+          winPctNum: 0,
+          winPct: 0,
+          streak: []
+        };
+      });
+
+      finishedGames.forEach(g => {
+        const homeRow = map[g.homeTeamId];
+        const awayRow = map[g.awayTeamId];
+        if (!homeRow && !awayRow) return;
+
+        const hTot = getBaseballTeamTotals(store, g, g.homeTeamId);
+        const aTot = getBaseballTeamTotals(store, g, g.awayTeamId);
+        const hRuns = hTot.runs;
+        const aRuns = aTot.runs;
+
+        if (homeRow) {
+          homeRow.pj += 1;
+          homeRow.ca += hRuns;
+          homeRow.cp += aRuns;
+          if (hRuns > aRuns) {
+            homeRow.pg += 1;
+            homeRow.streak.push('G');
+          } else if (aRuns > hRuns) {
+            homeRow.pp += 1;
+            homeRow.streak.push('P');
+          } else {
+            homeRow.streak.push('E');
+          }
+        }
+
+        if (awayRow) {
+          awayRow.pj += 1;
+          awayRow.ca += aRuns;
+          awayRow.cp += hRuns;
+          if (aRuns > hRuns) {
+            awayRow.pg += 1;
+            awayRow.streak.push('G');
+          } else if (hRuns > aRuns) {
+            awayRow.pp += 1;
+            awayRow.streak.push('P');
+          } else {
+            awayRow.streak.push('E');
+          }
+        }
+      });
+
+      const list = Object.values(map).map(r => {
+        r.diff = r.ca - r.cp;
+        r.winPctNum = r.pj > 0 ? r.pg / r.pj : 0;
+        r.winPct = r.pj > 0 ? Math.round((r.pg / r.pj) * 100) : 0;
+        r.avgStr = formatBaseballAvg(r.winPctNum);
+        r.runsPerGame = r.pj > 0 ? (r.ca / r.pj).toFixed(1) : '0.0';
+        r.runsAllowedPerGame = r.pj > 0 ? (r.cp / r.pj).toFixed(1) : '0.0';
+        return r;
+      });
+
+      list.sort((a, b) => {
+        if (b.winPctNum !== a.winPctNum) return b.winPctNum - a.winPctNum;
+        if (b.pg !== a.pg) return b.pg - a.pg;
+        if (b.diff !== a.diff) return b.diff - a.diff;
+        if (b.ca !== a.ca) return b.ca - a.ca;
+        return a.teamName.localeCompare(b.teamName);
+      });
+
+      return list;
+    }
+
+    // =========================================================
+    // ACUMULADORES DE ESTADÍSTICAS INDIVIDUALES DEL TORNEO
+    // =========================================================
+    function computeTournamentPlayerStats(store, tournamentId) {
+      const teams = store.teams.filter(t => t.tournamentId === tournamentId);
+      const teamMap = {};
+      teams.forEach(t => { teamMap[t.id] = t; });
+
+      const tourneyPlayers = store.players.filter(p => teamMap[p.teamId]);
+      const activeOrFinishedGames = store.games.filter(
+        g => g.tournamentId === tournamentId && (g.status === 'Finalizado' || g.status === 'En Vivo')
+      );
+
+      return tourneyPlayers.map(p => {
+        let gp = 0;
+        let secondsPlayed = 0;
+        let pts = 0;
+        let plusMinus = 0;
+        let rebOff = 0;
+        let rebDef = 0;
+        let reb = 0;
+        let ast = 0;
+        let stl = 0;
+        let blk = 0;
+        let tov = 0;
+        let pf = 0;
+        let of = 0;
+        let tf = 0;
+        let pts1 = 0, miss1 = 0;
+        let pts2 = 0, miss2 = 0;
+        let pts3 = 0, miss3 = 0;
+        let efficiency = 0;
+
+        activeOrFinishedGames.forEach(g => {
+          if (g.homeTeamId !== p.teamId && g.awayTeamId !== p.teamId) return;
+          const st = getPlayerGameStats(g, p.id);
+          const participated =
+            st.secondsPlayed > 0 ||
+            st.totalPts > 0 ||
+            st.fgAtt > 0 ||
+            st.ftAtt > 0 ||
+            st.totalReb > 0 ||
+            st.ast > 0 ||
+            st.stl > 0 ||
+            st.blk > 0 ||
+            st.tov > 0 ||
+            st.totalFouls > 0 ||
+            (g.startersHome || []).includes(p.id) ||
+            (g.startersAway || []).includes(p.id);
+
+          if (participated) {
+            gp += 1;
+          }
+
+          secondsPlayed += st.secondsPlayed || 0;
+          pts += st.totalPts || 0;
+          plusMinus += st.plusMinus || 0;
+          rebOff += st.rebOff || 0;
+          rebDef += st.rebDef || 0;
+          reb += st.totalReb || 0;
+          ast += st.ast || 0;
+          stl += st.stl || 0;
+          blk += st.blk || 0;
+          tov += st.tov || 0;
+          pf += st.pf || 0;
+          of += st.of || 0;
+          tf += st.tf || 0;
+          pts1 += st.pts1 || 0;
+          miss1 += st.miss1 || 0;
+          pts2 += st.pts2 || 0;
+          miss2 += st.miss2 || 0;
+          pts3 += st.pts3 || 0;
+          miss3 += st.miss3 || 0;
+          efficiency += st.efficiency || 0;
+        });
+
+        const gamesDiv = gp > 0 ? gp : 1;
+        const t2Att = pts2 + miss2;
+        const t3Att = pts3 + miss3;
+        const ftAtt = pts1 + miss1;
+        const fgMade = pts2 + pts3;
+        const fgAtt = t2Att + t3Att;
+
+        return {
+          player: p,
+          teamName: teamMap[p.teamId] ? teamMap[p.teamId].name : '-',
+          gp,
+          secondsPlayed,
+          formattedTime: formatSecondsMMSS(secondsPlayed),
+          pts,
+          ppg: gp > 0 ? +(pts / gamesDiv).toFixed(1) : 0,
+          plusMinus,
+          pmPg: gp > 0 ? +(plusMinus / gamesDiv).toFixed(1) : 0,
+          rebOff,
+          rebDef,
+          reb,
+          rpg: gp > 0 ? +(reb / gamesDiv).toFixed(1) : 0,
+          ast,
+          apg: gp > 0 ? +(ast / gamesDiv).toFixed(1) : 0,
+          stl,
+          spg: gp > 0 ? +(stl / gamesDiv).toFixed(1) : 0,
+          blk,
+          bpg: gp > 0 ? +(blk / gamesDiv).toFixed(1) : 0,
+          tov,
+          pts1, miss1, ftAtt, ftPct: ftAtt > 0 ? Math.round((pts1 / ftAtt) * 100) : 0,
+          pts2, miss2, t2Att, t2Pct: t2Att > 0 ? Math.round((pts2 / t2Att) * 100) : 0,
+          pts3, miss3, t3Att, t3Pct: t3Att > 0 ? Math.round((pts3 / t3Att) * 100) : 0,
+          t3Pg: gp > 0 ? +(pts3 / gamesDiv).toFixed(1) : 0,
+          fgMade, fgAtt, fgPct: fgAtt > 0 ? Math.round((fgMade / fgAtt) * 100) : 0,
+          pf, of, tf, totalFouls: pf + of + tf,
+          efficiency,
+          effPg: gp > 0 ? +(efficiency / gamesDiv).toFixed(1) : 0
+        };
+      });
+    }
+
+    function computeBaseballTournamentPlayerStats(store, tournamentId) {
+      const teams = store.teams.filter(t => t.tournamentId === tournamentId);
+      const teamMap = {};
+      teams.forEach(t => { teamMap[t.id] = t; });
+
+      const tourneyPlayers = store.players.filter(p => teamMap[p.teamId]);
+      const activeOrFinishedGames = store.games.filter(
+        g => g.tournamentId === tournamentId && (g.status === 'Finalizado' || g.status === 'En Vivo')
+      );
+
+      // Calcular el orden al bate dentro de su equipo
+      const slotMap = {};
+      teams.forEach(t => {
+        const ordered = getTeamBaseballLineup(store, null, t.id);
+        ordered.forEach((pl, i) => { slotMap[pl.id] = i + 1; });
+      });
+
+      return tourneyPlayers.map(p => {
+        let gp = 0;
+        let ab = 0, h = 0, r = 0, d2b = 0, t3b = 0, hr = 0, rbi = 0, k = 0, bb = 0;
+
+        activeOrFinishedGames.forEach(g => {
+          if (g.homeTeamId !== p.teamId && g.awayTeamId !== p.teamId) return;
+          const st = getBaseballPlayerStats(g, p.id);
+          if (st.ab > 0 || st.h > 0 || st.r > 0 || st.rbi > 0 || st.bb > 0 || st.k > 0) {
+            gp += 1;
+          }
+          ab += st.ab;
+          h += st.h;
+          r += st.r;
+          d2b += st.d2b;
+          t3b += st.t3b;
+          hr += st.hr;
+          rbi += st.rbi;
+          k += st.k;
+          bb += st.bb;
+        });
+
+        const singles = Math.max(0, h - d2b - t3b - hr);
+        const totalBases = singles + (d2b * 2) + (t3b * 3) + (hr * 4);
+        const avgNum = ab > 0 ? h / ab : 0;
+        const obpNum = (ab + bb) > 0 ? (h + bb) / (ab + bb) : 0;
+        const slgNum = ab > 0 ? totalBases / ab : 0;
+        const opsNum = obpNum + slgNum;
+
+        return {
+          player: p,
+          battingSlot: slotMap[p.id] || p.battingOrder || 1,
+          teamName: teamMap[p.teamId] ? teamMap[p.teamId].name : '-',
+          gp,
+          ab,
+          h,
+          r,
+          d2b,
+          t3b,
+          hr,
+          rbi,
+          k,
+          bb,
+          totalBases,
+          avgNum: +avgNum.toFixed(3),
+          avg: formatBaseballAvg(avgNum),
+          obp: formatBaseballAvg(obpNum),
+          slg: formatBaseballAvg(slgNum),
+          opsNum: +opsNum.toFixed(3),
+          ops: formatBaseballAvg(opsNum)
+        };
+      });
+    }
+
+    // =========================================================
+    // PANTALLA 2: RENDER DEL INTERIOR DE UN TORNEO
+    // =========================================================
+    let cachedTournamentPlayerStats = [];
+    let cachedBaseballTournamentPlayerStats = [];
+    let cachedTournamentSport = 'basketball';
+
+    function renderPublicTournamentView() {
+      const store = loadStore();
+      const tourney = store.tournaments.find(t => t.id === selectedTournamentId) || store.tournaments[0];
+      if (!tourney) {
+        goPublicHome();
+        return;
+      }
+      selectedTournamentId = tourney.id;
+      const isBaseball = tourney.sport === 'baseball';
+      cachedTournamentSport = isBaseball ? 'baseball' : 'basketball';
+
+      document.getElementById('tourneyViewTitle').textContent = `${isBaseball ? '⚾' : '🏆'} ${tourney.name}`;
+      document.getElementById('tourneyViewMeta').textContent =
+        `${isBaseball ? '⚾ Deporte: Baseball' : '🏀 Deporte: Baloncesto'} • Categoría: ${tourney.category || 'Libre'} • 📍 Sede: ${tourney.location || 'Principal'} • 📅 Fecha: ${tourney.date || '-'}`;
+
+      document.getElementById('tabBtn_standings').innerHTML = isBaseball
+        ? '📊 Tabla de Posiciones Baseball'
+        : '📊 Tabla de Posiciones FIBA';
+
+      const tTeams = store.teams.filter(tm => tm.tournamentId === tourney.id);
+      const tGames = store.games.filter(g => g.tournamentId === tourney.id);
+      const liveGames = tGames.filter(g => g.status === 'En Vivo');
+      const scheduledGames = tGames.filter(g => g.status !== 'En Vivo' && g.status !== 'Finalizado');
+      const finishedGames = sortFinishedGamesNewestFirst(tGames.filter(g => g.status === 'Finalizado'), store.games);
+
+      // Actualizar contadores y estado activo de las pestañas
+      document.getElementById('tabBadgeLive').textContent = liveGames.length + scheduledGames.length;
+      document.getElementById('tabBadgePrev').textContent = finishedGames.length;
+
+      ['live', 'previous', 'standings', 'leaders', 'teams'].forEach(tab => {
+        document.getElementById(`tabBtn_${tab}`).classList.toggle('active', selectedTournamentTab === tab);
+        document.getElementById(`tourneyTab_${tab}`).classList.toggle('hidden', selectedTournamentTab !== tab);
+      });
+
+      // 1. Render Pestaña Juegos en Directo y Próximos
+      const liveGrid = document.getElementById('tourneyLiveGamesGrid');
+      if (liveGames.length === 0) {
+        liveGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No hay juegos en directo en este torneo ahora mismo.</div>`;
+      } else {
+        liveGrid.innerHTML = liveGames.map(g => buildPublicGameCardHTML(store, g, 'tournament')).join('');
+      }
+
+      const schedGrid = document.getElementById('tourneyScheduledGamesGrid');
+      if (scheduledGames.length === 0) {
+        schedGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No hay juegos programados pendientes en este torneo.</div>`;
+      } else {
+        schedGrid.innerHTML = scheduledGames.map(g => buildPublicGameCardHTML(store, g, 'tournament')).join('');
+      }
+
+      // 2. Render Pestaña Juegos Anteriores (Finalizados)
+      const finGrid = document.getElementById('tourneyFinishedGamesGrid');
+      if (finishedGames.length === 0) {
+        finGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Aún no hay juegos finalizados en este torneo.</div>`;
+      } else {
+        finGrid.innerHTML = finishedGames.map(g => buildPublicGameCardHTML(store, g, 'tournament')).join('');
+      }
+
+      if (isBaseball) {
+        // =====================================================
+        // MODO TORNEO DE BASEBALL
+        // =====================================================
+        let totalRuns = 0, totalHits = 0, totalHR = 0;
+        tGames.forEach(g => {
+          const h = getBaseballTeamTotals(store, g, g.homeTeamId);
+          const a = getBaseballTeamTotals(store, g, g.awayTeamId);
+          totalRuns += h.runs + a.runs;
+          totalHits += h.h + a.h;
+          totalHR += h.hr + a.hr;
+        });
+
+        const bbPlayerStats = computeBaseballTournamentPlayerStats(store, tourney.id);
+        cachedBaseballTournamentPlayerStats = bbPlayerStats;
+        const topAvg = [...bbPlayerStats].filter(s => s.ab > 0).sort((a, b) => b.avgNum - a.avgNum || b.h - a.h)[0];
+        const topHrRbi = [...bbPlayerStats].sort((a, b) => b.hr - a.hr || b.rbi - a.rbi || b.h - a.h)[0];
+
+        document.getElementById('tourneyQuickStatsGrid').innerHTML = `
+          <div class="summary-metric-box">
+            <div class="label">🛡️ Equipos Participantes</div>
+            <div class="val">${tTeams.length}</div>
+            <div class="sub">${store.players.filter(p => tTeams.some(t => t.id === p.teamId)).length} bateadores inscritos</div>
+          </div>
+          <div class="summary-metric-box">
+            <div class="label">⚾ Partidos (Vivo / Fin / Prog)</div>
+            <div class="val" style="color:#4ade80;">${liveGames.length} / ${finishedGames.length} / ${scheduledGames.length}</div>
+            <div class="sub">${tGames.length} partidos de Baseball</div>
+          </div>
+          <div class="summary-metric-box">
+            <div class="label">🏃 Carreras y Hits del Torneo</div>
+            <div class="val" style="color:#facc15;">${totalRuns} R • ${totalHits} H</div>
+            <div class="sub">${totalHR} Home Runs conectados</div>
+          </div>
+          <div class="summary-metric-box">
+            <div class="label">🏏 Líder de Bateo (AVG)</div>
+            <div class="val" style="font-size:1rem;">${topAvg ? `#${topAvg.player.number} ${escapeHtml(topAvg.player.name)}` : 'Por definir'}</div>
+            <div class="sub">${topAvg ? `AVG ${topAvg.avg} (${topAvg.h}-${topAvg.ab}) • ${escapeHtml(topAvg.teamName)}` : 'Sin turnos aún'}</div>
+          </div>
+          <div class="summary-metric-box">
+            <div class="label">💥 Líder HR / Impulsadas</div>
+            <div class="val" style="font-size:1rem; color:var(--accent-blue);">${topHrRbi && (topHrRbi.hr > 0 || topHrRbi.rbi > 0) ? `#${topHrRbi.player.number} ${escapeHtml(topHrRbi.player.name)}` : 'Por definir'}</div>
+            <div class="sub">${topHrRbi && (topHrRbi.hr > 0 || topHrRbi.rbi > 0) ? `${topHrRbi.hr} HR • ${topHrRbi.rbi} RBI • ${escapeHtml(topHrRbi.teamName)}` : 'Sin registros aún'}</div>
+          </div>
+        `;
+
+        renderBaseballStandingsTable(store, tourney.id);
+        renderBaseballTournamentLeadersSection(bbPlayerStats);
+        renderBaseballTournamentTeamsComparison(store, tourney.id, bbPlayerStats);
+        return;
+      }
+
+      // =====================================================
+      // MODO TORNEO DE BALONCESTO (FIBA)
+      // =====================================================
+      let totalTourneyPoints = 0;
+      tGames.forEach(g => {
+        const h = getTeamGameTotals(store, g, g.homeTeamId);
+        const a = getTeamGameTotals(store, g, g.awayTeamId);
+        totalTourneyPoints += h.pts + a.pts;
+      });
+      const playedCount = liveGames.length + finishedGames.length;
+      const avgGamePoints = playedCount > 0 ? (totalTourneyPoints / playedCount).toFixed(1) : '0.0';
+
+      const allPlayerStats = computeTournamentPlayerStats(store, tourney.id);
+      const topScorer = [...allPlayerStats].sort((a, b) => b.pts - a.pts)[0];
+      const topMvp = [...allPlayerStats].sort((a, b) => b.efficiency - a.efficiency || b.pts - a.pts)[0];
+
+      document.getElementById('tourneyQuickStatsGrid').innerHTML = `
+        <div class="summary-metric-box">
+          <div class="label">🛡️ Equipos Participantes</div>
+          <div class="val">${tTeams.length}</div>
+          <div class="sub">${store.players.filter(p => tTeams.some(t => t.id === p.teamId)).length} jugadores inscritos</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">🏀 Partidos (Vivo / Fin / Prog)</div>
+          <div class="val" style="color:#4ade80;">${liveGames.length} / ${finishedGames.length} / ${scheduledGames.length}</div>
+          <div class="sub">${tGames.length} partidos en total</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">🔥 Puntos Totales del Torneo</div>
+          <div class="val">${totalTourneyPoints} PTS</div>
+          <div class="sub">Promedio: ${avgGamePoints} pts por partido</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">🏀 Líder Anotador</div>
+          <div class="val" style="font-size:1rem;">${topScorer && topScorer.pts > 0 ? `#${topScorer.player.number} ${escapeHtml(topScorer.player.name)}` : 'Por definir'}</div>
+          <div class="sub">${topScorer && topScorer.pts > 0 ? `${topScorer.pts} PTS (${topScorer.ppg} PPP) • ${escapeHtml(topScorer.teamName)}` : 'Sin puntos aún'}</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⭐ Líder Valoración MVP</div>
+          <div class="val" style="font-size:1rem; color:var(--accent-blue);">${topMvp && topMvp.efficiency > 0 ? `#${topMvp.player.number} ${escapeHtml(topMvp.player.name)}` : 'Por definir'}</div>
+          <div class="sub">${topMvp && topMvp.efficiency > 0 ? `VAL ${topMvp.efficiency} (${topMvp.effPg}/P) • ${escapeHtml(topMvp.teamName)}` : 'Sin registros aún'}</div>
+        </div>
+      `;
+
+      renderFibaStandingsTable(store, tourney.id);
+      renderTournamentLeadersSection(allPlayerStats);
+      renderTournamentTeamsComparison(store, tourney.id, allPlayerStats);
+    }
+
+    function renderFibaStandingsTable(store, tournamentId) {
+      document.getElementById('standingsCardTitle').textContent = '📊 Tabla de Posiciones Oficial FIBA';
+      document.getElementById('standingsCardSubtitle').innerHTML =
+        'Reglamento Oficial FIBA: <strong>2 puntos</strong> por Victoria (PG) • <strong>1 punto</strong> por Derrota (PP) • Desempate por Puntos FIBA, Diferencia de Puntos (DIF) y Puntos a Favor (PF).';
+      document.getElementById('fibaStandingsThead').innerHTML = `
+        <tr>
+          <th>POS</th>
+          <th>EQUIPO</th>
+          <th>PJ</th>
+          <th>PG</th>
+          <th>PP</th>
+          <th>% VIC</th>
+          <th>PF (A Favor)</th>
+          <th>PC (En Contra)</th>
+          <th>DIF (+/-)</th>
+          <th>PROM (PF - PC)</th>
+          <th>RACHA</th>
+          <th style="background:rgba(249,115,22,0.18); color:var(--accent-orange);">PTS FIBA</th>
+        </tr>
+      `;
+
+      const standings = computeFibaStandings(store, tournamentId);
+      const tbody = document.getElementById('fibaStandingsBody');
+
+      if (standings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" class="empty-state">No hay equipos registrados en este torneo.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = standings.map((r, idx) => {
+        const pos = idx + 1;
+        const diffSign = r.diff > 0 ? `+${r.diff}` : `${r.diff}`;
+        const diffColor = r.diff > 0 ? '#4ade80' : (r.diff < 0 ? '#f87171' : 'var(--text-muted)');
+        const last5 = r.streak.slice(-5);
+        const streakHtml = last5.length > 0
+          ? last5.map(s => `<span class="streak-pill ${s === 'G' ? 'streak-win' : 'streak-loss'}">${s}</span>`).join('')
+          : `<span style="color:var(--text-muted); font-size:0.78rem;">Sin juegos</span>`;
+
+        return `
+          <tr>
+            <td>
+              <span class="leader-rank ${pos === 1 ? 'rank-1' : (pos === 2 ? 'rank-2' : (pos === 3 ? 'rank-3' : ''))}">${pos}</span>
+            </td>
+            <td><strong>🛡️ ${escapeHtml(r.teamName)}</strong></td>
+            <td><strong>${r.pj}</strong></td>
+            <td style="color:#4ade80; font-weight:800;">${r.pg}</td>
+            <td style="color:#f87171; font-weight:800;">${r.pp}</td>
+            <td>${r.winPct}%</td>
+            <td>${r.pf}</td>
+            <td>${r.pc}</td>
+            <td><strong style="color:${diffColor};">${diffSign}</strong></td>
+            <td style="font-size:0.8rem; color:var(--text-muted);">${r.ppgFor} / ${r.ppgAgainst}</td>
+            <td>${streakHtml}</td>
+            <td style="background:rgba(249,115,22,0.12);"><strong style="font-size:1.1rem; color:var(--accent-orange);">${r.fibaPts}</strong></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderBaseballStandingsTable(store, tournamentId) {
+      document.getElementById('standingsCardTitle').textContent = '⚾ Tabla de Posiciones Oficial de Baseball';
+      document.getElementById('standingsCardSubtitle').innerHTML =
+        'Orden Oficial de Baseball: Porcentaje de Victorias (<strong>% VIC / AVG</strong>), Juegos Ganados (<strong>PG</strong>), Diferencia de Carreras (<strong>DIF</strong>) y Carreras Anotadas (<strong>CA</strong>).';
+      document.getElementById('fibaStandingsThead').innerHTML = `
+        <tr>
+          <th>POS</th>
+          <th>EQUIPO</th>
+          <th>PJ</th>
+          <th>PG (Ganados)</th>
+          <th>PP (Perdidos)</th>
+          <th>% VIC (AVG)</th>
+          <th>CA (Carreras Anotadas)</th>
+          <th>CP (Carreras Permitidas)</th>
+          <th>DIF (+/-)</th>
+          <th>PROM (CA / CP)</th>
+          <th>RACHA</th>
+        </tr>
+      `;
+
+      const standings = computeBaseballStandings(store, tournamentId);
+      const tbody = document.getElementById('fibaStandingsBody');
+
+      if (standings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="empty-state">No hay equipos registrados en este torneo de Baseball.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = standings.map((r, idx) => {
+        const pos = idx + 1;
+        const diffSign = r.diff > 0 ? `+${r.diff}` : `${r.diff}`;
+        const diffColor = r.diff > 0 ? '#4ade80' : (r.diff < 0 ? '#f87171' : 'var(--text-muted)');
+        const last5 = r.streak.slice(-5);
+        const streakHtml = last5.length > 0
+          ? last5.map(s => `<span class="streak-pill ${s === 'G' ? 'streak-win' : 'streak-loss'}">${s}</span>`).join('')
+          : `<span style="color:var(--text-muted); font-size:0.78rem;">Sin juegos</span>`;
+
+        return `
+          <tr>
+            <td>
+              <span class="leader-rank ${pos === 1 ? 'rank-1' : (pos === 2 ? 'rank-2' : (pos === 3 ? 'rank-3' : ''))}">${pos}</span>
+            </td>
+            <td><strong>⚾ ${escapeHtml(r.teamName)}</strong></td>
+            <td><strong>${r.pj}</strong></td>
+            <td style="color:#4ade80; font-weight:800;">${r.pg}</td>
+            <td style="color:#f87171; font-weight:800;">${r.pp}</td>
+            <td style="background:rgba(250,204,21,0.1);"><strong style="color:#fde047;">${r.avgStr} (${r.winPct}%)</strong></td>
+            <td><strong>${r.ca}</strong></td>
+            <td>${r.cp}</td>
+            <td><strong style="color:${diffColor};">${diffSign}</strong></td>
+            <td style="font-size:0.8rem; color:var(--text-muted);">${r.runsPerGame} / ${r.runsAllowedPerGame}</td>
+            <td>${streakHtml}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // PESTAÑA 4: LÍDERES EN TODAS LAS ESTADÍSTICAS (BASKET / BASEBALL)
+    // =========================================================
+    function setLeadersMode(mode) {
+      leadersMode = mode;
+      document.getElementById('btnModeTotals').className = mode === 'totals' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+      document.getElementById('btnModeAverages').className = mode === 'averages' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+      if (cachedTournamentSport === 'baseball') {
+        renderBaseballTournamentLeadersSection(cachedBaseballTournamentPlayerStats);
+      } else {
+        renderTournamentLeadersSection(cachedTournamentPlayerStats);
+      }
+    }
+
+    function renderBaseballTournamentLeadersSection(bbPlayerStats) {
+      cachedBaseballTournamentPlayerStats = bbPlayerStats || [];
+      document.getElementById('leadersCardTitle').textContent = '⚾ Líderes Individuales de Bateo del Torneo';
+      document.getElementById('leadersCardSubtitle').textContent =
+        'Top 5 de bateadores en Promedio de Bateo (AVG), Hits (H), Home Runs (HR), Impulsadas (RBI), Carreras (R), Dobles (2B), Triples (3B) y OPS.';
+      document.getElementById('leadersModeToggleWrap').classList.add('hidden');
+
+      const sortSelect = document.getElementById('leaderSortSelect');
+      if (sortSelect && !sortSelect.getAttribute('data-sport-mode')?.includes('baseball')) {
+        sortSelect.setAttribute('data-sport-mode', 'baseball');
+        sortSelect.innerHTML = `
+          <option value="avgNum">Ordenar por: Promedio de Bateo (AVG)</option>
+          <option value="h">Ordenar por: Hits Conectados (H)</option>
+          <option value="hr">Ordenar por: Home Runs (HR)</option>
+          <option value="rbi">Ordenar por: Carreras Impulsadas (RBI)</option>
+          <option value="r">Ordenar por: Carreras Anotadas (R)</option>
+          <option value="d2b">Ordenar por: Dobles (2B)</option>
+          <option value="t3b">Ordenar por: Triples (3B)</option>
+          <option value="opsNum">Ordenar por: OPS (OBP + SLG)</option>
+          <option value="bb">Ordenar por: Base por Bolas (BB)</option>
+        `;
+      }
+
+      document.getElementById('allTournamentPlayersThead').innerHTML = `
+        <tr>
+          <th>RK</th>
+          <th>Orden</th>
+          <th># Bateador</th>
+          <th>Equipo</th>
+          <th>PJ</th>
+          <th>AB</th>
+          <th>R</th>
+          <th>H</th>
+          <th>2B</th>
+          <th>3B</th>
+          <th>HR</th>
+          <th>RBI</th>
+          <th>BB</th>
+          <th>K</th>
+          <th>AVG</th>
+          <th>SLG</th>
+          <th>OPS</th>
+        </tr>
+      `;
+
+      const categories = [
+        {
+          title: '🏏 Líderes de Bateo (AVG)',
+          key: 'avgNum',
+          tieKey: 'h',
+          displayKey: 'avg',
+          unit: 'AVG',
+          filterFn: s => s.ab > 0,
+          subFormatter: st => `${st.h} Hits en ${st.ab} AB (${st.gp} PJ) • OPS ${st.ops}`
+        },
+        {
+          title: '🟢 Líderes en Hits Conectados (H)',
+          key: 'h',
+          tieKey: 'avgNum',
+          displayKey: 'h',
+          unit: 'HITS',
+          filterFn: s => s.h > 0,
+          subFormatter: st => `${st.h}-${st.ab} (AVG ${st.avg}) • ${st.d2b} 2B, ${st.t3b} 3B, ${st.hr} HR`
+        },
+        {
+          title: '💥 Líderes en Home Runs (HR)',
+          key: 'hr',
+          tieKey: 'rbi',
+          displayKey: 'hr',
+          unit: 'HR',
+          filterFn: s => s.hr > 0,
+          subFormatter: st => `${st.hr} Cuadrangulares • ${st.rbi} RBI • SLG ${st.slg}`
+        },
+        {
+          title: '🔥 Líderes en Carreras Impulsadas (RBI)',
+          key: 'rbi',
+          tieKey: 'h',
+          displayKey: 'rbi',
+          unit: 'RBI',
+          filterFn: s => s.rbi > 0,
+          subFormatter: st => `${st.rbi} Impulsadas en ${st.gp} PJ • ${st.h}-${st.ab} (${st.avg})`
+        },
+        {
+          title: '🏃 Líderes en Carreras Anotadas (R)',
+          key: 'r',
+          tieKey: 'h',
+          displayKey: 'r',
+          unit: 'CARRERAS',
+          filterFn: s => s.r > 0,
+          subFormatter: st => `${st.r} Anotadas en ${st.gp} PJ • OBP ${st.obp}`
+        },
+        {
+          title: '🔵 Líderes en Dobles (2B)',
+          key: 'd2b',
+          tieKey: 'h',
+          displayKey: 'd2b',
+          unit: '2B',
+          filterFn: s => s.d2b > 0,
+          subFormatter: st => `${st.d2b} Dobles • ${st.h} Hits totales (AVG ${st.avg})`
+        },
+        {
+          title: '🟣 Líderes en Triples (3B)',
+          key: 't3b',
+          tieKey: 'h',
+          displayKey: 't3b',
+          unit: '3B',
+          filterFn: s => s.t3b > 0,
+          subFormatter: st => `${st.t3b} Triples • ${st.r} Carreras anotadas`
+        },
+        {
+          title: '📈 Líderes en OPS (OBP + SLG)',
+          key: 'opsNum',
+          tieKey: 'h',
+          displayKey: 'ops',
+          unit: 'OPS',
+          filterFn: s => s.ab > 0 || s.bb > 0,
+          subFormatter: st => `OBP ${st.obp} + SLG ${st.slg} • ${st.hr} HR, ${st.rbi} RBI`
+        }
+      ];
+
+      const grid = document.getElementById('tourneyLeadersCardsGrid');
+      grid.innerHTML = categories.map(cat => {
+        const sorted = [...cachedBaseballTournamentPlayerStats]
+          .filter(cat.filterFn)
+          .sort((a, b) => {
+            if (b[cat.key] !== a[cat.key]) return b[cat.key] - a[cat.key];
+            return b[cat.tieKey] - a[cat.tieKey];
+          })
+          .slice(0, 5);
+
+        const rowsHtml = sorted.length > 0
+          ? sorted.map((st, idx) => {
+              const rank = idx + 1;
+              return `
+                <div class="leader-row">
+                  <div style="display:flex; align-items:center; gap:0.55rem; min-width:0;">
+                    <span class="leader-rank ${rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''))}">${rank}</span>
+                    <div style="min-width:0;">
+                      <div style="font-size:0.88rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        #${escapeHtml(String(st.player.number))} ${escapeHtml(st.player.name)}
+                        <span style="font-size:0.72rem; color:var(--accent-blue); font-weight:700;">(${escapeHtml(st.teamName)})</span>
+                      </div>
+                      <div style="font-size:0.72rem; color:var(--text-muted);">${cat.subFormatter(st)}</div>
+                    </div>
+                  </div>
+                  <div style="text-align:right; flex-shrink:0;">
+                    <div style="font-size:1.08rem; font-weight:900; color:#facc15;">${st[cat.displayKey]}</div>
+                    <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700;">${cat.unit}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : `<div class="empty-state" style="padding:1rem 0; font-size:0.8rem;">Sin registros todavía en esta categoría.</div>`;
+
+        return `
+          <div class="leader-category-card">
+            <div style="font-size:0.95rem; font-weight:900; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem; margin-bottom:0.4rem;">
+              ${cat.title}
+            </div>
+            ${rowsHtml}
+          </div>
+        `;
+      }).join('');
+
+      renderTournamentAllPlayersTable();
+    }
+
+    function renderTournamentLeadersSection(playerStatsList) {
+      cachedTournamentPlayerStats = playerStatsList || [];
+      document.getElementById('leadersCardTitle').textContent = '⭐ Líderes Individuales del Torneo en Todas las Estadísticas';
+      document.getElementById('leadersCardSubtitle').textContent =
+        'Top 5 de jugadores en Puntos, Rebotes, Asistencias, Triples, Robos, Tapones, Valoración MVP y Más/Menos (+/-).';
+      document.getElementById('leadersModeToggleWrap').classList.remove('hidden');
+
+      const sortSelect = document.getElementById('leaderSortSelect');
+      if (sortSelect && sortSelect.getAttribute('data-sport-mode') !== 'basketball') {
+        sortSelect.setAttribute('data-sport-mode', 'basketball');
+        sortSelect.innerHTML = `
+          <option value="pts">Ordenar por: Puntos (PTS)</option>
+          <option value="ppg">Ordenar por: Puntos por Juego (PPP)</option>
+          <option value="efficiency">Ordenar por: Valoración MVP (VAL)</option>
+          <option value="reb">Ordenar por: Rebotes Totales (REB)</option>
+          <option value="ast">Ordenar por: Asistencias (AST)</option>
+          <option value="pts3">Ordenar por: Triples Anotados (3P)</option>
+          <option value="stl">Ordenar por: Robos (ROB)</option>
+          <option value="blk">Ordenar por: Tapones (TAP)</option>
+          <option value="plusMinus">Ordenar por: Más / Menos (+/-)</option>
+          <option value="secondsPlayed">Ordenar por: Minutos Jugados (MIN)</option>
+        `;
+      }
+
+      document.getElementById('allTournamentPlayersThead').innerHTML = `
+        <tr>
+          <th>RK</th>
+          <th># Jugador</th>
+          <th>Equipo</th>
+          <th>PJ</th>
+          <th>MIN</th>
+          <th>PTS (PPP)</th>
+          <th>+/-</th>
+          <th>REB (O/D)</th>
+          <th>AST</th>
+          <th>ROB</th>
+          <th>TAP</th>
+          <th>PER</th>
+          <th>T2 (C/I %)</th>
+          <th>T3 (C/I %)</th>
+          <th>TL (C/I %)</th>
+          <th>VAL</th>
+        </tr>
+      `;
+
+      const isAvg = leadersMode === 'averages';
+
+      const categories = [
+        {
+          title: '🏀 Líderes en Puntos (Anotadores)',
+          key: isAvg ? 'ppg' : 'pts',
+          tieKey: 'pts',
+          unit: isAvg ? 'PPP' : 'PTS',
+          subFormatter: (st) => `${st.pts} PTS en ${st.gp} PJ • TC: ${st.fgMade}/${st.fgAtt} (${st.fgPct}%)`
+        },
+        {
+          title: '🙌 Líderes en Rebotes',
+          key: isAvg ? 'rpg' : 'reb',
+          tieKey: 'reb',
+          unit: isAvg ? 'REB/P' : 'REB',
+          subFormatter: (st) => `${st.reb} REB (${st.rebOff} OFE / ${st.rebDef} DEF) • ${st.gp} PJ`
+        },
+        {
+          title: '🎯 Líderes en Asistencias',
+          key: isAvg ? 'apg' : 'ast',
+          tieKey: 'ast',
+          unit: isAvg ? 'AST/P' : 'AST',
+          subFormatter: (st) => `${st.ast} AST totales (${st.apg} por juego) • ${st.gp} PJ`
+        },
+        {
+          title: '🔥 Líderes en Triples Convertidos',
+          key: isAvg ? 't3Pg' : 'pts3',
+          tieKey: 'pts3',
+          unit: isAvg ? '3P/P' : '3P',
+          subFormatter: (st) => `${st.pts3}/${st.t3Att} en Triples (${st.t3Pct}%) • ${st.gp} PJ`
+        },
+        {
+          title: '🕵️ Líderes en Robos de Balón',
+          key: isAvg ? 'spg' : 'stl',
+          tieKey: 'stl',
+          unit: isAvg ? 'ROB/P' : 'ROB',
+          subFormatter: (st) => `${st.stl} Robos totales (${st.spg} por juego) • ${st.gp} PJ`
+        },
+        {
+          title: '✋ Líderes en Tapones (Bloqueos)',
+          key: isAvg ? 'bpg' : 'blk',
+          tieKey: 'blk',
+          unit: isAvg ? 'TAP/P' : 'TAP',
+          subFormatter: (st) => `${st.blk} Tapones totales (${st.bpg} por juego) • ${st.gp} PJ`
+        },
+        {
+          title: '📈 Líderes en Valoración MVP (FIBA)',
+          key: isAvg ? 'effPg' : 'efficiency',
+          tieKey: 'efficiency',
+          unit: isAvg ? 'VAL/P' : 'VAL',
+          subFormatter: (st) => `VAL ${st.efficiency} • ${st.pts} PTS, ${st.reb} REB, ${st.ast} AST`
+        },
+        {
+          title: '⚡ Líderes en Impacto Más/Menos (+/-)',
+          key: isAvg ? 'pmPg' : 'plusMinus',
+          tieKey: 'plusMinus',
+          unit: isAvg ? '+/- P' : '+/-',
+          allowNegative: true,
+          subFormatter: (st) => `Acumulado: ${st.plusMinus > 0 ? '+' + st.plusMinus : st.plusMinus} en ${st.formattedTime} min`
+        }
+      ];
+
+      const grid = document.getElementById('tourneyLeadersCardsGrid');
+      grid.innerHTML = categories.map(cat => {
+        const sorted = [...cachedTournamentPlayerStats]
+          .filter(s => cat.allowNegative ? s.gp > 0 : (s[cat.tieKey] > 0))
+          .sort((a, b) => {
+            if (b[cat.key] !== a[cat.key]) return b[cat.key] - a[cat.key];
+            return b[cat.tieKey] - a[cat.tieKey];
+          })
+          .slice(0, 5);
+
+        const rowsHtml = sorted.length > 0
+          ? sorted.map((st, idx) => {
+              const rank = idx + 1;
+              const rawVal = st[cat.key];
+              const displayVal = cat.allowNegative && rawVal > 0 ? `+${rawVal}` : rawVal;
+              return `
+                <div class="leader-row">
+                  <div style="display:flex; align-items:center; gap:0.55rem; min-width:0;">
+                    <span class="leader-rank ${rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''))}">${rank}</span>
+                    <div style="min-width:0;">
+                      <div style="font-size:0.88rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        #${escapeHtml(String(st.player.number))} ${escapeHtml(st.player.name)}
+                        <span style="font-size:0.72rem; color:var(--accent-blue); font-weight:700;">(${escapeHtml(st.teamName)})</span>
+                      </div>
+                      <div style="font-size:0.72rem; color:var(--text-muted);">${cat.subFormatter(st)}</div>
+                    </div>
+                  </div>
+                  <div style="text-align:right; flex-shrink:0;">
+                    <div style="font-size:1.08rem; font-weight:900; color:var(--accent-orange);">${displayVal}</div>
+                    <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700;">${cat.unit}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : `<div class="empty-state" style="padding:1rem 0; font-size:0.8rem;">Sin registros todavía en esta categoría.</div>`;
+
+        return `
+          <div class="leader-category-card">
+            <div style="font-size:0.95rem; font-weight:900; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem; margin-bottom:0.4rem;">
+              ${cat.title}
+            </div>
+            ${rowsHtml}
+          </div>
+        `;
+      }).join('');
+
+      renderTournamentAllPlayersTable();
+    }
+
+    function renderTournamentAllPlayersTable() {
+      const search = (document.getElementById('leaderSearchInput')?.value || '').trim().toLowerCase();
+      const sortKey = document.getElementById('leaderSortSelect')?.value || (cachedTournamentSport === 'baseball' ? 'avgNum' : 'pts');
+      const tbody = document.getElementById('allTournamentPlayersBody');
+      if (!tbody) return;
+
+      if (cachedTournamentSport === 'baseball') {
+        let list = [...cachedBaseballTournamentPlayerStats];
+        if (search) {
+          list = list.filter(st =>
+            st.player.name.toLowerCase().includes(search) ||
+            st.teamName.toLowerCase().includes(search) ||
+            String(st.player.number).includes(search)
+          );
+        }
+
+        list.sort((a, b) => {
+          if (b[sortKey] !== a[sortKey]) return (b[sortKey] || 0) - (a[sortKey] || 0);
+          return b.h - a.h;
+        });
+
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="17" class="empty-state">No se encontraron bateadores con ese criterio.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map((st, idx) => `
+          <tr>
+            <td><strong>${idx + 1}</strong></td>
+            <td><span class="badge" style="background:rgba(249,115,22,0.18); color:#fb923c;">${st.battingSlot}° Bate</span></td>
+            <td><span class="jersey-badge">#${escapeHtml(String(st.player.number))}</span> <strong>${escapeHtml(st.player.name)}</strong></td>
+            <td><span class="badge badge-pending">${escapeHtml(st.teamName)}</span></td>
+            <td>${st.gp}</td>
+            <td><strong>${st.ab}</strong></td>
+            <td style="color:#fde047; font-weight:800;">${st.r}</td>
+            <td style="color:#4ade80; font-weight:800;">${st.h}</td>
+            <td>${st.d2b}</td>
+            <td>${st.t3b}</td>
+            <td style="color:#f87171; font-weight:800;">${st.hr}</td>
+            <td style="color:#fb923c; font-weight:800;">${st.rbi}</td>
+            <td>${st.bb}</td>
+            <td>${st.k}</td>
+            <td style="background:rgba(250,204,21,0.1);"><strong style="color:#fde047;">${st.avg}</strong></td>
+            <td>${st.slg}</td>
+            <td><strong>${st.ops}</strong></td>
+          </tr>
+        `).join('');
+        return;
+      }
+
+      let list = [...cachedTournamentPlayerStats];
+      if (search) {
+        list = list.filter(st =>
+          st.player.name.toLowerCase().includes(search) ||
+          st.teamName.toLowerCase().includes(search) ||
+          String(st.player.number).includes(search)
+        );
+      }
+
+      list.sort((a, b) => {
+        if (b[sortKey] !== a[sortKey]) return b[sortKey] - a[sortKey];
+        return b.pts - a.pts;
+      });
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="16" class="empty-state">No se encontraron jugadores con ese criterio.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map((st, idx) => {
+        const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+        const pmColor = st.plusMinus > 0 ? '#4ade80' : (st.plusMinus < 0 ? '#f87171' : 'var(--text-muted)');
+        return `
+          <tr>
+            <td><strong>${idx + 1}</strong></td>
+            <td><span class="jersey-badge">#${escapeHtml(String(st.player.number))}</span> <strong>${escapeHtml(st.player.name)}</strong></td>
+            <td><span class="badge badge-pending">${escapeHtml(st.teamName)}</span></td>
+            <td>${st.gp}</td>
+            <td style="font-family:monospace;">${st.formattedTime}</td>
+            <td><strong style="color:var(--accent-orange); font-size:0.98rem;">${st.pts}</strong> <span style="font-size:0.74rem; color:var(--text-muted);">(${st.ppg})</span></td>
+            <td><strong style="color:${pmColor};">${pmSign}</strong></td>
+            <td><strong>${st.reb}</strong> <span style="font-size:0.74rem; color:var(--text-muted);">(${st.rebOff}/${st.rebDef})</span></td>
+            <td><strong>${st.ast}</strong></td>
+            <td>${st.stl}</td>
+            <td>${st.blk}</td>
+            <td>${st.tov}</td>
+            <td style="font-size:0.78rem;">${st.pts2}/${st.t2Att} (${st.t2Pct}%)</td>
+            <td style="font-size:0.78rem;">${st.pts3}/${st.t3Att} (${st.t3Pct}%)</td>
+            <td style="font-size:0.78rem;">${st.pts1}/${st.ftAtt} (${st.ftPct}%)</td>
+            <td><strong>${st.efficiency}</strong></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // PESTAÑA 5: ESTADÍSTICAS COLECTIVAS POR EQUIPO Y PLANTILLAS
+    // =========================================================
+    function renderBaseballTournamentTeamsComparison(store, tournamentId, bbPlayerStats) {
+      const teams = store.teams.filter(t => t.tournamentId === tournamentId);
+      const games = store.games.filter(g => g.tournamentId === tournamentId && (g.status === 'Finalizado' || g.status === 'En Vivo'));
+      const compTbody = document.getElementById('tourneyTeamStatsComparisonBody');
+      const rostersGrid = document.getElementById('tourneyRostersGrid');
+
+      document.getElementById('teamsCompCardSubtitle').textContent =
+        'Rendimiento colectivo de bateo acumulado (Turnos, Carreras, Hits, Extrabases, Impulsadas, AVG y OPS) de cada equipo en el torneo.';
+      document.getElementById('tourneyTeamStatsComparisonThead').innerHTML = `
+        <tr>
+          <th>Equipo</th>
+          <th>PJ</th>
+          <th>AB</th>
+          <th>R (Carreras)</th>
+          <th>H (Hits)</th>
+          <th>2B</th>
+          <th>3B</th>
+          <th>HR</th>
+          <th>RBI</th>
+          <th>BB</th>
+          <th>K</th>
+          <th>AVG Colectivo</th>
+          <th>OPS Colectivo</th>
+        </tr>
+      `;
+
+      if (teams.length === 0) {
+        compTbody.innerHTML = `<tr><td colspan="13" class="empty-state">Sin equipos registrados.</td></tr>`;
+        rostersGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Sin equipos registrados.</div>`;
+        return;
+      }
+
+      const teamAggs = teams.map(t => {
+        let pj = 0, ab = 0, runs = 0, h = 0, d2b = 0, t3b = 0, hr = 0, rbi = 0, bb = 0, k = 0;
+        games.forEach(g => {
+          if (g.homeTeamId !== t.id && g.awayTeamId !== t.id) return;
+          pj += 1;
+          const tot = getBaseballTeamTotals(store, g, t.id);
+          ab += tot.ab;
+          runs += tot.runs;
+          h += tot.h;
+          d2b += tot.d2b;
+          t3b += tot.t3b;
+          hr += tot.hr;
+          rbi += tot.rbi;
+          bb += tot.bb;
+          k += tot.k;
+        });
+
+        const singles = Math.max(0, h - d2b - t3b - hr);
+        const totalBases = singles + (d2b * 2) + (t3b * 3) + (hr * 4);
+        const avgNum = ab > 0 ? h / ab : 0;
+        const obpNum = (ab + bb) > 0 ? (h + bb) / (ab + bb) : 0;
+        const slgNum = ab > 0 ? totalBases / ab : 0;
+
+        return {
+          team: t,
+          pj, ab, runs, h, d2b, t3b, hr, rbi, bb, k,
+          avg: formatBaseballAvg(avgNum),
+          ops: formatBaseballAvg(obpNum + slgNum)
+        };
+      }).sort((a, b) => b.runs - a.runs || b.h - a.h);
+
+      compTbody.innerHTML = teamAggs.map(ta => `
+        <tr>
+          <td><strong>⚾ ${escapeHtml(ta.team.name)}</strong></td>
+          <td>${ta.pj}</td>
+          <td>${ta.ab}</td>
+          <td><strong style="color:#fde047;">${ta.runs}</strong></td>
+          <td><strong style="color:#4ade80;">${ta.h}</strong></td>
+          <td>${ta.d2b}</td>
+          <td>${ta.t3b}</td>
+          <td style="color:#f87171; font-weight:800;">${ta.hr}</td>
+          <td style="color:#fb923c; font-weight:800;">${ta.rbi}</td>
+          <td>${ta.bb}</td>
+          <td>${ta.k}</td>
+          <td style="background:rgba(250,204,21,0.1);"><strong style="color:#fde047;">${ta.avg}</strong></td>
+          <td><strong>${ta.ops}</strong></td>
+        </tr>
+      `).join('');
+
+      rostersGrid.innerHTML = teams.map(t => {
+        const roster = bbPlayerStats
+          .filter(ps => ps.player.teamId === t.id)
+          .sort((a, b) => a.battingSlot - b.battingSlot);
+
+        return `
+          <div class="card">
+            <div class="card-header" style="margin-bottom:0.6rem; padding-bottom:0.45rem;">
+              <h4 class="card-title" style="font-size:1rem;">⚾ ${escapeHtml(t.name)}</h4>
+              <span class="badge badge-pending">${roster.length} Bateadores</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0.35rem;">
+              ${roster.length > 0 ? roster.map(ps => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.38rem 0.55rem; background:var(--bg-card-alt); border-radius:7px; font-size:0.82rem;">
+                  <div>
+                    <span class="badge" style="background:rgba(249,115,22,0.18); color:#fb923c; font-size:0.7rem; margin-right:0.25rem;">${ps.battingSlot}° Bate</span>
+                    <span class="jersey-badge">#${escapeHtml(String(ps.player.number))}</span>
+                    <strong>${escapeHtml(ps.player.name)}</strong>
+                  </div>
+                  <div style="font-size:0.76rem; color:var(--text-muted);">
+                    <strong style="color:#fde047;">AVG ${ps.avg} (${ps.h}-${ps.ab})</strong> • ${ps.r} R • ${ps.rbi} RBI • ${ps.hr} HR
+                  </div>
+                </div>
+              `).join('') : `<div class="empty-state" style="padding:0.75rem;">Sin bateadores inscritos</div>`}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTournamentTeamsComparison(store, tournamentId, allPlayerStats) {
+      const teams = store.teams.filter(t => t.tournamentId === tournamentId);
+      const games = store.games.filter(g => g.tournamentId === tournamentId && (g.status === 'Finalizado' || g.status === 'En Vivo'));
+      const compTbody = document.getElementById('tourneyTeamStatsComparisonBody');
+      const rostersGrid = document.getElementById('tourneyRostersGrid');
+
+      document.getElementById('teamsCompCardSubtitle').textContent =
+        'Rendimiento colectivo acumulado y porcentajes de tiro de cada equipo en el torneo.';
+      document.getElementById('tourneyTeamStatsComparisonThead').innerHTML = `
+        <tr>
+          <th>Equipo</th>
+          <th>PJ</th>
+          <th>PTS Totales (PPP)</th>
+          <th>REB (O/D)</th>
+          <th>AST</th>
+          <th>ROB</th>
+          <th>TAP</th>
+          <th>PER</th>
+          <th>% TC</th>
+          <th>% Triples (3P)</th>
+          <th>% Tiros Libres (TL)</th>
+          <th>VAL Colectiva</th>
+        </tr>
+      `;
+
+      if (teams.length === 0) {
+        compTbody.innerHTML = `<tr><td colspan="12" class="empty-state">Sin equipos registrados.</td></tr>`;
+        rostersGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Sin equipos registrados.</div>`;
+        return;
+      }
+
+      const teamAggs = teams.map(t => {
+        let pj = 0;
+        let pts = 0, rebOff = 0, rebDef = 0, reb = 0, ast = 0, stl = 0, blk = 0, tov = 0, efficiency = 0;
+        let pts1 = 0, miss1 = 0, pts2 = 0, miss2 = 0, pts3 = 0, miss3 = 0;
+
+        games.forEach(g => {
+          if (g.homeTeamId !== t.id && g.awayTeamId !== t.id) return;
+          pj += 1;
+          const tot = getTeamGameTotals(store, g, t.id);
+          pts += tot.pts;
+          rebOff += tot.rebOff;
+          rebDef += tot.rebDef;
+          reb += tot.reb;
+          ast += tot.ast;
+          stl += tot.stl;
+          blk += tot.blk;
+          tov += tot.tov;
+          efficiency += tot.efficiency;
+          pts1 += tot.pts1; miss1 += tot.miss1;
+          pts2 += tot.pts2; miss2 += tot.miss2;
+          pts3 += tot.pts3; miss3 += tot.miss3;
+        });
+
+        const fgMade = pts2 + pts3;
+        const fgAtt = fgMade + miss2 + miss3;
+        const t3Att = pts3 + miss3;
+        const ftAtt = pts1 + miss1;
+
+        return {
+          team: t,
+          pj,
+          pts,
+          ppg: pj > 0 ? (pts / pj).toFixed(1) : '0.0',
+          rebOff, rebDef, reb,
+          ast, stl, blk, tov, efficiency,
+          fgMade, fgAtt, fgPct: fgAtt > 0 ? Math.round((fgMade / fgAtt) * 100) : 0,
+          pts3, t3Att, t3Pct: t3Att > 0 ? Math.round((pts3 / t3Att) * 100) : 0,
+          pts1, ftAtt, ftPct: ftAtt > 0 ? Math.round((pts1 / ftAtt) * 100) : 0
+        };
+      }).sort((a, b) => b.pts - a.pts);
+
+      compTbody.innerHTML = teamAggs.map(ta => `
+        <tr>
+          <td><strong>🛡️ ${escapeHtml(ta.team.name)}</strong></td>
+          <td>${ta.pj}</td>
+          <td><strong style="color:var(--accent-orange);">${ta.pts}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${ta.ppg} PPP)</span></td>
+          <td><strong>${ta.reb}</strong> (${ta.rebOff}/${ta.rebDef})</td>
+          <td><strong>${ta.ast}</strong></td>
+          <td>${ta.stl}</td>
+          <td>${ta.blk}</td>
+          <td>${ta.tov}</td>
+          <td>${ta.fgMade}/${ta.fgAtt} (<strong>${ta.fgPct}%</strong>)</td>
+          <td>${ta.pts3}/${ta.t3Att} (<strong>${ta.t3Pct}%</strong>)</td>
+          <td>${ta.pts1}/${ta.ftAtt} (<strong>${ta.ftPct}%</strong>)</td>
+          <td><strong>${ta.efficiency}</strong></td>
+        </tr>
+      `).join('');
+
+      rostersGrid.innerHTML = teams.map(t => {
+        const roster = allPlayerStats
+          .filter(ps => ps.player.teamId === t.id)
+          .sort((a, b) => Number(a.player.number) - Number(b.player.number));
+
+        return `
+          <div class="card">
+            <div class="card-header" style="margin-bottom:0.6rem; padding-bottom:0.45rem;">
+              <h4 class="card-title" style="font-size:1rem;">🛡️ ${escapeHtml(t.name)}</h4>
+              <span class="badge badge-pending">${roster.length} Jugadores</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0.35rem;">
+              ${roster.length > 0 ? roster.map(ps => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.35rem 0.5rem; background:var(--bg-card-alt); border-radius:7px; font-size:0.82rem;">
+                  <div>
+                    <span class="jersey-badge">#${escapeHtml(String(ps.player.number))}</span>
+                    <strong>${escapeHtml(ps.player.name)}</strong>
+                    <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(ps.player.position || '')}</span>
+                  </div>
+                  <div style="font-size:0.76rem; color:var(--text-muted);">
+                    <strong style="color:var(--accent-orange);">${ps.pts} PTS</strong> • ${ps.reb} REB • ${ps.ast} AST
+                  </div>
+                </div>
+              `).join('') : `<div class="empty-state" style="padding:0.75rem;">Sin jugadores inscritos</div>`}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // PANTALLA 3: DETALLE DE UN PARTIDO EN VIVO O FINALIZADO
+    // (SOPORTA TANTO BALONCESTO COMO BASEBALL)
+    // =========================================================
+    function renderPublicGameDetailView() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === selectedGameId) || store.games[0];
+      if (!game) {
+        goPublicHome();
+        return;
+      }
+      selectedGameId = game.id;
+
+      const isBaseball = getGameSport(store, game) === 'baseball';
+      const tourney = store.tournaments.find(t => t.id === game.tournamentId);
+      const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+      const homeName = homeTeam ? homeTeam.name : 'Equipo Local';
+      const awayName = awayTeam ? awayTeam.name : 'Equipo Visitante';
+
+      if (isBaseball) {
+        renderPublicBaseballGameDetailView(store, game, tourney, homeTeam, awayTeam, homeName, awayName);
+        return;
+      }
+
+      // =====================================================
+      // MODO PARTIDO DE BALONCESTO (FIBA)
+      // =====================================================
+      ensureOnCourtPlayers(store, game);
+
+      const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+
+      document.getElementById('detailGameTitle').textContent = `🏀 ${homeName} vs ${awayName}`;
+      document.getElementById('detailGameSubtitle').textContent =
+        `🏆 ${tourney ? tourney.name : 'Torneo'} • 📅 ${game.date || '-'} • 🕒 ${game.time || '-'} ${game.note ? '• ' + game.note : ''}`;
+
+      // Marcador Principal
+      document.getElementById('detHomeName').textContent = homeName;
+      document.getElementById('detAwayName').textContent = awayName;
+      document.getElementById('detHomeCoach').textContent = `👔 Entrenador: ${game.coachHome || 'No especificado'}`;
+      document.getElementById('detAwayCoach').textContent = `👔 Entrenador: ${game.coachAway || 'No especificado'}`;
+      document.getElementById('detHomeScore').textContent = homeTotals.pts;
+      document.getElementById('detAwayScore').textContent = awayTotals.pts;
+
+      document.getElementById('detPeriodBadge').textContent = getPeriodLabel(game.period);
+      const statusBadge = document.getElementById('detStatusBadge');
+      statusBadge.textContent = game.status || 'Programado';
+      statusBadge.className = `badge ${game.status === 'En Vivo' ? 'badge-live' : (game.status === 'Finalizado' ? 'badge-finished' : 'badge-pending')}`;
+
+      document.getElementById('detClockDisplay').textContent = formatSecondsMMSS(game.clockSeconds);
+      document.getElementById('detDateMeta').textContent = `${game.date || ''} ${game.time || ''}`;
+
+      // Faltas del cuarto, Bonus y Tiempos Muertos
+      const homeQFouls = getQuarterBonusFouls(game, game.period, 'home');
+      const awayQFouls = getQuarterBonusFouls(game, game.period, 'away');
+      const homeTO = getTimeoutsInfo(game, 'home');
+      const awayTO = getTimeoutsInfo(game, 'away');
+
+      document.getElementById('detHomeFoulsBadge').textContent = `Faltas ${getPeriodLabel(game.period)}: ${homeQFouls}/5`;
+      document.getElementById('detAwayFoulsBadge').textContent = `Faltas ${getPeriodLabel(game.period)}: ${awayQFouls}/5`;
+      document.getElementById('detHomeBonusBadge').classList.toggle('hidden', homeQFouls < 5);
+      document.getElementById('detAwayBonusBadge').classList.toggle('hidden', awayQFouls < 5);
+      document.getElementById('detHomeTimeoutsBadge').textContent = `TM (${homeTO.stageLabel}): ${homeTO.remaining}/${homeTO.max}`;
+      document.getElementById('detAwayTimeoutsBadge').textContent = `TM (${awayTO.stageLabel}): ${awayTO.remaining}/${awayTO.max}`;
+
+      // Quintetos en Cancha Ahora Mismo
+      document.getElementById('detOnCourtCardTitle').textContent = '👟 Quintetos en Cancha Ahora Mismo (5 vs 5)';
+      document.getElementById('detOnCourtHomeTitle').textContent = `🏠 En Cancha — ${homeName}`;
+      document.getElementById('detOnCourtAwayTitle').textContent = `✈️ En Cancha — ${awayName}`;
+
+      const renderCourtPills = (ids) => {
+        return (ids || []).map(pid => {
+          const p = store.players.find(pl => pl.id === pid);
+          if (!p) return '';
+          const st = getPlayerGameStats(game, p.id);
+          return `<span class="badge badge-pending" style="font-size:0.78rem; padding:0.3rem 0.6rem;">#${escapeHtml(String(p.number))} <strong>${escapeHtml(p.name)}</strong> (${st.totalPts} pts)</span>`;
+        }).join('') || `<span style="font-size:0.8rem; color:var(--text-muted);">Sin quinteto en cancha</span>`;
+      };
+      document.getElementById('detOnCourtHomePills').innerHTML = renderCourtPills(game.onCourtHome);
+      document.getElementById('detOnCourtAwayPills').innerHTML = renderCourtPills(game.onCourtAway);
+
+      // Tabla Cuarto por Cuarto
+      document.getElementById('detQuartersCardTitle').textContent = '🏁 Marcador Cuarto por Cuarto';
+      const qHist = game.quarterHistory || [];
+      const qTable = document.getElementById('detQuartersTable');
+      if (qHist.length === 0) {
+        qTable.innerHTML = `
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Marcador Actual (${getPeriodLabel(game.period)})</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>🏠 ${escapeHtml(homeName)}</strong></td><td><strong style="color:var(--accent-orange);">${homeTotals.pts}</strong></td></tr>
+            <tr><td><strong>✈️ ${escapeHtml(awayName)}</strong></td><td><strong style="color:var(--accent-orange);">${awayTotals.pts}</strong></td></tr>
+          </tbody>
+        `;
+      } else {
+        const headers = qHist.map(q => `<th>${escapeHtml(q.period)} (Cierre)</th>`).join('');
+        let prevH = 0, prevA = 0;
+        const hCells = qHist.map(q => {
+          const ptsQ = q.homeScore - prevH;
+          prevH = q.homeScore;
+          return `<td><strong>${ptsQ} pts</strong> <span style="font-size:0.75rem;color:var(--text-muted);">(${q.homeScore})</span></td>`;
+        }).join('');
+        const aCells = qHist.map(q => {
+          const ptsQ = q.awayScore - prevA;
+          prevA = q.awayScore;
+          return `<td><strong>${ptsQ} pts</strong> <span style="font-size:0.75rem;color:var(--text-muted);">(${q.awayScore})</span></td>`;
+        }).join('');
+
+        qTable.innerHTML = `
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              ${headers}
+              <th>TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>🏠 ${escapeHtml(homeName)}</strong></td>
+              ${hCells}
+              <td><strong style="font-size:1.15rem; color:var(--accent-orange);">${homeTotals.pts}</strong></td>
+            </tr>
+            <tr>
+              <td><strong>✈️ ${escapeHtml(awayName)}</strong></td>
+              ${aCells}
+              <td><strong style="font-size:1.15rem; color:var(--accent-orange);">${awayTotals.pts}</strong></td>
+            </tr>
+          </tbody>
+        `;
+      }
+
+      // Métricas de Dominio y MVP (del Equipo Ganador)
+      const { mvpPlayer, mvpStats, mvpTeam, winningTeamId } = getGameMvpData(store, game, homeTotals, awayTotals);
+      document.getElementById('detMetricsGrid').innerHTML = `
+        <div class="summary-metric-box">
+          <div class="label">⏱️ Tiempo Dominando (${escapeHtml(homeName)})</div>
+          <div class="val">${formatSecondsMMSS(game.leadTimeHome || 0)} min</div>
+          <div class="sub">Liderando el marcador</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⏱️ Tiempo Dominando (${escapeHtml(awayName)})</div>
+          <div class="val" style="color:var(--accent-blue);">${formatSecondsMMSS(game.leadTimeAway || 0)} min</div>
+          <div class="sub">Empatados: ${formatSecondsMMSS(game.tiedTime || 0)} min</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">📈 Mayor Ventaja ${escapeHtml(homeName)}</div>
+          <div class="val">+${game.biggestLeadHome || 0} PTS</div>
+          <div class="sub">${escapeHtml(game.biggestLeadHomeScore || 'Sin ventaja')}</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">📈 Mayor Ventaja ${escapeHtml(awayName)}</div>
+          <div class="val" style="color:var(--accent-blue);">+${game.biggestLeadAway || 0} PTS</div>
+          <div class="sub">${escapeHtml(game.biggestLeadAwayScore || 'Sin ventaja')}</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">🔄 Cambios de Líder / Empates</div>
+          <div class="val" style="color:#4ade80;">${game.leadChanges || 0} / ${game.timesTied || 0}</div>
+          <div class="sub">Alternancias de ventaja</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⭐ MVP (${winningTeamId ? 'Equipo Ganador' : 'Partido Empatado'})</div>
+          <div class="val" style="font-size:1rem;">${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</div>
+          <div class="sub">${mvpStats ? `${mvpStats.totalPts} PTS • ${mvpStats.totalReb} REB • ${mvpStats.ast} AST • VAL ${mvpStats.efficiency} (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}</div>
+        </div>
+      `;
+
+      // Restaurar encabezados de Box Score de Baloncesto
+      const basketBoxThead = `
+        <tr>
+          <th># Jugador (* = Titular)</th>
+          <th>MIN</th>
+          <th>PTS</th>
+          <th>+/-</th>
+          <th>REB (O/D)</th>
+          <th>AST</th>
+          <th>ROB</th>
+          <th>TAP</th>
+          <th>PER</th>
+          <th>T2 (C/I %)</th>
+          <th>T3 (C/I %)</th>
+          <th>TL (C/I %)</th>
+          <th>Faltas (PF/OF/TF)</th>
+          <th>VAL</th>
+        </tr>
+      `;
+      document.getElementById('detBoxHomeThead').innerHTML = basketBoxThead;
+      document.getElementById('detBoxAwayThead').innerHTML = basketBoxThead;
+
+      // Box Score de ambos equipos (5 Titulares primero con *)
+      document.getElementById('detBoxHomeTitle').textContent = `🏠 ${homeName} — Box Score Oficial (${homeTotals.pts} PTS)`;
+      document.getElementById('detBoxHomeCoach').textContent = `👔 Entrenador (Coach): ${game.coachHome || 'No especificado'}`;
+      document.getElementById('detBoxHomeShooting').textContent =
+        `TC: ${homeTotals.fgMade}/${homeTotals.fgAtt} (${homeTotals.fgPct}%) | 3P: ${homeTotals.pts3}/${homeTotals.pts3 + homeTotals.miss3} (${homeTotals.t3Pct}%) | TL: ${homeTotals.pts1}/${homeTotals.pts1 + homeTotals.miss1} (${homeTotals.ftPct}%)`;
+      renderPublicBoxScoreTable(store, game, 'home', homeTotals, document.getElementById('detBoxHomeBody'));
+
+      document.getElementById('detBoxAwayTitle').textContent = `✈️ ${awayName} — Box Score Oficial (${awayTotals.pts} PTS)`;
+      document.getElementById('detBoxAwayCoach').textContent = `👔 Entrenador (Coach): ${game.coachAway || 'No especificado'}`;
+      document.getElementById('detBoxAwayShooting').textContent =
+        `TC: ${awayTotals.fgMade}/${awayTotals.fgAtt} (${awayTotals.fgPct}%) | 3P: ${awayTotals.pts3}/${awayTotals.pts3 + awayTotals.miss3} (${awayTotals.t3Pct}%) | TL: ${awayTotals.pts1}/${awayTotals.pts1 + awayTotals.miss1} (${awayTotals.ftPct}%)`;
+      renderPublicBoxScoreTable(store, game, 'away', awayTotals, document.getElementById('detBoxAwayBody'));
+
+      // Play-by-Play combinando puntosLogs y raLogs
+      document.getElementById('detPlayByPlayThead').innerHTML = `
+        <tr>
+          <th>Reloj / Hora</th>
+          <th>Cuarto</th>
+          <th>Equipo</th>
+          <th>Jugador / Evento</th>
+          <th>Jugada</th>
+          <th>Marcador</th>
+        </tr>
+      `;
+      const pLogs = (game.puntosLogs || []).map(l => ({ ...l, source: 'PTS' }));
+      const rLogs = (game.raLogs || []).map(l => ({ ...l, source: 'R&A' }));
+      const combinedLogs = [...pLogs, ...rLogs];
+      document.getElementById('detLogsCountBadge').textContent = `${combinedLogs.length} jugadas`;
+
+      const pbpBody = document.getElementById('detPlayByPlayBody');
+      if (combinedLogs.length === 0) {
+        pbpBody.innerHTML = `<tr><td colspan="6" class="empty-state">Aún no se han registrado jugadas en este partido.</td></tr>`;
+      } else {
+        pbpBody.innerHTML = pLogs.slice(0, 60).map(l => `
+          <tr>
+            <td style="font-family:monospace; color:var(--text-muted);">${escapeHtml(l.clock || l.time || '-')}</td>
+            <td><span class="badge badge-pending">${escapeHtml(l.period || 'Q1')}</span></td>
+            <td><strong>${escapeHtml(l.teamName || '')}</strong></td>
+            <td>${escapeHtml(l.subject || l.playerName || '')}</td>
+            <td><strong style="color:var(--accent-orange);">${escapeHtml(l.detail || l.label || '')}</strong></td>
+            <td style="font-weight:800;">${escapeHtml(l.score || '-')}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Preparar también la Planilla Oficial Blanco y Negro para descarga PDF desde la vista pública
+      renderPublicBWPrintSheet(store, game, tourney, homeName, awayName, homeTotals, awayTotals, mvpPlayer, mvpStats, mvpTeam);
+    }
+
+    // =========================================================
+    // CENTRO DEL PARTIDO EN TIEMPO REAL Y BOX SCORE OFICIAL DE BASEBALL
+    // =========================================================
+    function renderPublicBaseballGameDetailView(store, game, tourney, homeTeam, awayTeam, homeName, awayName) {
+      const homeTot = getBaseballTeamTotals(store, game, game.homeTeamId);
+      const awayTot = getBaseballTeamTotals(store, game, game.awayTeamId);
+      const isBottom = game.half === 'bottom';
+      const innArrow = isBottom ? '▼' : '▲';
+      const innLabel = game.status === 'Finalizado' ? 'FINAL' : `${innArrow} Entrada ${game.inning || 1}`;
+
+      document.getElementById('detailGameTitle').textContent = `⚾ ${awayName} vs ${homeName}`;
+      document.getElementById('detailGameSubtitle').textContent =
+        `⚾ ${tourney ? tourney.name : 'Torneo Baseball'} • 📅 ${game.date || '-'} • 🕒 ${game.time || '-'} ${game.note ? '• ' + game.note : ''}`;
+
+      // Marcador Principal (En Baseball mostramos carreras, hits, errores, AVG, outs y conteo B-S)
+      document.getElementById('detHomeName').textContent = `🏠 ${homeName}`;
+      document.getElementById('detAwayName').textContent = `✈️ ${awayName}`;
+      document.getElementById('detHomeCoach').textContent = isBottom && game.status !== 'Finalizado' ? '🏏 BATEANDO AHORA (Baja ▼)' : '🏠 Equipo Local (Baja ▼)';
+      document.getElementById('detAwayCoach').textContent = !isBottom && game.status !== 'Finalizado' ? '🏏 BATEANDO AHORA (Alta ▲)' : '✈️ Equipo Visitante (Alta ▲)';
+      document.getElementById('detHomeScore').textContent = homeTot.runs;
+      document.getElementById('detAwayScore').textContent = awayTot.runs;
+
+      document.getElementById('detPeriodBadge').textContent = innLabel;
+      const statusBadge = document.getElementById('detStatusBadge');
+      statusBadge.textContent = game.status || 'En Vivo';
+      statusBadge.className = `badge ${game.status === 'En Vivo' ? 'badge-live' : (game.status === 'Finalizado' ? 'badge-finished' : 'badge-pending')}`;
+
+      document.getElementById('detClockDisplay').textContent =
+        game.status === 'Finalizado'
+          ? 'FINAL'
+          : `${game.outs || 0} OUTS • ${game.balls || 0}-${game.strikes || 0}`;
+      document.getElementById('detDateMeta').textContent =
+        `Bolas: ${game.balls || 0} • Strikes: ${game.strikes || 0} • Outs: ${game.outs || 0}`;
+
+      document.getElementById('detHomeFoulsBadge').textContent = `Hits (H): ${homeTot.h} • Errores (E): ${homeTot.errors}`;
+      document.getElementById('detAwayFoulsBadge').textContent = `Hits (H): ${awayTot.h} • Errores (E): ${awayTot.errors}`;
+      document.getElementById('detHomeBonusBadge').classList.add('hidden');
+      document.getElementById('detAwayBonusBadge').classList.add('hidden');
+      document.getElementById('detHomeTimeoutsBadge').textContent = `AVG: ${homeTot.avg} • HR: ${homeTot.hr}`;
+      document.getElementById('detAwayTimeoutsBadge').textContent = `AVG: ${awayTot.avg} • HR: ${awayTot.hr}`;
+
+      // Estado del Diamante (1B, 2B, 3B) y Orden de Bateadores en Turno
+      document.getElementById('detOnCourtCardTitle').textContent = '💎 Estado del Diamante (Bases 1B, 2B, 3B) y Próximos a Batear';
+      document.getElementById('detOnCourtHomeTitle').textContent = '💎 Corredores en Base y Bateador en el Plato';
+
+      const bases = game.bases || { first: '', second: '', third: '' };
+      const formatRunner = (val, baseName) => {
+        if (!val) return `<span class="badge badge-pending" style="opacity:0.7;">⬜ ${baseName}: Vacía</span>`;
+        if (val === 'OCCUPIED' || val === true) return `<span class="badge badge-live" style="background:#eab308; color:#0f172a;">🟡 ${baseName}: Ocupada</span>`;
+        const p = store.players.find(pl => pl.id === val);
+        return `<span class="badge badge-live" style="background:#eab308; color:#0f172a;">🟡 ${baseName}: ${p ? '#' + escapeHtml(String(p.number)) + ' ' + escapeHtml(p.name) : 'Corredor'}</span>`;
+      };
+
+      const batterSummary = getBaseballBatterSummaryText(store, game);
+      document.getElementById('detOnCourtHomePills').innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:0.5rem; width:100%;">
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+            ${formatRunner(bases.first, '1ra Base (1B)')}
+            ${formatRunner(bases.second, '2da Base (2B)')}
+            ${formatRunner(bases.third, '3ra Base (3B)')}
+          </div>
+          <div style="background:rgba(250,204,21,0.12); border:1px solid rgba(250,204,21,0.45); padding:0.45rem 0.7rem; border-radius:8px; font-weight:900; color:#fde047; font-size:0.86rem;">
+            🏏 Al Bate Ahora: ${escapeHtml(batterSummary)}
+          </div>
+        </div>
+      `;
+
+      const battingTeamId = isBottom ? game.homeTeamId : game.awayTeamId;
+      const battingTeamName = isBottom ? homeName : awayName;
+      document.getElementById('detOnCourtAwayTitle').textContent = `🔄 Próximos a Batear — ${battingTeamName}`;
+      const rotatingBatters = getRotatingBaseballQueueForTeam(store, game, battingTeamId);
+      document.getElementById('detOnCourtAwayPills').innerHTML = rotatingBatters.slice(0, 6).map((p, idx) => {
+        const st = getBaseballPlayerStats(game, p.id);
+        const tag = idx === 0 ? '🔥 Al Bate:' : (idx === 1 ? '⏳ Prevenido:' : `🔜 #${idx + 1}:`);
+        return `<span class="badge ${idx === 0 ? 'badge-live' : 'badge-pending'}" style="font-size:0.78rem; padding:0.32rem 0.6rem;">${tag} <strong>${p.battingSlot}° Bate</strong> #${escapeHtml(String(p.number))} ${escapeHtml(p.name)} (${st.h}-${st.ab}, ${st.avg})</span>`;
+      }).join('') || `<span style="font-size:0.8rem; color:var(--text-muted);">Sin bateadores registrados</span>`;
+
+      // Pizarra Line Score por Entradas (1 al 9+ | R | H | E)
+      document.getElementById('detQuartersCardTitle').textContent = '⚾ Pizarra Oficial por Entradas (Line Score: Entradas 1 al 9+ | R | H | E)';
+      const maxInning = Math.max(9, Number(game.inning || 1));
+      const innings = [];
+      for (let i = 1; i <= maxInning; i++) innings.push(i);
+      const innRunsAway = (game.inningRuns && game.inningRuns.away) || {};
+      const innRunsHome = (game.inningRuns && game.inningRuns.home) || {};
+
+      document.getElementById('detQuartersTable').innerHTML = `
+        <thead>
+          <tr>
+            <th>EQUIPO</th>
+            ${innings.map(i => `<th style="text-align:center; ${i === Number(game.inning || 1) ? 'color:#facc15; background:rgba(250,204,21,0.14);' : ''}">${i}</th>`).join('')}
+            <th style="text-align:center; background:rgba(250,204,21,0.14); color:#fde047;">R</th>
+            <th style="text-align:center; background:rgba(250,204,21,0.14); color:#fde047;">H</th>
+            <th style="text-align:center; background:rgba(250,204,21,0.14); color:#fde047;">E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>✈️ ${escapeHtml(awayName)}</strong></td>
+            ${innings.map(i => {
+              const val = innRunsAway[String(i)];
+              return `<td style="text-align:center;">${val !== undefined ? val : (i <= Number(game.inning || 1) ? 0 : '-')}</td>`;
+            }).join('')}
+            <td style="text-align:center; font-weight:900; color:#fde047;">${awayTot.runs}</td>
+            <td style="text-align:center; font-weight:900;">${awayTot.h}</td>
+            <td style="text-align:center; font-weight:900;">${awayTot.errors}</td>
+          </tr>
+          <tr>
+            <td><strong>🏠 ${escapeHtml(homeName)}</strong></td>
+            ${innings.map(i => {
+              const val = innRunsHome[String(i)];
+              return `<td style="text-align:center;">${val !== undefined ? val : (i < Number(game.inning || 1) || (i === Number(game.inning || 1) && isBottom) ? 0 : '-')}</td>`;
+            }).join('')}
+            <td style="text-align:center; font-weight:900; color:#fde047;">${homeTot.runs}</td>
+            <td style="text-align:center; font-weight:900;">${homeTot.h}</td>
+            <td style="text-align:center; font-weight:900;">${homeTot.errors}</td>
+          </tr>
+        </tbody>
+      `;
+
+      // Métricas de Resumen y MVP de Baseball
+      const { mvpPlayer, mvpStats, mvpTeam, winningTeamId } = getBaseballGameMvpData(store, game, homeTot, awayTot);
+      document.getElementById('detMetricsGrid').innerHTML = `
+        <div class="summary-metric-box">
+          <div class="label">✈️ Ofensiva ${escapeHtml(awayName)}</div>
+          <div class="val" style="color:#facc15;">${awayTot.runs} R • ${awayTot.h} H</div>
+          <div class="sub">AVG ${awayTot.avg} • OPS ${awayTot.ops} • ${awayTot.errors} E</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">🏠 Ofensiva ${escapeHtml(homeName)}</div>
+          <div class="val" style="color:#facc15;">${homeTot.runs} R • ${homeTot.h} H</div>
+          <div class="sub">AVG ${homeTot.avg} • OPS ${homeTot.ops} • ${homeTot.errors} E</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">💥 Extrabases ${escapeHtml(awayName)}</div>
+          <div class="val">${awayTot.d2b} 2B • ${awayTot.t3b} 3B • ${awayTot.hr} HR</div>
+          <div class="sub">${awayTot.rbi} RBI • ${awayTot.bb} BB • ${awayTot.k} K</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">💥 Extrabases ${escapeHtml(homeName)}</div>
+          <div class="val" style="color:var(--accent-blue);">${homeTot.d2b} 2B • ${homeTot.t3b} 3B • ${homeTot.hr} HR</div>
+          <div class="sub">${homeTot.rbi} RBI • ${homeTot.bb} BB • ${homeTot.k} K</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⚾ Situación del Juego</div>
+          <div class="val" style="color:#4ade80;">${innLabel}</div>
+          <div class="sub">${game.outs || 0} Outs • Conteo ${game.balls || 0}-${game.strikes || 0}</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⭐ MVP Baseball (${winningTeamId ? 'Equipo Ganador' : 'Destacado'})</div>
+          <div class="val" style="font-size:1rem;">${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</div>
+          <div class="sub">${mvpStats ? `${mvpStats.h}-${mvpStats.ab} (AVG ${mvpStats.avg}) • ${mvpStats.r} R • ${mvpStats.rbi} RBI • ${mvpStats.hr} HR (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : 'Sin turnos aún'}</div>
+        </div>
+      `;
+
+      // Encabezados de Box Score Oficial de Baseball
+      const bbBoxThead = `
+        <tr>
+          <th>Orden al Bate</th>
+          <th># Bateador</th>
+          <th>AB</th>
+          <th>R</th>
+          <th>H</th>
+          <th>2B</th>
+          <th>3B</th>
+          <th>HR</th>
+          <th>RBI</th>
+          <th>BB</th>
+          <th>K</th>
+          <th>AVG</th>
+          <th>OBP</th>
+          <th>SLG</th>
+          <th>OPS</th>
+        </tr>
+      `;
+      document.getElementById('detBoxHomeThead').innerHTML = bbBoxThead;
+      document.getElementById('detBoxAwayThead').innerHTML = bbBoxThead;
+
+      document.getElementById('detBoxHomeTitle').textContent = `🏠 ${homeName} — Box Score Oficial de Bateo (${homeTot.runs} R, ${homeTot.h} H)`;
+      document.getElementById('detBoxHomeCoach').textContent = `⚾ Orden de Bateo Oficial (1° al N° Bate)`;
+      document.getElementById('detBoxHomeShooting').textContent =
+        `AVG: ${homeTot.avg} | OBP: ${homeTot.obp} | SLG: ${homeTot.slg} | OPS: ${homeTot.ops} | HR: ${homeTot.hr}`;
+      renderPublicBaseballBoxScoreTable(store, game, game.homeTeamId, homeTot, document.getElementById('detBoxHomeBody'));
+
+      document.getElementById('detBoxAwayTitle').textContent = `✈️ ${awayName} — Box Score Oficial de Bateo (${awayTot.runs} R, ${awayTot.h} H)`;
+      document.getElementById('detBoxAwayCoach').textContent = `⚾ Orden de Bateo Oficial (1° al N° Bate)`;
+      document.getElementById('detBoxAwayShooting').textContent =
+        `AVG: ${awayTot.avg} | OBP: ${awayTot.obp} | SLG: ${awayTot.slg} | OPS: ${awayTot.ops} | HR: ${awayTot.hr}`;
+      renderPublicBaseballBoxScoreTable(store, game, game.awayTeamId, awayTot, document.getElementById('detBoxAwayBody'));
+
+      // Play-by-Play de Baseball
+      document.getElementById('detPlayByPlayThead').innerHTML = `
+        <tr>
+          <th>Hora</th>
+          <th>Entrada</th>
+          <th>Equipo</th>
+          <th>Bateador / Jugador</th>
+          <th colspan="2">Jugada Registrada</th>
+        </tr>
+      `;
+      const bbLogs = Array.isArray(game.logsBaseball) ? game.logsBaseball : [];
+      document.getElementById('detLogsCountBadge').textContent = `${bbLogs.length} jugadas`;
+      const pbpBody = document.getElementById('detPlayByPlayBody');
+      if (bbLogs.length === 0) {
+        pbpBody.innerHTML = `<tr><td colspan="6" class="empty-state">Aún no se han registrado jugadas en este partido de Baseball.</td></tr>`;
+      } else {
+        pbpBody.innerHTML = bbLogs.slice(0, 60).map(l => `
+          <tr>
+            <td style="font-family:monospace; color:var(--text-muted);">${escapeHtml(l.time || '-')}</td>
+            <td><span class="badge badge-pending">${escapeHtml(l.inning || '▲1')}</span></td>
+            <td><strong>${escapeHtml(l.teamName || '')}</strong></td>
+            <td>${escapeHtml(l.playerName || '')}</td>
+            <td colspan="2"><strong style="color:#fde047;">${escapeHtml(l.text || '')}</strong></td>
+          </tr>
+        `).join('');
+      }
+
+      // Preparar también la Planilla Oficial Blanco y Negro de Baseball para descarga PDF
+      renderPublicBaseballBWPrintSheet(store, game, tourney, homeName, awayName, homeTot, awayTot, mvpPlayer, mvpStats, mvpTeam);
+    }
+
+    function renderPublicBaseballBoxScoreTable(store, game, teamId, totals, tbody) {
+      const players = getTeamBaseballLineup(store, game, teamId);
+      if (players.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" class="empty-state">Sin bateadores registrados en este equipo.</td></tr>`;
+        return;
+      }
+
+      const rows = players.map(p => {
+        const st = getBaseballPlayerStats(game, p.id);
+        const isCurrent = game.currentBatterId === p.id && game.status !== 'Finalizado';
+        return `
+          <tr style="${isCurrent ? 'background:rgba(250,204,21,0.14);' : ''}">
+            <td>
+              <span class="badge" style="background:rgba(249,115,22,0.18); color:#fb923c; font-weight:800;">${p.battingSlot}° Bate</span>
+              ${isCurrent ? '<span class="badge badge-live" style="margin-left:0.25rem;">🏏 Al Bate</span>' : ''}
+            </td>
+            <td>
+              <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+              <strong>${escapeHtml(p.name)}</strong>
+            </td>
+            <td><strong>${st.ab}</strong></td>
+            <td style="color:#fde047; font-weight:800;">${st.r}</td>
+            <td style="color:#4ade80; font-weight:800;">${st.h}</td>
+            <td>${st.d2b}</td>
+            <td>${st.t3b}</td>
+            <td style="color:#f87171; font-weight:800;">${st.hr}</td>
+            <td style="color:#fb923c; font-weight:800;">${st.rbi}</td>
+            <td>${st.bb}</td>
+            <td>${st.k}</td>
+            <td style="background:rgba(250,204,21,0.08);"><strong style="color:#fde047;">${st.avg}</strong></td>
+            <td>${st.obp}</td>
+            <td>${st.slg}</td>
+            <td><strong>${st.ops}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      const totalRow = `
+        <tr style="background:rgba(250,204,21,0.12); font-weight:900;">
+          <td colspan="2">TOTALES DEL EQUIPO</td>
+          <td>${totals.ab}</td>
+          <td style="color:#fde047;">${totals.runs}</td>
+          <td style="color:#4ade80;">${totals.h}</td>
+          <td>${totals.d2b}</td>
+          <td>${totals.t3b}</td>
+          <td style="color:#f87171;">${totals.hr}</td>
+          <td style="color:#fb923c;">${totals.rbi}</td>
+          <td>${totals.bb}</td>
+          <td>${totals.k}</td>
+          <td style="color:#fde047;">${totals.avg}</td>
+          <td>${totals.obp}</td>
+          <td>${totals.slg}</td>
+          <td>${totals.ops}</td>
+        </tr>
+      `;
+
+      tbody.innerHTML = rows + totalRow;
+    }
+
+    function renderPublicBoxScoreTable(store, game, side, totals, tbody) {
+      const players = getOrderedTeamPlayersWithStartersFirst(store, game, side);
+      const starterIds = (side === 'home' ? game.startersHome : game.startersAway) || [];
+
+      if (players.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="14" class="empty-state">Sin jugadores registrados en este equipo.</td></tr>`;
+        return;
+      }
+
+      const rows = players.map((p, idx) => {
+        const st = getPlayerGameStats(game, p.id);
+        const isStarter = starterIds.includes(p.id) || idx < 5;
+        const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+        const pmColor = st.plusMinus > 0 ? '#4ade80' : (st.plusMinus < 0 ? '#f87171' : 'var(--text-muted)');
+        const rowBorder = idx === 4 && players.length > 5 ? 'border-bottom: 2px solid rgba(249,115,22,0.55);' : '';
+
+        return `
+          <tr style="${rowBorder}">
+            <td>
+              <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+              <strong>${escapeHtml(p.name)}${isStarter ? ' *' : ''}</strong>
+            </td>
+            <td style="font-family:monospace;">${st.formattedTime}</td>
+            <td><strong style="color:var(--accent-orange); font-size:1rem;">${st.totalPts}</strong></td>
+            <td><strong style="color:${pmColor};">${pmSign}</strong></td>
+            <td><strong>${st.totalReb}</strong> <span style="font-size:0.75rem;color:var(--text-muted);">(${st.rebOff}/${st.rebDef})</span></td>
+            <td><strong>${st.ast}</strong></td>
+            <td>${st.stl}</td>
+            <td>${st.blk}</td>
+            <td>${st.tov}</td>
+            <td style="font-size:0.8rem;">${st.t2Made}/${st.t2Att} (${st.t2Pct}%)</td>
+            <td style="font-size:0.8rem;">${st.t3Made}/${st.t3Att} (${st.t3Pct}%)</td>
+            <td style="font-size:0.8rem;">${st.ftMade}/${st.ftAtt} (${st.ftPct}%)</td>
+            <td style="font-size:0.8rem;">
+              <strong>${st.totalFouls}</strong> <span style="color:var(--text-muted);">(${st.pf}/${st.of}/${st.tf})</span>
+            </td>
+            <td><strong>${st.efficiency}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      const t2Att = totals.pts2 + totals.miss2;
+      const t3Att = totals.pts3 + totals.miss3;
+      const ftAtt = totals.pts1 + totals.miss1;
+
+      const totalRow = `
+        <tr style="background:rgba(249,115,22,0.1); font-weight:800;">
+          <td>TOTALES DEL EQUIPO</td>
+          <td>-</td>
+          <td style="color:var(--accent-orange); font-size:1.05rem;">${totals.pts}</td>
+          <td>-</td>
+          <td>${totals.reb} (${totals.rebOff}/${totals.rebDef})</td>
+          <td>${totals.ast}</td>
+          <td>${totals.stl}</td>
+          <td>${totals.blk}</td>
+          <td>${totals.tov}</td>
+          <td>${totals.pts2}/${t2Att} (${totals.t2Pct}%)</td>
+          <td>${totals.pts3}/${t3Att} (${totals.t3Pct}%)</td>
+          <td>${totals.pts1}/${ftAtt} (${totals.ftPct}%)</td>
+          <td>${totals.totalFouls} (${totals.pf}/${totals.of}/${totals.tf})</td>
+          <td>${totals.efficiency}</td>
+        </tr>
+      `;
+
+      tbody.innerHTML = rows + totalRow;
+    }
+
+    // =========================================================
+    // PLANILLA OFICIAL EN BLANCO Y NEGRO (1 HOJA) EN VISTA PÚBLICA
+    // (BALONCESTO Y BASEBALL)
+    // =========================================================
+    function buildPublicBaseballBWTeamTableHTML(store, game, teamId, teamName, totals) {
+      const players = getTeamBaseballLineup(store, game, teamId);
+      const rowsHTML = players.map(p => {
+        const st = getBaseballPlayerStats(game, p.id);
+        return `
+          <tr>
+            <td><strong>${p.battingSlot}° Bate</strong></td>
+            <td class="left"><strong>#${escapeHtml(String(p.number))} ${escapeHtml(p.name)}</strong></td>
+            <td>${st.ab}</td>
+            <td><strong>${st.r}</strong></td>
+            <td><strong>${st.h}</strong></td>
+            <td>${st.d2b}</td>
+            <td>${st.t3b}</td>
+            <td>${st.hr}</td>
+            <td>${st.rbi}</td>
+            <td>${st.bb}</td>
+            <td>${st.k}</td>
+            <td><strong>${st.avg}</strong></td>
+            <td>${st.obp}</td>
+            <td>${st.slg}</td>
+            <td><strong>${st.ops}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div>
+          <div class="bw-team-header">
+            <span>EQUIPO: ${escapeHtml(teamName.toUpperCase())} (${totals.runs} R, ${totals.h} H, ${totals.errors} E)</span>
+            <span>AVG: ${totals.avg} | OBP: ${totals.obp} | SLG: ${totals.slg} | OPS: ${totals.ops}</span>
+          </div>
+          <table class="bw-table">
+            <thead>
+              <tr>
+                <th>ORDEN</th>
+                <th class="left" style="width:22%;"># BATEADOR</th>
+                <th>AB</th>
+                <th>R</th>
+                <th>H</th>
+                <th>2B</th>
+                <th>3B</th>
+                <th>HR</th>
+                <th>RBI</th>
+                <th>BB</th>
+                <th>K</th>
+                <th>AVG</th>
+                <th>OBP</th>
+                <th>SLG</th>
+                <th>OPS</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML || `<tr><td colspan="15">Sin bateadores registrados</td></tr>`}
+              <tr class="bw-totals-row">
+                <td colspan="2" class="left">TOTALES (${escapeHtml(teamName)})</td>
+                <td>${totals.ab}</td>
+                <td>${totals.runs}</td>
+                <td>${totals.h}</td>
+                <td>${totals.d2b}</td>
+                <td>${totals.t3b}</td>
+                <td>${totals.hr}</td>
+                <td>${totals.rbi}</td>
+                <td>${totals.bb}</td>
+                <td>${totals.k}</td>
+                <td>${totals.avg}</td>
+                <td>${totals.obp}</td>
+                <td>${totals.slg}</td>
+                <td>${totals.ops}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderPublicBaseballBWPrintSheet(store, game, tourney, homeName, awayName, homeTot, awayTot, mvpPlayer, mvpStats, mvpTeam) {
+      const sheet = document.getElementById('bwOfficialPdfSheet');
+      if (!sheet) return;
+
+      const maxInning = Math.max(9, Number(game.inning || 1));
+      const innings = [];
+      for (let i = 1; i <= maxInning; i++) innings.push(i);
+      const innRunsAway = (game.inningRuns && game.inningRuns.away) || {};
+      const innRunsHome = (game.inningRuns && game.inningRuns.home) || {};
+
+      const winnerLabel = homeTot.runs > awayTot.runs
+        ? `GANADOR: ${homeName.toUpperCase()}`
+        : (awayTot.runs > homeTot.runs ? `GANADOR: ${awayName.toUpperCase()}` : 'EMPATE');
+
+      sheet.innerHTML = `
+        <div class="bw-header">
+          <div>
+            <div class="bw-title">${escapeHtml(tourney ? tourney.name : 'TORNEO OFICIAL DE BASEBALL')} ${tourney && tourney.category ? '— ' + escapeHtml(tourney.category) : ''}</div>
+            <div class="bw-sub">BOX SCORE OFICIAL DE BASEBALL • FECHA: ${escapeHtml(game.date || '-')} • HORA: ${escapeHtml(game.time || '-')} ${game.note ? '• ' + escapeHtml(game.note) : ''} • ESTADO: ${escapeHtml((game.status || 'Finalizado').toUpperCase())}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="bw-scoreline">${escapeHtml(awayName)} ${awayTot.runs} - ${homeTot.runs} ${escapeHtml(homeName)}</div>
+            <div class="bw-sub">${escapeHtml(winnerLabel)}</div>
+          </div>
+        </div>
+
+        <div class="bw-meta-grid">
+          <div>
+            <table class="bw-table">
+              <thead>
+                <tr>
+                  <th class="left">PIZARRA POR ENTRADAS</th>
+                  ${innings.map(i => `<th>${i}</th>`).join('')}
+                  <th>R</th>
+                  <th>H</th>
+                  <th>E</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="left"><strong>${escapeHtml(awayName)}</strong></td>
+                  ${innings.map(i => `<td>${innRunsAway[String(i)] !== undefined ? innRunsAway[String(i)] : 0}</td>`).join('')}
+                  <td><strong>${awayTot.runs}</strong></td>
+                  <td><strong>${awayTot.h}</strong></td>
+                  <td><strong>${awayTot.errors}</strong></td>
+                </tr>
+                <tr>
+                  <td class="left"><strong>${escapeHtml(homeName)}</strong></td>
+                  ${innings.map(i => `<td>${innRunsHome[String(i)] !== undefined ? innRunsHome[String(i)] : 0}</td>`).join('')}
+                  <td><strong>${homeTot.runs}</strong></td>
+                  <td><strong>${homeTot.h}</strong></td>
+                  <td><strong>${homeTot.errors}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <table class="bw-table">
+              <thead>
+                <tr>
+                  <th>OFENSIVA ${escapeHtml(awayName)}</th>
+                  <th>OFENSIVA ${escapeHtml(homeName)}</th>
+                  <th>EXTRABASES VISITA</th>
+                  <th>EXTRABASES LOCAL</th>
+                  <th>MVP DEL PARTIDO</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>${awayTot.runs} R | ${awayTot.h} H | AVG ${awayTot.avg}</strong></td>
+                  <td><strong>${homeTot.runs} R | ${homeTot.h} H | AVG ${homeTot.avg}</strong></td>
+                  <td>2B: ${awayTot.d2b} | 3B: ${awayTot.t3b} | HR: ${awayTot.hr}</td>
+                  <td>2B: ${homeTot.d2b} | 3B: ${homeTot.t3b} | HR: ${homeTot.hr}</td>
+                  <td>
+                    <strong>${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</strong>
+                    ${mvpStats ? `<br/>${mvpStats.h}-${mvpStats.ab} (${mvpStats.avg}) | ${mvpStats.r} R | ${mvpStats.rbi} RBI | ${mvpStats.hr} HR (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        ${buildPublicBaseballBWTeamTableHTML(store, game, game.awayTeamId, awayName, awayTot)}
+        ${buildPublicBaseballBWTeamTableHTML(store, game, game.homeTeamId, homeName, homeTot)}
+
+        <div style="display:flex; justify-content:space-between; margin-top:6px; padding-top:4px; border-top:1px solid #000; font-size:8px;">
+          <div><strong>LEYENDA BASEBALL:</strong> AB = Turnos | R = Carreras | H = Hits | 2B = Dobles | 3B = Triples | HR = Home Runs | RBI = Impulsadas | BB = Bolas | K = Ponches | AVG = Promedio</div>
+          <div>FIRMA ANOTADOR OFICIAL: ______________________ &nbsp;&nbsp; FIRMA UMPIRE PRINCIPAL: ______________________</div>
+        </div>
+      `;
+    }
+
+    function buildPublicBWTeamTableHTML(store, game, side, teamName, coachName, totals) {
+      const players = getOrderedTeamPlayersWithStartersFirst(store, game, side);
+      const starterIds = (side === 'home' ? game.startersHome : game.startersAway) || [];
+
+      const rowsHTML = players.map((p, idx) => {
+        const st = getPlayerGameStats(game, p.id);
+        const isStarter = starterIds.includes(p.id) || idx < 5;
+        const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+        const rowClass = (idx === 4 && players.length > 5) ? 'bw-starter-divider' : '';
+
+        return `
+          <tr class="${rowClass}">
+            <td class="left">
+              <strong>#${escapeHtml(String(p.number))} ${escapeHtml(p.name)}${isStarter ? ' *' : ''}</strong>
+            </td>
+            <td>${st.formattedTime}</td>
+            <td><strong>${st.totalPts}</strong></td>
+            <td>${pmSign}</td>
+            <td>${st.t2Made}/${st.t2Att} (${st.t2Pct}%)</td>
+            <td>${st.t3Made}/${st.t3Att} (${st.t3Pct}%)</td>
+            <td>${st.ftMade}/${st.ftAtt} (${st.ftPct}%)</td>
+            <td>${st.rebOff}-${st.rebDef} (<strong>${st.totalReb}</strong>)</td>
+            <td>${st.ast}</td>
+            <td>${st.stl}</td>
+            <td>${st.blk}</td>
+            <td>${st.tov}</td>
+            <td>${st.totalFouls} (${st.pf}/${st.of}/${st.tf})</td>
+            <td><strong>${st.efficiency}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      const t2Att = totals.pts2 + totals.miss2;
+      const t3Att = totals.pts3 + totals.miss3;
+      const ftAtt = totals.pts1 + totals.miss1;
+
+      return `
+        <div>
+          <div class="bw-team-header">
+            <span>EQUIPO: ${escapeHtml(teamName.toUpperCase())} (${totals.pts} PTS) — ENTRENADOR: ${escapeHtml(coachName || 'N/E')}</span>
+            <span>TC: ${totals.fgMade}/${totals.fgAtt} (${totals.fgPct}%) | 3P: ${totals.pts3}/${t3Att} (${totals.t3Pct}%) | TL: ${totals.pts1}/${ftAtt} (${totals.ftPct}%)</span>
+          </div>
+          <table class="bw-table">
+            <thead>
+              <tr>
+                <th class="left" style="width:20%;"># JUGADOR (* = TITULAR)</th>
+                <th>MIN</th>
+                <th>PTS</th>
+                <th>+/-</th>
+                <th>T2 (C/I %)</th>
+                <th>T3 (C/I %)</th>
+                <th>TL (C/I %)</th>
+                <th>REB (O-D/T)</th>
+                <th>AST</th>
+                <th>ROB</th>
+                <th>TAP</th>
+                <th>PER</th>
+                <th>FALTAS (P/O/T)</th>
+                <th>VAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML || `<tr><td colspan="14">Sin jugadores registrados</td></tr>`}
+              <tr class="bw-totals-row">
+                <td class="left">TOTALES (${escapeHtml(teamName)})</td>
+                <td>-</td>
+                <td>${totals.pts}</td>
+                <td>-</td>
+                <td>${totals.pts2}/${t2Att} (${totals.t2Pct}%)</td>
+                <td>${totals.pts3}/${t3Att} (${totals.t3Pct}%)</td>
+                <td>${totals.pts1}/${ftAtt} (${totals.ftPct}%)</td>
+                <td>${totals.rebOff}-${totals.rebDef} (${totals.reb})</td>
+                <td>${totals.ast}</td>
+                <td>${totals.stl}</td>
+                <td>${totals.blk}</td>
+                <td>${totals.tov}</td>
+                <td>${totals.totalFouls} (${totals.pf}/${totals.of}/${totals.tf})</td>
+                <td>${totals.efficiency}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderPublicBWPrintSheet(store, game, tourney, homeName, awayName, homeTotals, awayTotals, mvpPlayer, mvpStats, mvpTeam) {
+      const sheet = document.getElementById('bwOfficialPdfSheet');
+      if (!sheet) return;
+
+      const qHist = game.quarterHistory || [];
+      let qHeaders = '';
+      let qHomeRow = '';
+      let qAwayRow = '';
+
+      if (qHist.length > 0) {
+        let prevH = 0, prevA = 0;
+        qHist.forEach(q => {
+          const hPts = q.homeScore - prevH;
+          const aPts = q.awayScore - prevA;
+          prevH = q.homeScore;
+          prevA = q.awayScore;
+          qHeaders += `<th>${escapeHtml(q.period)}</th>`;
+          qHomeRow += `<td><strong>${hPts}</strong> (${q.homeScore})</td>`;
+          qAwayRow += `<td><strong>${aPts}</strong> (${q.awayScore})</td>`;
+        });
+      } else {
+        qHeaders = `<th>ACTUAL (${getPeriodLabel(game.period)})</th>`;
+        qHomeRow = `<td>${homeTotals.pts}</td>`;
+        qAwayRow = `<td>${awayTotals.pts}</td>`;
+      }
+
+      const winnerLabel = homeTotals.pts > awayTotals.pts
+        ? `GANADOR: ${homeName.toUpperCase()}`
+        : (awayTotals.pts > homeTotals.pts ? `GANADOR: ${awayName.toUpperCase()}` : 'EMPATE');
+
+      sheet.innerHTML = `
+        <div class="bw-header">
+          <div>
+            <div class="bw-title">${escapeHtml(tourney ? tourney.name : 'TORNEO OFICIAL DE BALONCESTO')} ${tourney && tourney.category ? '— ' + escapeHtml(tourney.category) : ''}</div>
+            <div class="bw-sub">PLANILLA OFICIAL DE ESTADÍSTICAS • FECHA: ${escapeHtml(game.date || '-')} • HORA: ${escapeHtml(game.time || '-')} ${game.note ? '• ' + escapeHtml(game.note) : ''} • ESTADO: ${escapeHtml((game.status || 'Finalizado').toUpperCase())}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="bw-scoreline">${escapeHtml(homeName)} ${homeTotals.pts} - ${awayTotals.pts} ${escapeHtml(awayName)}</div>
+            <div class="bw-sub">${escapeHtml(winnerLabel)}</div>
+          </div>
+        </div>
+
+        <div class="bw-meta-grid">
+          <div>
+            <table class="bw-table">
+              <thead>
+                <tr>
+                  <th class="left">MARCADOR POR CUARTOS</th>
+                  ${qHeaders}
+                  <th>FINAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="left"><strong>${escapeHtml(homeName)}</strong></td>
+                  ${qHomeRow}
+                  <td><strong>${homeTotals.pts}</strong></td>
+                </tr>
+                <tr>
+                  <td class="left"><strong>${escapeHtml(awayName)}</strong></td>
+                  ${qAwayRow}
+                  <td><strong>${awayTotals.pts}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <table class="bw-table">
+              <thead>
+                <tr>
+                  <th>DOMINIO ${escapeHtml(homeName)}</th>
+                  <th>DOMINIO ${escapeHtml(awayName)}</th>
+                  <th>MAYOR VENTAJA LOCAL</th>
+                  <th>MAYOR VENTAJA VISITA</th>
+                  <th>CAMBIOS LÍDER / EMPATES</th>
+                  <th>MVP (EQUIPO GANADOR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>${formatSecondsMMSS(game.leadTimeHome || 0)} min</strong></td>
+                  <td><strong>${formatSecondsMMSS(game.leadTimeAway || 0)} min</strong> (Emp: ${formatSecondsMMSS(game.tiedTime || 0)})</td>
+                  <td><strong>+${game.biggestLeadHome || 0} PTS</strong> (${escapeHtml(game.biggestLeadHomeScore || '-')})</td>
+                  <td><strong>+${game.biggestLeadAway || 0} PTS</strong> (${escapeHtml(game.biggestLeadAwayScore || '-')})</td>
+                  <td><strong>${game.leadChanges || 0} / ${game.timesTied || 0}</strong></td>
+                  <td>
+                    <strong>${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</strong>
+                    ${mvpStats ? `<br/>${mvpStats.totalPts} PTS | ${mvpStats.totalReb} REB | ${mvpStats.ast} AST (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        ${buildPublicBWTeamTableHTML(store, game, 'home', homeName, game.coachHome, homeTotals)}
+        ${buildPublicBWTeamTableHTML(store, game, 'away', awayName, game.coachAway, awayTotals)}
+
+        <div style="display:flex; justify-content:space-between; margin-top:6px; padding-top:4px; border-top:1px solid #000; font-size:8px;">
+          <div><strong>LEYENDA:</strong> * = Jugador Titular (Primeros 5 jugadores) | FALTAS (P/O/T) = Personal / Ofensiva / Técnica | VAL = Valoración</div>
+          <div>FIRMA ANOTADOR: ______________________ &nbsp;&nbsp; FIRMA ÁRBITRO PRINCIPAL: ______________________</div>
+        </div>
+      `;
+    }
+
+    function downloadPublicGamePDF() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      renderPublicGameDetailView();
+
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const fileName = `Planilla_Oficial_${home ? home.name : 'Local'}_vs_${away ? away.name : 'Visitante'}.pdf`.replace(/\s+/g, '_');
+
+      const wrapper = document.getElementById('bwPrintWrapper');
+      const element = document.getElementById('bwOfficialPdfSheet');
+
+      if (window.html2pdf && element) {
+        const prevPos = wrapper.style.position;
+        const prevLeft = wrapper.style.left;
+        wrapper.style.position = 'static';
+        wrapper.style.left = '0';
+
+        const currentH = element.scrollHeight || element.offsetHeight || 600;
+        const minWidthForSinglePage = Math.max(1080, Math.ceil(currentH * (287 / 192)));
+        element.style.width = minWidthForSinglePage + 'px';
+
+        const restoreWrapper = () => {
+          element.style.width = '';
+          wrapper.style.position = prevPos;
+          wrapper.style.left = prevLeft;
+        };
+
+        const opt = {
+          margin: 5,
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+
+        window.html2pdf().set(opt).from(element).save().then(() => {
+          restoreWrapper();
+        }).catch(() => {
+          restoreWrapper();
+          window.print();
+        });
+      } else {
+        window.print();
+      }
+    }
+
+    window.addEventListener('storeUpdated', () => {
+      renderPublicAll();
+    });
+
+    renderPublicAll();
+    updateFirebaseBadge();
+  </script>
+</body>
+</html>

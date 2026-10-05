@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mesa de Anotación: Estadísticas Principales y Resumen PDF - Basketball</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Librería html2pdf para descarga directa del Resumen Oficial en PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <style>
+    /* Widget del Botón de Tiempo Movible a cualquier lugar y retornable a su sitio */
+    .movable-time-widget {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .movable-time-widget.is-floating {
+      position: fixed;
+      z-index: 9990;
+      background: rgba(11, 15, 25, 0.96);
+      border: 2px solid var(--accent-orange);
+      border-radius: 14px;
+      padding: 0.55rem 0.85rem 0.65rem 0.85rem;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.78), 0 0 18px rgba(249, 115, 22, 0.25);
+      backdrop-filter: blur(8px);
+      user-select: none;
+      touch-action: none;
+      min-width: 225px;
+    }
+
+    .movable-time-widget.is-floating .clock-display {
+      font-size: 2.05rem;
+      padding: 0.25rem 0.75rem;
+      margin: 0.2rem 0;
+    }
+
+    .time-drag-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+      width: 100%;
+      margin-bottom: 0.2rem;
+    }
+
+    .time-drag-handle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #fdba74;
+      background: rgba(249, 115, 22, 0.14);
+      border: 1px dashed rgba(249, 115, 22, 0.55);
+      border-radius: 6px;
+      padding: 0.2rem 0.55rem;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .time-drag-handle:active {
+      cursor: grabbing;
+      background: rgba(249, 115, 22, 0.28);
+    }
+
+    .docked-time-placeholder {
+      border: 1px dashed rgba(249, 115, 22, 0.5);
+      background: rgba(249, 115, 22, 0.06);
+      border-radius: 10px;
+      padding: 0.55rem 0.85rem;
+      margin: 0.35rem 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de navegación -->
+  <nav class="navbar no-print">
+    <a href="index.html" class="brand">
+      🏀 Basket & Baseball Stats <span class="badge-sport">Mesa: Puntos</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status">⏳ Firebase...</span>
+      <a href="index.html" class="nav-link">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link active">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- =========================================================
+         PANTALLA 1: SELECCIONAR EL JUEGO A ANOTAR
+         ========================================================= -->
+    <section id="viewSelectGame" class="no-print">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">🎯 Seleccionar Juego para Anotar (Estadísticas Principales)</h1>
+          <p class="page-subtitle">En la pantalla principal aparecen solo los juegos en vivo o por anotar. Los juegos terminados pasan al apartado de Últimos Juegos.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <label style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">Filtrar por Torneo:</label>
+          <select id="filterTournamentSelect" style="width:auto; min-width:220px;"></select>
+        </div>
+      </div>
+
+      <!-- Barra de pestañas: Pantalla Principal (En Vivo / Por Anotar) vs Apartado de Últimos Juegos (Finalizados) -->
+      <div class="tabs-bar" style="margin-bottom:1.25rem;">
+        <button type="button" class="tab-btn active" id="tabPuntosActive" onclick="switchPuntosGamesTab('active')">
+          🔴 Juegos por Anotar / En Vivo <span id="badgePuntosActiveCount" class="badge badge-live" style="margin-left:0.35rem;">0</span>
+        </button>
+        <button type="button" class="tab-btn" id="tabPuntosFinished" onclick="switchPuntosGamesTab('finished')">
+          🏁 Últimos Juegos (Finalizados) <span id="badgePuntosFinishedCount" class="badge badge-finished" style="margin-left:0.35rem;">0</span>
+        </button>
+      </div>
+
+      <!-- Pantalla Principal: Juegos En Vivo o Programados -->
+      <div id="puntosActiveGamesWrapper">
+        <div id="gamesPickerGrid" class="grid-2"></div>
+      </div>
+
+      <!-- Apartado de Últimos Juegos: Juegos Finalizados (el último siempre arriba) -->
+      <div id="puntosFinishedGamesWrapper" class="hidden">
+        <div class="card" style="background:rgba(15,23,42,0.6); border-color:rgba(59,130,246,0.35); margin-bottom:1rem; padding:0.85rem 1.1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <span style="font-size:0.88rem; color:var(--text-muted);">
+              🏁 <strong>Apartado de Últimos Juegos Finalizados:</strong> Ordenados del más reciente al más antiguo (el último juego terminado aparece siempre arriba de primero).
+            </span>
+          </div>
+        </div>
+        <div id="finishedGamesPickerGrid" class="grid-2"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 2: MESA DE ANOTACIÓN DEL JUEGO SELECCIONADO
+         ========================================================= -->
+    <section id="viewScorerTable" class="hidden no-print">
+      <!-- Barra superior de acciones del juego -->
+      <div class="page-header" style="margin-bottom:1rem;">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="backToGameSelector()" style="margin-bottom:0.35rem;">
+            ← Cambiar de Juego / Ver Lista de Juegos
+          </button>
+          <h1 class="page-title" id="scorerGameTitle">Partido en Juego</h1>
+          <p class="page-subtitle">Toca ✏️ en el cuadrito de cualquier jugador para corregir puntos, minutos, +/- o faltas.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-sm btn-primary" onclick="openObsOverlayFromScorer()" title="Abrir y editar la Pizarra de este juego para OBS">
+            🎥 Abrir Pizarra
+          </button>
+          <button class="btn btn-sm btn-purple" onclick="openSelectStartersModal()">
+            ⭐ Elegir 5 Titulares
+          </button>
+          <button class="btn btn-sm btn-blue" onclick="openGameSummarySheet()">
+            📊 Ver Resumen del Juego / PDF
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="scrollToHistory()">
+            📜 Historial (<span id="historyCountTop">0</span>)
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="openEditAnyPlayerModal()">
+            ✏️ Editar Jugador
+          </button>
+          <button id="btnFinishGameTop" class="btn btn-sm btn-red" onclick="finalizeGameAndShowSummary()">
+            🏁 Finalizar Partido
+          </button>
+        </div>
+      </div>
+
+      <!-- BANNER DE PARTIDO FINALIZADO (Cierra anotaciones pero permite reabrir/editar en cualquier momento) -->
+      <div id="lockedGameBanner" class="locked-banner hidden">
+        <div>
+          <strong style="font-size:1.05rem; color:#60a5fa;">🔒 PARTIDO FINALIZADO — Anotaciones en vivo cerradas</strong>
+          <div style="font-size:0.83rem; color:var(--text-muted); margin-top:0.15rem;">
+            Los botones de anotación están bloqueados. Puedes ver y descargar la hoja de resumen en PDF, usar el lápiz ✏️ para corregir a cualquier jugador o reabrir el juego.
+          </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="openGameSummarySheet()">
+            📄 Ver Resumen / Descargar PDF
+          </button>
+          <button class="btn btn-sm btn-green" onclick="reopenFinishedGame()">
+            🔓 Reabrir Partido para Anotar
+          </button>
+        </div>
+      </div>
+
+      <!-- MARCADOR CENTRAL CON RELOJ DE 10 MIN, ENTRENADORES, BONUS Y TIEMPOS MUERTOS -->
+      <div class="scoreboard">
+        <!-- Lado Equipo Local -->
+        <div class="team-side">
+          <div class="team-name-lg" id="homeNameDisplay">Local</div>
+
+          <!-- Entrenador Local -->
+          <div class="coach-bar">
+            <span>👔 Coach: <strong id="homeCoachDisplay">Sin asignar</strong></span>
+            <button class="btn-pencil" style="width:24px;height:24px;font-size:0.75rem;" onclick="promptCoachName('home')" title="Asignar o editar Entrenador Local">✏️</button>
+          </div>
+
+          <div class="team-score-lg" id="homeScoreDisplay">0</div>
+
+          <!-- Faltas del Cuarto y BONUS -->
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; justify-content:center; margin-top:0.25rem;">
+            <span class="badge badge-pending" id="homeQuarterFoulsDisplay">Faltas Q: 0 / 5</span>
+            <span class="bonus-pill" id="homeBonusBadge">BONUS</span>
+          </div>
+
+          <!-- Tiempos Muertos Local -->
+          <div style="margin-top:0.5rem; display:flex; flex-direction:column; align-items:center; gap:0.3rem;">
+            <span style="font-size:0.78rem; color:var(--text-muted);" id="homeTimeoutsLabel">Tiempos Muertos (1ª Mitad): 2 disp.</span>
+            <div style="display:flex; gap:0.4rem;">
+              <button class="btn btn-sm btn-outline" id="btnTimeoutHome" onclick="callTeamTimeout('home')">
+                ⏱️ Tiempo Muerto
+              </button>
+              <button class="btn btn-sm btn-blue" id="btnSubHome" onclick="openSubstitutionModal('home')">
+                🔄 Cambios Local
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Centro: Reloj Digital y Control de Cuartos -->
+        <div class="game-center-info">
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <span class="period-badge" id="periodBadgeDisplay" style="font-size:1.05rem;">Q1</span>
+            <span class="badge badge-live" id="statusBadgeDisplay">En Vivo</span>
+          </div>
+
+          <!-- Marcador de lugar cuando el botón de tiempo está flotando en otra parte de la pantalla -->
+          <div id="dockedTimePlaceholder" class="docked-time-placeholder hidden">
+            <span style="font-size:0.74rem; color:#fdba74; font-weight:700;">⏱️ Botón de tiempo movido</span>
+            <button type="button" class="btn btn-sm btn-outline" onclick="dockTimeWidgetBack()">
+              📌 Volver a poner en su lugar
+            </button>
+          </div>
+
+          <!-- Widget del Reloj y Botón de Tiempo (Movible a cualquier lugar y retornable a su sitio) -->
+          <div id="movableTimeWidget" class="movable-time-widget">
+            <div class="time-drag-bar">
+              <span id="timeDragHandle" class="time-drag-handle" title="Arrastra desde aquí para mover el botón del tiempo a cualquier lugar de la pantalla">
+                ✥ Mover Tiempo
+              </span>
+              <button type="button" id="btnDockTimeBack" class="btn btn-sm btn-outline hidden" style="padding:0.15rem 0.45rem; font-size:0.7rem;" onclick="dockTimeWidgetBack()" title="Devolver el reloj a su sitio original en el marcador">
+                📌 En su lugar
+              </button>
+            </div>
+
+            <!-- Reloj 10:00 / 05:00 -->
+            <div id="clockDisplay" class="clock-display paused" title="Clic en Editar Reloj para ajustar tiempo">10:00</div>
+
+            <!-- Controles del Reloj -->
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; justify-content:center; margin-top:0.3rem;">
+              <button id="btnToggleClock" class="btn btn-sm btn-green" onclick="toggleGameClock()">
+                ▶️ Iniciar Reloj
+              </button>
+              <button class="btn btn-sm btn-outline" onclick="openEditClockModal()">
+                ✏️ Editar Reloj
+              </button>
+              <button id="btnNextQuarter" class="btn btn-sm btn-purple" onclick="finishCurrentPeriodManual()" title="Cerrar cuarto actual y pasar al siguiente">
+                ⏭️ Fin Cuarto
+              </button>
+            </div>
+          </div>
+
+          <!-- Indicador rápido de Dominio y Mayor Ventaja en vivo -->
+          <div id="liveLeadInfo" style="font-size:0.74rem; color:var(--text-muted); margin-top:0.35rem;"></div>
+          <div id="quarterScoresSummary" style="font-size:0.75rem; color:var(--accent-orange); font-weight:700; margin-top:0.15rem;"></div>
+        </div>
+
+        <!-- Lado Equipo Visitante -->
+        <div class="team-side">
+          <div class="team-name-lg" id="awayNameDisplay">Visitante</div>
+
+          <!-- Entrenador Visitante -->
+          <div class="coach-bar">
+            <span>👔 Coach: <strong id="awayCoachDisplay">Sin asignar</strong></span>
+            <button class="btn-pencil" style="width:24px;height:24px;font-size:0.75rem;" onclick="promptCoachName('away')" title="Asignar o editar Entrenador Visitante">✏️</button>
+          </div>
+
+          <div class="team-score-lg" id="awayScoreDisplay">0</div>
+
+          <!-- Faltas del Cuarto y BONUS -->
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; justify-content:center; margin-top:0.25rem;">
+            <span class="badge badge-pending" id="awayQuarterFoulsDisplay">Faltas Q: 0 / 5</span>
+            <span class="bonus-pill" id="awayBonusBadge">BONUS</span>
+          </div>
+
+          <!-- Tiempos Muertos Visitante -->
+          <div style="margin-top:0.5rem; display:flex; flex-direction:column; align-items:center; gap:0.3rem;">
+            <span style="font-size:0.78rem; color:var(--text-muted);" id="awayTimeoutsLabel">Tiempos Muertos (1ª Mitad): 2 disp.</span>
+            <div style="display:flex; gap:0.4rem;">
+              <button class="btn btn-sm btn-outline" id="btnTimeoutAway" onclick="callTeamTimeout('away')">
+                ⏱️ Tiempo Muerto
+              </button>
+              <button class="btn btn-sm btn-blue" id="btnSubAway" onclick="openSubstitutionModal('away')">
+                🔄 Cambios Visitante
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CUADRITOS DE LOS 5 JUGADORES EN CANCHA DE CADA EQUIPO (FORMACIÓN 2 - 2 - 1) -->
+      <div class="grid-2">
+        <!-- 5 EN CANCHA: EQUIPO LOCAL -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="homeCourtTitle">🏠 5 en Cancha: Local</h2>
+              <p style="font-size:0.78rem; color:var(--text-muted);">Formación 2-2-1 en cancha. Toca ✏️ en cualquier jugador para editarlo.</p>
+            </div>
+            <button class="btn btn-sm btn-blue" onclick="openSubstitutionModal('home')">🔄 Realizar Cambios</button>
+          </div>
+          <div id="homeOnCourtBody" class="on-court-grid-5"></div>
+        </section>
+
+        <!-- 5 EN CANCHA: EQUIPO VISITANTE -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="awayCourtTitle">✈️ 5 en Cancha: Visitante</h2>
+              <p style="font-size:0.78rem; color:var(--text-muted);">Formación 2-2-1 en cancha. Toca ✏️ en cualquier jugador para editarlo.</p>
+            </div>
+            <button class="btn btn-sm btn-blue" onclick="openSubstitutionModal('away')">🔄 Realizar Cambios</button>
+          </div>
+          <div id="awayOnCourtBody" class="on-court-grid-5"></div>
+        </section>
+      </div>
+
+      <!-- HISTORIAL DE JUGADAS DE LA HOJA DE PUNTOS -->
+      <section class="card" id="historySection">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📜 Historial de Jugadas (Puntos, Faltas, Tiempos y Fin de Cuartos)</h2>
+            <p style="font-size:0.8rem; color:var(--text-muted);">
+              Registro esencial para resolver dudas en la mesa (los tiros fallados F1/F2/F3 no se listan aquí).
+            </p>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="historySearchInput" placeholder="🔍 Buscar jugador, falta, cuarto..." style="width:220px;" oninput="renderScorerView()" />
+            <select id="historyFilterPeriod" style="width:auto;" onchange="renderScorerView()">
+              <option value="ALL">Todos los Cuartos</option>
+              <option value="Q1">Q1</option>
+              <option value="Q2">Q2</option>
+              <option value="Q3">Q3</option>
+              <option value="Q4">Q4</option>
+              <option value="OT">Tiempo Extra (OT)</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height:320px; overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Reloj / Cuarto</th>
+                <th>Equipo</th>
+                <th>Jugador / Evento</th>
+                <th>Detalle de la Jugada</th>
+                <th>Marcador</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="puntosHistoryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 3: HOJA OFICIAL DE RESUMEN DEL JUEGO Y DESCARGA PDF
+         ========================================================= -->
+    <section id="viewGameSummary" class="hidden">
+      <div class="page-header no-print">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="closeGameSummarySheet()">
+            ← Volver a la Mesa de Anotación
+          </button>
+          <h1 class="page-title" style="margin-top:0.35rem;">📊 Resumen del Juego y Planilla Oficial PDF</h1>
+          <p class="page-subtitle">En pantalla ves el resumen visual; al descargar PDF obtienes la Hoja Oficial Profesional en Blanco y Negro en 1 sola página.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="openSelectStartersModal()">
+            ⭐ Elegir / Editar 5 Titulares
+          </button>
+          <button class="btn btn-outline" id="btnToggleBWPreview" onclick="toggleBWPreviewOnScreen()">
+            👁️ Ver Hoja B/N en Pantalla
+          </button>
+          <button class="btn btn-primary" onclick="downloadSummaryPDF()">
+            📥 Descargar PDF (1 Hoja B/N)
+          </button>
+          <button class="btn btn-outline" onclick="window.print()">
+            🖨️ Imprimir Hoja B/N
+          </button>
+        </div>
+      </div>
+
+      <!-- 3A: RESUMEN VISUAL EN PANTALLA (ESTILO MODERNO OSCURO) -->
+      <div id="pdfSummarySheet" class="summary-sheet no-print">
+        <!-- Encabezado con Nombre del Torneo y Marcador Final -->
+        <div class="summary-sheet-header">
+          <div style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; color:var(--accent-orange); font-weight:800;" id="sumTournamentName">
+            TORNEO DE BASKETBALL
+          </div>
+          <h2 style="font-size:1.75rem; font-weight:900; margin:0.25rem 0;" id="sumMatchupTitle">
+            Equipo A vs Equipo B
+          </h2>
+          <div style="font-size:0.85rem; color:var(--text-muted);" id="sumGameMeta">
+            Fecha • Hora • Estado
+          </div>
+        </div>
+
+        <!-- Tabla de Cómo Terminó Cada Cuarto -->
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <h3 class="card-title" style="font-size:1rem;">🏁 Marcador y Cierre por Cuartos</h3>
+          </div>
+          <div class="table-responsive">
+            <table id="sumQuartersTable"></table>
+          </div>
+        </div>
+
+        <!-- Métricas de Dominio, Mayor Ventaja, Cambios de Líder y MVP (del Equipo Ganador) -->
+        <div class="summary-metrics-grid" id="sumMetricsGrid"></div>
+
+        <!-- Estadísticas Completas Equipo A (Local) + Entrenador (5 Titulares primero) -->
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <div>
+              <h3 class="card-title" id="sumHomeTeamTitle">🏠 Equipo Local</h3>
+              <div style="font-size:0.85rem; color:var(--accent-orange); font-weight:700; margin-top:0.15rem;" id="sumHomeCoach">
+                👔 Entrenador: -
+              </div>
+            </div>
+            <div id="sumHomeTeamBadges" style="font-size:0.8rem; color:var(--text-muted);"></div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th># Jugador (* = Titular)</th>
+                  <th>MIN</th>
+                  <th>PTS</th>
+                  <th>+/-</th>
+                  <th>REB (O/D)</th>
+                  <th>AST</th>
+                  <th>ROB</th>
+                  <th>TAP</th>
+                  <th>PER</th>
+                  <th>T2 (C/I %)</th>
+                  <th>T3 (C/I %)</th>
+                  <th>TL (C/I %)</th>
+                  <th>Faltas (PF/OF/TF)</th>
+                  <th>VAL</th>
+                </tr>
+              </thead>
+              <tbody id="sumHomePlayersBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Estadísticas Completas Equipo B (Visitante) + Entrenador (5 Titulares primero) -->
+        <div class="card" style="margin-bottom:0.5rem;">
+          <div class="card-header" style="margin-bottom:0.65rem; padding-bottom:0.5rem;">
+            <div>
+              <h3 class="card-title" id="sumAwayTeamTitle">✈️ Equipo Visitante</h3>
+              <div style="font-size:0.85rem; color:var(--accent-blue); font-weight:700; margin-top:0.15rem;" id="sumAwayCoach">
+                👔 Entrenador: -
+              </div>
+            </div>
+            <div id="sumAwayTeamBadges" style="font-size:0.8rem; color:var(--text-muted);"></div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th># Jugador (* = Titular)</th>
+                  <th>MIN</th>
+                  <th>PTS</th>
+                  <th>+/-</th>
+                  <th>REB (O/D)</th>
+                  <th>AST</th>
+                  <th>ROB</th>
+                  <th>TAP</th>
+                  <th>PER</th>
+                  <th>T2 (C/I %)</th>
+                  <th>T3 (C/I %)</th>
+                  <th>TL (C/I %)</th>
+                  <th>Faltas (PF/OF/TF)</th>
+                  <th>VAL</th>
+                </tr>
+              </thead>
+              <tbody id="sumAwayPlayersBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3B: PLANILLA OFICIAL EN BLANCO Y NEGRO (1 SOLA PÁGINA PARA DESCARGAR EN PDF) -->
+      <div id="bwPrintWrapper" style="position:fixed; left:-9999px; top:0; overflow-x:auto;">
+        <div id="bwOfficialPdfSheet" class="bw-print-sheet"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================
+       MODALES: ELECCIÓN DE 5 TITULARES, RELOJ, CAMBIOS, CASILLAS
+       ========================================================= -->
+
+  <!-- Modal Elegir 5 Titulares Iniciales de Ambos Equipos y Entrenadores -->
+  <div id="modalSelectStarters" class="modal-backdrop" onclick="if(event.target===this) closeModal('modalSelectStarters')">
+    <div class="modal-content" style="max-width:780px;">
+      <div class="modal-header">
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalSelectStarters')">← Atrás</button>
+        <h3 class="card-title" style="font-size:1.05rem;">⭐ Elegir los 5 Titulares Iniciales y Entrenadores del Partido</h3>
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalSelectStarters')">✕</button>
+      </div>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        Selecciona los <strong>5 jugadores titulares que inician el partido</strong> en cada equipo. Ellos saldrán a cancha y aparecerán siempre en los <strong>primeros 5 lugares de la planilla oficial PDF</strong>.
+      </p>
+      <form id="formSelectStarters">
+        <div class="grid-2" style="gap:1rem;">
+          <!-- Columna Titulares Local -->
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+              <strong id="startersHomeTitle" style="color:var(--accent-orange);">🏠 Equipo Local</strong>
+              <span id="startersHomeCounter" class="badge badge-pending">0 / 5</span>
+            </div>
+            <div class="form-group" style="margin-bottom:0.6rem;">
+              <label class="form-label">👔 Entrenador (Coach) Local</label>
+              <input type="text" id="starterCoachHomeInput" placeholder="Nombre del Entrenador Local" style="padding:0.45rem 0.65rem;" />
+            </div>
+            <div id="startersHomeList" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.35rem;"></div>
+          </div>
+
+          <!-- Columna Titulares Visitante -->
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+              <strong id="startersAwayTitle" style="color:var(--accent-blue);">✈️ Equipo Visitante</strong>
+              <span id="startersAwayCounter" class="badge badge-pending">0 / 5</span>
+            </div>
+            <div class="form-group" style="margin-bottom:0.6rem;">
+              <label class="form-label">👔 Entrenador (Coach) Visitante</label>
+              <input type="text" id="starterCoachAwayInput" placeholder="Nombre del Entrenador Visitante" style="padding:0.45rem 0.65rem;" />
+            </div>
+            <div id="startersAwayList" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.35rem;"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalSelectStarters')">← Atrás / Cerrar</button>
+          <button type="submit" class="btn btn-primary">🏀 Confirmar 5 Titulares e Iniciar Mesa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Reloj y Cuarto -->
+  <div id="modalEditClock" class="modal-backdrop" onclick="if(event.target===this) closeModal('modalEditClock')">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header">
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditClock')">← Atrás</button>
+        <h3 class="card-title" style="font-size:1rem;">⏱️ Editar Reloj y Período</h3>
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditClock')">✕</button>
+      </div>
+      <form id="formEditClock">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Minutos</label>
+            <input type="number" id="editClockMin" min="0" max="60" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Segundos</label>
+            <input type="number" id="editClockSec" min="0" max="59" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Período / Cuarto Actual</label>
+          <select id="editClockPeriod">
+            <option value="1">1° Cuarto (Q1 - 10 min)</option>
+            <option value="2">2° Cuarto (Q2 - 10 min)</option>
+            <option value="3">3° Cuarto (Q3 - 10 min)</option>
+            <option value="4">4° Cuarto (Q4 - 10 min)</option>
+            <option value="5">Tiempo Extra 1 (OT1 - 5 min)</option>
+            <option value="6">Tiempo Extra 2 (OT2 - 5 min)</option>
+            <option value="7">Tiempo Extra 3 (OT3 - 5 min)</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditClock')">← Cancelar</button>
+          <button type="submit" class="btn btn-primary">✅ Guardar Tiempo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Realizar Cambios (Sustituciones Cancha <-> Banquillo) -->
+  <div id="modalSubstitutions" class="modal-backdrop" onclick="if(event.target===this) closeModal('modalSubstitutions')">
+    <div class="modal-content" style="max-width:580px;">
+      <div class="modal-header">
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalSubstitutions')">← Atrás</button>
+        <h3 class="card-title" id="subModalTitle" style="font-size:1rem;">🔄 Realizar Cambios</h3>
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalSubstitutions')">✕</button>
+      </div>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.65rem;">
+        Marca los <strong>5 jugadores en cancha</strong>. Se actualiza automáticamente aquí y en R&A.
+      </p>
+      <div id="subAlertExpelled" class="alert-warning hidden"></div>
+      <form id="formSubstitutions">
+        <input type="hidden" id="subTeamSide" />
+        <div id="subPlayersList" style="max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:0.45rem;"></div>
+        <div class="modal-footer">
+          <span id="subSelectedCounter" class="badge badge-pending">Seleccionados: 0 / 5</span>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modalSubstitutions')">← Atrás</button>
+            <button type="submit" class="btn btn-primary">✅ Confirmar Quinteto</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Interactivo y Compacto para Editar Jugador -->
+  <div id="modalEditPlayerStats" class="modal-backdrop" onclick="if(event.target===this) closeModal('modalEditPlayerStats')">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditPlayerStats')">
+          ← Atrás
+        </button>
+        <h3 class="card-title" id="editStatsModalTitle" style="font-size:1rem;">✏️ Editar Jugador</h3>
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditPlayerStats')">✕</button>
+      </div>
+
+      <form id="formEditPlayerStats">
+        <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+          <select id="editStatsPlayerSelect" onchange="loadPlayerIntoEditModal(this.value)" style="flex:1; padding:0.45rem 0.65rem; font-weight:700;"></select>
+          <span id="editModalLivePts" class="badge" style="background:var(--accent-orange); color:#fff; font-size:0.85rem; padding:0.4rem 0.65rem;">0 PTS</span>
+          <span id="editModalLiveFouls" class="badge badge-pending" style="font-size:0.85rem; padding:0.4rem 0.65rem;">0/5 Faltas</span>
+        </div>
+        <div style="font-size:0.74rem; color:var(--text-muted); margin-bottom:0.6rem;">
+          💡 Al sumar o restar puntos aquí, el <strong>+/-</strong> de los 5 jugadores en cancha de ambos equipos se ajusta automáticamente.
+        </div>
+
+        <!-- Fila 1: Tiempo Jugado y +/- -->
+        <div class="interactive-stats-grid-2">
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">⏱️ Minutos (MM:SS)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepTimeInModal(-30)" title="-30 seg">-30s</button>
+              <input type="text" id="editStatTime" class="stat-stepper-input" placeholder="05:30" required />
+              <button type="button" class="btn-step plus" onclick="stepTimeInModal(30)" title="+30 seg">+30s</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">📈 Más / Menos (+/-)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatPlusMinus', -1, true)">−</button>
+              <input type="number" id="editStatPlusMinus" class="stat-stepper-input" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatPlusMinus', 1, true)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila 2: Tiros Convertidos (+1, +2, +3) -->
+        <div class="interactive-stats-grid">
+          <div class="stat-stepper-card" style="border-color:rgba(34,197,94,0.35);">
+            <span class="stat-stepper-label" style="color:#4ade80;">+1 Tiro Libre</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatPts1', -1)">−</button>
+              <input type="number" id="editStatPts1" class="stat-stepper-input" min="0" oninput="updateEditModalLivePreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatPts1', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(59,130,246,0.35);">
+            <span class="stat-stepper-label" style="color:#60a5fa;">+2 Dobles</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatPts2', -1)">−</button>
+              <input type="number" id="editStatPts2" class="stat-stepper-input" min="0" oninput="updateEditModalLivePreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatPts2', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(249,115,22,0.4);">
+            <span class="stat-stepper-label" style="color:#fb923c;">+3 Triples</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatPts3', -1)">−</button>
+              <input type="number" id="editStatPts3" class="stat-stepper-input" min="0" oninput="updateEditModalLivePreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatPts3', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila 3: Tiros Fallados (F1, F2, F3) -->
+        <div class="interactive-stats-grid">
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">F1 (Fallos TL)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatMiss1', -1)">−</button>
+              <input type="number" id="editStatMiss1" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatMiss1', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">F2 (Fallos 2P)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatMiss2', -1)">−</button>
+              <input type="number" id="editStatMiss2" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatMiss2', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">F3 (Fallos 3P)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatMiss3', -1)">−</button>
+              <input type="number" id="editStatMiss3" class="stat-stepper-input" min="0" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatMiss3', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila 4: Faltas (PF, OF, TF) -->
+        <div class="interactive-stats-grid" style="margin-bottom:0;">
+          <div class="stat-stepper-card" style="border-color:rgba(239,68,68,0.35);">
+            <span class="stat-stepper-label" style="color:#f87171;">PF Personal</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatPF', -1)">−</button>
+              <input type="number" id="editStatPF" class="stat-stepper-input" min="0" max="5" oninput="updateEditModalLivePreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatPF', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(168,85,247,0.35);">
+            <span class="stat-stepper-label" style="color:#c084fc;">OF Ofensiva</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatOF', -1)">−</button>
+              <input type="number" id="editStatOF" class="stat-stepper-input" min="0" max="5" oninput="updateEditModalLivePreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatOF', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(239,68,68,0.5);">
+            <span class="stat-stepper-label" style="color:#fca5a5;">TF Técnica</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepModalField('editStatTF', -1)">−</button>
+              <input type="number" id="editStatTF" class="stat-stepper-input" min="0" max="2" oninput="updateEditModalLivePreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepModalField('editStatTF', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditPlayerStats')">← Atrás / Cancelar</button>
+          <button type="submit" class="btn btn-primary">✅ Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentScreen = 'select'; // 'select' | 'scorer' | 'summary'
+    let activeGameId = null;
+    let clockInterval = null;
+    let modalInitialPlayerPts = 0;
+    let modalInitialPlayerPM = 0;
+
+    // Indicador de Firebase
+    function updateFirebaseBadge() {
+      const info = getFirebaseStatus();
+      const el = document.getElementById('firebaseBadge');
+      if (info.status === 'connected') {
+        el.className = 'db-status connected';
+        el.textContent = '🟢 Firebase Conectado';
+      } else if (info.status === 'permission_denied') {
+        el.className = 'db-status error';
+        el.textContent = '🔒 Reglas Firebase Bloqueadas';
+      } else {
+        el.className = 'db-status';
+        el.textContent = '⏳ Modo Local / Conectando';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    // =========================================================
+    // PANTALLA 1: SELECCIONAR JUEGO CREADO
+    // =========================================================
+    let currentPuntosGamesTab = 'active'; // 'active' | 'finished'
+
+    function switchPuntosGamesTab(tab) {
+      currentPuntosGamesTab = tab;
+      document.getElementById('tabPuntosActive').classList.toggle('active', tab === 'active');
+      document.getElementById('tabPuntosFinished').classList.toggle('active', tab === 'finished');
+      document.getElementById('puntosActiveGamesWrapper').classList.toggle('hidden', tab !== 'active');
+      document.getElementById('puntosFinishedGamesWrapper').classList.toggle('hidden', tab !== 'finished');
+      renderSelectGameScreen();
+    }
+
+    function buildPuntosGameCardHTML(store, g, isFinished, idx) {
+      const tourney = store.tournaments.find(t => t.id === g.tournamentId);
+      const home = store.teams.find(tm => tm.id === g.homeTeamId);
+      const away = store.teams.find(tm => tm.id === g.awayTeamId);
+      const homeTotals = getTeamGameTotals(store, g, g.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, g, g.awayTeamId);
+      const isLatestFinished = isFinished && idx === 0;
+
+      return `
+        <div class="card item-card" style="${isLatestFinished ? 'border-color:rgba(59,130,246,0.75); box-shadow:0 0 18px rgba(59,130,246,0.14);' : (g.status === 'En Vivo' ? 'border-color:rgba(239,68,68,0.6);' : '')}">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+              <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
+                <span class="badge badge-pending">🏆 ${tourney ? escapeHtml(tourney.name) : 'Torneo'}</span>
+                ${isLatestFinished ? `<span class="badge" style="background:var(--accent-blue); color:#fff;">🆕 ÚLTIMO TERMINADO</span>` : ''}
+              </div>
+              <span class="badge ${g.status === 'En Vivo' ? 'badge-live' : (isFinished ? 'badge-finished' : 'badge-pending')}">
+                ${g.status || 'Programado'} • ${getPeriodLabel(g.period)} (${formatSecondsMMSS(g.clockSeconds)})
+              </span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-top:1px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+              <div>
+                <div style="font-size:1.1rem; font-weight:800;">🏠 ${home ? escapeHtml(home.name) : 'Local'}</div>
+                <div style="font-size:1.1rem; font-weight:800; margin-top:0.3rem;">✈️ ${away ? escapeHtml(away.name) : 'Visitante'}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:1.35rem; font-weight:900; color:var(--accent-orange);">${homeTotals.pts}</div>
+                <div style="font-size:1.35rem; font-weight:900; color:var(--accent-orange); margin-top:0.1rem;">${awayTotals.pts}</div>
+              </div>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">
+              📅 ${g.date || ''} ${g.time || ''} ${g.note ? '• ' + escapeHtml(g.note) : ''}
+            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn ${isFinished ? 'btn-outline' : 'btn-primary'}" style="flex:1;" onclick="enterGameScorer('${g.id}')">
+              ${isFinished ? '✏️ Ver / Editar Mesa' : '🎯 Entrar a Anotar'}
+            </button>
+            <button class="btn btn-blue" onclick="enterGameSummaryDirectly('${g.id}')">
+              📊 Resumen / PDF
+            </button>
+            <a href="pizarrabasket.html?mode=game&gameId=${encodeURIComponent(g.id)}" target="_blank" class="btn btn-outline" style="border-color:var(--accent-orange); color:var(--accent-orange);" title="Abrir la Pizarra conectada a este juego para OBS">
+              🎥 Abrir Pizarra
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    function openObsOverlayFromScorer() {
+      if (!activeGameId) return;
+      window.open(`pizarrabasket.html?mode=game&gameId=${encodeURIComponent(activeGameId)}`, '_blank');
+    }
+
+    function renderSelectGameScreen() {
+      const store = loadStore();
+      const filterSelect = document.getElementById('filterTournamentSelect');
+      const prevTourney = filterSelect.value || 'ALL';
+      const basketTournaments = store.tournaments.filter(t => t.sport !== 'baseball');
+
+      filterSelect.innerHTML = `<option value="ALL">Todos los Torneos (${basketTournaments.length})</option>` +
+        basketTournaments.map(t => `<option value="${t.id}" ${t.id === prevTourney ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+
+      const selectedTourney = filterSelect.value;
+      const games = store.games.filter(g => getGameSport(store, g) !== 'baseball' && (selectedTourney === 'ALL' || g.tournamentId === selectedTourney));
+
+      const activeGames = sortActiveGamesToScore(games.filter(g => g.status !== 'Finalizado'));
+      const finishedGames = sortFinishedGamesNewestFirst(games.filter(g => g.status === 'Finalizado'), store.games);
+
+      const badgeActive = document.getElementById('badgePuntosActiveCount');
+      const badgeFinished = document.getElementById('badgePuntosFinishedCount');
+      if (badgeActive) badgeActive.textContent = activeGames.length;
+      if (badgeFinished) badgeFinished.textContent = finishedGames.length;
+
+      document.getElementById('tabPuntosActive').classList.toggle('active', currentPuntosGamesTab === 'active');
+      document.getElementById('tabPuntosFinished').classList.toggle('active', currentPuntosGamesTab === 'finished');
+      document.getElementById('puntosActiveGamesWrapper').classList.toggle('hidden', currentPuntosGamesTab !== 'active');
+      document.getElementById('puntosFinishedGamesWrapper').classList.toggle('hidden', currentPuntosGamesTab !== 'finished');
+
+      const activeGrid = document.getElementById('gamesPickerGrid');
+      if (activeGames.length === 0) {
+        activeGrid.innerHTML = `
+          <div class="card empty-state" style="grid-column:1/-1;">
+            <h3>🏀 No hay juegos pendientes ni en vivo para anotar</h3>
+            <p style="margin-top:0.5rem;">
+              ${finishedGames.length > 0
+                ? `Tienes <strong>${finishedGames.length}</strong> juego(s) terminado(s) en el apartado <a href="#" onclick="switchPuntosGamesTab('finished'); return false;" style="color:var(--accent-blue); font-weight:700;">🏁 Últimos Juegos (Finalizados)</a>, o puedes crear uno nuevo en <a href="index.html" style="color:var(--accent-orange); font-weight:700;">Admin / Torneos</a>.`
+                : `Ve a <a href="index.html" style="color:var(--accent-orange); font-weight:700;">Admin / Torneos (index.html)</a> para armar un partido entre dos equipos.`}
+            </p>
+          </div>
+        `;
+      } else {
+        activeGrid.innerHTML = activeGames.map((g, idx) => buildPuntosGameCardHTML(store, g, false, idx)).join('');
+      }
+
+      const finishedGrid = document.getElementById('finishedGamesPickerGrid');
+      if (finishedGrid) {
+        if (finishedGames.length === 0) {
+          finishedGrid.innerHTML = `
+            <div class="card empty-state" style="grid-column:1/-1;">
+              <h3>🏁 Aún no hay juegos finalizados</h3>
+              <p style="margin-top:0.5rem;">Cuando finalices un partido en la mesa de anotación, pasará automáticamente a este apartado con el último juego siempre arriba.</p>
+            </div>
+          `;
+        } else {
+          finishedGrid.innerHTML = finishedGames.map((g, idx) => buildPuntosGameCardHTML(store, g, true, idx)).join('');
+        }
+      }
+    }
+
+    document.getElementById('filterTournamentSelect').addEventListener('change', renderSelectGameScreen);
+
+    function enterGameScorer(gameId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === gameId);
+      if (!game) return;
+
+      activeGameId = gameId;
+
+      // ANTES de entrar a anotar el juego, si aún no se han elegido los 5 titulares, abrir primero la ventana de elección
+      if (!game.startersConfirmed && game.status !== 'Finalizado') {
+        openSelectStartersModal();
+        return;
+      }
+
+      if (ensureOnCourtPlayers(store, game)) {
+        saveStore(store);
+      }
+      currentScreen = 'scorer';
+      renderAllScreens();
+    }
+
+    function openSelectStartersModal() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+      const homePlayers = store.players.filter(p => p.teamId === game.homeTeamId).sort((a, b) => Number(a.number) - Number(b.number));
+      const awayPlayers = store.players.filter(p => p.teamId === game.awayTeamId).sort((a, b) => Number(a.number) - Number(b.number));
+
+      document.getElementById('startersHomeTitle').textContent = `🏠 ${homeTeam ? homeTeam.name : 'Equipo Local'}`;
+      document.getElementById('startersAwayTitle').textContent = `✈️ ${awayTeam ? awayTeam.name : 'Equipo Visitante'}`;
+
+      document.getElementById('starterCoachHomeInput').value = game.coachHome || '';
+      document.getElementById('starterCoachAwayInput').value = game.coachAway || '';
+
+      // Si ya fueron confirmados antes, mostrar los 5 titulares guardados; si aún no se han elegido, dejar que el anotador los elija (o marcar si solo hay <=5)
+      const homeStarterSet = game.startersConfirmed
+        ? new Set(game.startersHome || [])
+        : new Set(homePlayers.length <= 5 ? homePlayers.map(p => p.id) : []);
+
+      const awayStarterSet = game.startersConfirmed
+        ? new Set(game.startersAway || [])
+        : new Set(awayPlayers.length <= 5 ? awayPlayers.map(p => p.id) : []);
+
+      document.getElementById('startersHomeList').innerHTML = homePlayers.map(p => `
+        <label class="item-card" style="flex-direction:row; align-items:center; padding:0.45rem 0.65rem; cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="checkbox" name="starterHomeCheck" value="${p.id}"
+              ${homeStarterSet.has(p.id) ? 'checked' : ''}
+              onchange="updateStartersModalCounters()"
+              style="width:17px; height:17px;" />
+            <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+            <strong>${escapeHtml(p.name)}</strong>
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(p.position || '')}</span>
+        </label>
+      `).join('') || `<div class="empty-state">Sin jugadores registrados</div>`;
+
+      document.getElementById('startersAwayList').innerHTML = awayPlayers.map(p => `
+        <label class="item-card" style="flex-direction:row; align-items:center; padding:0.45rem 0.65rem; cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="checkbox" name="starterAwayCheck" value="${p.id}"
+              ${awayStarterSet.has(p.id) ? 'checked' : ''}
+              onchange="updateStartersModalCounters()"
+              style="width:17px; height:17px;" />
+            <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+            <strong>${escapeHtml(p.name)}</strong>
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(p.position || '')}</span>
+        </label>
+      `).join('') || `<div class="empty-state">Sin jugadores registrados</div>`;
+
+      updateStartersModalCounters();
+      openModal('modalSelectStarters');
+    }
+
+    function updateStartersModalCounters() {
+      const hCount = document.querySelectorAll('input[name="starterHomeCheck"]:checked').length;
+      const aCount = document.querySelectorAll('input[name="starterAwayCheck"]:checked').length;
+
+      const hBadge = document.getElementById('startersHomeCounter');
+      const aBadge = document.getElementById('startersAwayCounter');
+
+      hBadge.textContent = `${hCount} / 5 Titulares`;
+      hBadge.className = hCount === 5 ? 'badge badge-live' : 'badge badge-pending';
+
+      aBadge.textContent = `${aCount} / 5 Titulares`;
+      aBadge.className = aCount === 5 ? 'badge badge-live' : 'badge badge-pending';
+    }
+
+    document.getElementById('formSelectStarters').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const homeChecked = Array.from(document.querySelectorAll('input[name="starterHomeCheck"]:checked')).map(c => c.value);
+      const awayChecked = Array.from(document.querySelectorAll('input[name="starterAwayCheck"]:checked')).map(c => c.value);
+
+      const homeTotalPlayers = store.players.filter(p => p.teamId === game.homeTeamId).length;
+      const awayTotalPlayers = store.players.filter(p => p.teamId === game.awayTeamId).length;
+
+      if (homeTotalPlayers >= 5 && homeChecked.length !== 5) {
+        alert(`Debes elegir exactamente 5 titulares para el Equipo Local (tienes ${homeChecked.length}).`);
+        return;
+      }
+      if (awayTotalPlayers >= 5 && awayChecked.length !== 5) {
+        alert(`Debes elegir exactamente 5 titulares para el Equipo Visitante (tienes ${awayChecked.length}).`);
+        return;
+      }
+
+      const wasUnconfirmed = !game.startersConfirmed;
+      game.startersHome = homeChecked;
+      game.startersAway = awayChecked;
+      game.startersConfirmed = true;
+
+      // Si el juego apenas va a iniciar o no se habían confirmado los titulares, ponerlos en cancha también
+      if (wasUnconfirmed || (game.period === 1 && game.clockSeconds === 600)) {
+        game.onCourtHome = [...homeChecked];
+        game.onCourtAway = [...awayChecked];
+      }
+
+      game.coachHome = document.getElementById('starterCoachHomeInput').value.trim();
+      game.coachAway = document.getElementById('starterCoachAwayInput').value.trim();
+
+      saveStore(store);
+      closeModal('modalSelectStarters');
+
+      // Si estábamos en la pantalla de selección de partido, entrar ahora a la mesa de anotación
+      if (currentScreen === 'select') {
+        currentScreen = 'scorer';
+      }
+      renderAllScreens();
+    });
+
+    function enterGameSummaryDirectly(gameId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === gameId);
+      if (!game) return;
+
+      activeGameId = gameId;
+      store.activeGameId = gameId;
+      ensureOnCourtPlayers(store, game);
+      saveStore(store);
+
+      currentScreen = 'summary';
+      renderAllScreens();
+    }
+
+    function backToGameSelector() {
+      stopLocalClockInterval();
+      currentScreen = 'select';
+      renderAllScreens();
+    }
+
+    // =========================================================
+    // ENTRENADOR (COACH) DE CADA EQUIPO EN ESTE JUEGO
+    // =========================================================
+    function promptCoachName(side /* 'home' | 'away' */) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+      const team = store.teams.find(t => t.id === teamId);
+      const currentCoach = side === 'home' ? (game.coachHome || '') : (game.coachAway || '');
+
+      const name = prompt(`Ingresa el nombre del Entrenador (Coach) de ${team ? team.name : ''}:`, currentCoach);
+      if (name === null) return;
+
+      if (side === 'home') {
+        game.coachHome = name.trim();
+      } else {
+        game.coachAway = name.trim();
+      }
+      saveStore(store);
+    }
+
+    // =========================================================
+    // RELOJ DE 10 MINUTOS (CUARTOS) Y 5 MINUTOS (TIEMPO EXTRA)
+    // Contabiliza tiempo jugado y minutos dominando de cada equipo
+    // =========================================================
+    function toggleGameClock() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      if (game.status === 'Finalizado') {
+        alert('🔒 El partido está Finalizado. Usa el botón "🔓 Reabrir Partido para Anotar" si necesitas continuar.');
+        return;
+      }
+
+      if (!game.startersConfirmed) {
+        alert('⭐ Antes de iniciar el partido debes elegir los 5 titulares de cada equipo.');
+        openSelectStartersModal();
+        return;
+      }
+
+      if (clockInterval) {
+        pauseGameClock();
+      } else {
+        if ((game.clockSeconds || 0) <= 0) {
+          alert('El reloj está en 00:00. Avanza al siguiente cuarto o edita el tiempo.');
+          return;
+        }
+        game.status = 'En Vivo';
+        game.clockRunning = true;
+        saveStore(store);
+        startLocalClockInterval();
+      }
+      renderScorerView();
+    }
+
+    function startLocalClockInterval() {
+      stopLocalClockInterval();
+      clockInterval = setInterval(() => {
+        const store = loadStore();
+        const game = store.games.find(g => g.id === activeGameId);
+        if (!game || game.status === 'Finalizado') {
+          stopLocalClockInterval();
+          return;
+        }
+
+        if ((game.clockSeconds || 0) > 0) {
+          game.clockSeconds -= 1;
+
+          // 1. Sumar 1 segundo jugado a los 5 en cancha de ambos equipos
+          ensureOnCourtPlayers(store, game);
+          const allOnCourt = [...(game.onCourtHome || []), ...(game.onCourtAway || [])];
+          allOnCourt.forEach(pid => {
+            if (!game.stats[pid]) game.stats[pid] = getEmptyPlayerStats();
+            game.stats[pid].secondsPlayed = (game.stats[pid].secondsPlayed || 0) + 1;
+          });
+
+          // 2. Contabilizar qué equipo va dominando en el marcador cada segundo
+          const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+          const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+          if (homeTotals.pts > awayTotals.pts) {
+            game.leadTimeHome = (game.leadTimeHome || 0) + 1;
+          } else if (awayTotals.pts > homeTotals.pts) {
+            game.leadTimeAway = (game.leadTimeAway || 0) + 1;
+          } else {
+            game.tiedTime = (game.tiedTime || 0) + 1;
+          }
+
+          if (game.clockSeconds <= 0) {
+            game.clockSeconds = 0;
+            game.clockRunning = false;
+            stopLocalClockInterval();
+            handleEndOfPeriod(store, game);
+          } else {
+            saveStore(store);
+          }
+        } else {
+          stopLocalClockInterval();
+        }
+      }, 1000);
+    }
+
+    function pauseGameClock() {
+      stopLocalClockInterval();
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (game) {
+        game.clockRunning = false;
+        saveStore(store);
+      }
+    }
+
+    function stopLocalClockInterval() {
+      if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+      }
+    }
+
+    function recordPeriodCloseSnapshot(store, game) {
+      const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+      const periodLabel = getPeriodLabel(game.period);
+
+      if (!game.quarterHistory) game.quarterHistory = [];
+      const existingIdx = game.quarterHistory.findIndex(q => q.period === periodLabel);
+      const entry = {
+        period: periodLabel,
+        homeScore: homeTotals.pts,
+        awayScore: awayTotals.pts
+      };
+      if (existingIdx >= 0) {
+        game.quarterHistory[existingIdx] = entry;
+      } else {
+        game.quarterHistory.push(entry);
+      }
+      return { homeTotals, awayTotals, periodLabel };
+    }
+
+    function handleEndOfPeriod(store, game) {
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const { homeTotals, awayTotals, periodLabel } = recordPeriodCloseSnapshot(store, game);
+
+      addPuntosLog(
+        store,
+        game,
+        '🏁 Fin de Período',
+        `Fin de ${periodLabel}`,
+        `Terminó ${periodLabel}: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}`
+      );
+
+      if (game.period < 4) {
+        game.period += 1;
+        game.clockSeconds = 600;
+        saveStore(store);
+        alert(`🏁 Fin de ${periodLabel}.\nMarcador: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}.\n\nIniciando ${getPeriodLabel(game.period)} (10:00 min).`);
+      } else {
+        if (homeTotals.pts === awayTotals.pts) {
+          game.period += 1;
+          game.clockSeconds = 300;
+          saveStore(store);
+          alert(`🔥 ¡EMPATE ${homeTotals.pts} - ${awayTotals.pts} al finalizar ${periodLabel}!\n\nSe pasa a Tiempo Extra (${getPeriodLabel(game.period)}) de 05:00 minutos.`);
+        } else {
+          // Termina el partido -> se cierra anotación, se envía a Últimos Juegos, la pizarra dice FINAL y se abre la hoja de resumen oficial
+          game.status = 'Finalizado';
+          game.finishedAt = Date.now();
+          if (!game.overlayConfig) game.overlayConfig = {};
+          game.overlayConfig.isFinal = true;
+          saveStore(store);
+          alert(`🏆 ¡Partido Finalizado (${periodLabel})!\nMarcador Final: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}\n\nLa Pizarra OBS ahora muestra FINAL, el juego se movió al apartado de Últimos Juegos y se abrirá la Hoja de Resumen Oficial.`);
+          openGameSummarySheet();
+        }
+      }
+    }
+
+    function finishCurrentPeriodManual() {
+      pauseGameClock();
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+      if (game.status === 'Finalizado') return;
+
+      const label = getPeriodLabel(game.period);
+      if (!confirm(`¿Deseas cerrar el período actual (${label}) y registrar cómo terminó el marcador?`)) return;
+
+      game.clockSeconds = 0;
+      handleEndOfPeriod(store, game);
+    }
+
+    // Finalizar Partido manualmente y mostrar Resumen PDF
+    function finalizeGameAndShowSummary() {
+      pauseGameClock();
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      if (!confirm('¿Confirmas que deseas marcar el partido como FINALIZADO? La Pizarra OBS dirá FINAL, se cerrarán las anotaciones, el juego pasará al apartado de Últimos Juegos y se generará la Hoja de Resumen para descargar en PDF.')) {
+        return;
+      }
+
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const { homeTotals, awayTotals, periodLabel } = recordPeriodCloseSnapshot(store, game);
+
+      game.status = 'Finalizado';
+      game.finishedAt = Date.now();
+      game.clockRunning = false;
+      if (!game.overlayConfig) game.overlayConfig = {};
+      game.overlayConfig.isFinal = true;
+
+      addPuntosLog(
+        store,
+        game,
+        '🏆 Partido Finalizado',
+        `Cierre en ${periodLabel}`,
+        `Resultado Final: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}`
+      );
+
+      saveStore(store);
+      openGameSummarySheet();
+    }
+
+    // Reabrir partido ya terminado por si desean seguir anotando
+    function reopenFinishedGame() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      game.status = 'En Vivo';
+      if (game.overlayConfig) game.overlayConfig.isFinal = false;
+      saveStore(store);
+    }
+
+    function openEditClockModal() {
+      pauseGameClock();
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const sec = Math.max(0, Math.floor(game.clockSeconds || 0));
+      document.getElementById('editClockMin').value = Math.floor(sec / 60);
+      document.getElementById('editClockSec').value = sec % 60;
+      document.getElementById('editClockPeriod').value = String(game.period || 1);
+      openModal('modalEditClock');
+    }
+
+    document.getElementById('formEditClock').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const min = parseInt(document.getElementById('editClockMin').value, 10) || 0;
+      const sec = parseInt(document.getElementById('editClockSec').value, 10) || 0;
+      const period = parseInt(document.getElementById('editClockPeriod').value, 10) || 1;
+
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      game.clockSeconds = Math.max(0, min * 60 + sec);
+      game.period = period;
+      saveStore(store);
+      closeModal('modalEditClock');
+    });
+
+    // =========================================================
+    // ANOTACIÓN DE PUNTOS (+1/F1, +2/F2, +3/F3) Y +/- EN CANCHA
+    // =========================================================
+    function scoreShot(playerId, side, points, isMake) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      if (game.status === 'Finalizado') {
+        alert('🔒 El partido está Finalizado y las anotaciones están cerradas. Usa el lápiz ✏️ o el botón "🔓 Reabrir Partido" si necesitas hacer cambios.');
+        return;
+      }
+
+      if (!game.startersConfirmed) {
+        alert('⭐ Antes de empezar a anotar debes elegir los 5 titulares de cada equipo.');
+        openSelectStartersModal();
+        return;
+      }
+
+      const player = store.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      const st = getPlayerGameStats(game, playerId);
+      if (st.isFouledOut) {
+        alert(`⚠️ El jugador #${player.number} ${player.name} tiene ${st.fouledOutReason} y debe salir del partido.`);
+        openSubstitutionModal(side);
+        return;
+      }
+
+      if (!game.stats[playerId]) game.stats[playerId] = getEmptyPlayerStats();
+
+      if (isMake) {
+        const key = `pts${points}`;
+        game.stats[playerId][key] = (game.stats[playerId][key] || 0) + 1;
+
+        // Actualizar +/- (Más/Menos) de los 5 jugadores en cancha de ambos equipos
+        ensureOnCourtPlayers(store, game);
+        const scoringCourt = side === 'home' ? game.onCourtHome : game.onCourtAway;
+        const defendingCourt = side === 'home' ? game.onCourtAway : game.onCourtHome;
+
+        scoringCourt.forEach(pid => {
+          if (!game.stats[pid]) game.stats[pid] = getEmptyPlayerStats();
+          game.stats[pid].plusMinus = (game.stats[pid].plusMinus || 0) + points;
+        });
+
+        defendingCourt.forEach(pid => {
+          if (!game.stats[pid]) game.stats[pid] = getEmptyPlayerStats();
+          game.stats[pid].plusMinus = (game.stats[pid].plusMinus || 0) - points;
+        });
+
+        // Actualizar Mayor Ventaja, Cambios de Líder y Empates
+        updateGameLeadMetrics(store, game);
+
+        // Guardar en el Historial de Puntos (solo encestes, NO fallos)
+        const team = store.teams.find(t => t.id === player.teamId);
+        const shotDesc = points === 1 ? '+1 Punto (Tiro Libre)' : (points === 2 ? '+2 Puntos (Doble)' : '+3 Puntos (Triple)');
+        addPuntosLog(
+          store,
+          game,
+          team ? team.name : '',
+          `#${player.number} ${player.name}`,
+          `🏀 ${shotDesc}`
+        );
+      } else {
+        const missKey = `miss${points}`;
+        game.stats[playerId][missKey] = (game.stats[playerId][missKey] || 0) + 1;
+      }
+
+      saveStore(store);
+    }
+
+    // =========================================================
+    // ANOTACIÓN DE FALTAS (PF, OF, TF)
+    // =========================================================
+    function recordFoul(playerId, side, foulType) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      if (game.status === 'Finalizado') {
+        alert('🔒 El partido está Finalizado y las anotaciones están cerradas.');
+        return;
+      }
+
+      if (!game.startersConfirmed) {
+        alert('⭐ Antes de empezar a anotar debes elegir los 5 titulares de cada equipo.');
+        openSelectStartersModal();
+        return;
+      }
+
+      const player = store.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      if (!game.stats[playerId]) game.stats[playerId] = getEmptyPlayerStats();
+      game.stats[playerId][foulType] = (game.stats[playerId][foulType] || 0) + 1;
+
+      if (foulType === 'pf' || foulType === 'tf') {
+        const qKey = String(game.period > 4 ? 4 : game.period);
+        if (!game.teamFouls) game.teamFouls = {};
+        if (!game.teamFouls[qKey]) game.teamFouls[qKey] = { home: 0, away: 0 };
+        game.teamFouls[qKey][side] = (game.teamFouls[qKey][side] || 0) + 1;
+      }
+
+      const updatedStats = getPlayerGameStats(game, playerId);
+      const team = store.teams.find(t => t.id === player.teamId);
+
+      const foulNames = {
+        pf: 'Falta Personal (PF)',
+        of: 'Falta Ofensiva (OF - No suma a Bonus)',
+        tf: 'Falta Técnica (TF)'
+      };
+
+      let logDetail = `🚨 ${foulNames[foulType]} (Total: ${updatedStats.totalFouls} faltas`;
+      if (updatedStats.tf > 0) logDetail += `, ${updatedStats.tf} TF`;
+      logDetail += ')';
+
+      if (updatedStats.isFouledOut) {
+        logDetail += ` — 🚫 DESCALIFICADO (${updatedStats.fouledOutReason})`;
+      }
+
+      addPuntosLog(
+        store,
+        game,
+        team ? team.name : '',
+        `#${player.number} ${player.name}`,
+        logDetail
+      );
+
+      saveStore(store);
+
+      if (updatedStats.isFouledOut) {
+        pauseGameClock();
+        alert(`🚫 ¡ATENCIÓN! El jugador #${player.number} ${player.name} ha alcanzado ${updatedStats.fouledOutReason} y debe salir del partido.\n\nSelecciona su reemplazo del banquillo.`);
+        openSubstitutionModal(side);
+      }
+    }
+
+    // =========================================================
+    // TIEMPOS MUERTOS POR EQUIPO
+    // =========================================================
+    function callTeamTimeout(side) {
+      pauseGameClock();
+
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+      if (game.status === 'Finalizado') return;
+
+      const tInfo = getTimeoutsInfo(game, side);
+      const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+      const team = store.teams.find(t => t.id === teamId);
+      const teamName = team ? team.name : (side === 'home' ? 'Local' : 'Visitante');
+
+      if (tInfo.remaining <= 0) {
+        alert(`⚠️ ${teamName} ya agotó sus ${tInfo.max} tiempos muertos de la ${tInfo.stageLabel}.`);
+        return;
+      }
+
+      const p = Number(game.period || 1);
+      if (!game.timeoutsUsed) {
+        game.timeoutsUsed = { H1: { home: 0, away: 0 }, H2: { home: 0, away: 0 }, OT: {} };
+      }
+
+      if (p <= 2) {
+        game.timeoutsUsed.H1[side] = (game.timeoutsUsed.H1[side] || 0) + 1;
+      } else if (p <= 4) {
+        game.timeoutsUsed.H2[side] = (game.timeoutsUsed.H2[side] || 0) + 1;
+      } else {
+        const otKey = String(p);
+        if (!game.timeoutsUsed.OT) game.timeoutsUsed.OT = {};
+        if (!game.timeoutsUsed.OT[otKey]) game.timeoutsUsed.OT[otKey] = { home: 0, away: 0 };
+        game.timeoutsUsed.OT[otKey][side] += 1;
+      }
+
+      const updatedInfo = getTimeoutsInfo(game, side);
+
+      addPuntosLog(
+        store,
+        game,
+        teamName,
+        `⏱️ Tiempo Muerto`,
+        `Tiempo Muerto solicitado (${updatedInfo.stageLabel}) — Restan ${updatedInfo.remaining} de ${updatedInfo.max}. Reloj detenido.`
+      );
+
+      saveStore(store);
+    }
+
+    // =========================================================
+    // CAMBIOS / SUSTITUCIONES (5 EN CANCHA <-> BANQUILLO)
+    // =========================================================
+    function openSubstitutionModal(side) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      ensureOnCourtPlayers(store, game);
+
+      const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+      const team = store.teams.find(t => t.id === teamId);
+      const teamPlayers = store.players
+        .filter(p => p.teamId === teamId)
+        .sort((a, b) => Number(a.number) - Number(b.number));
+
+      const currentOnCourt = new Set(side === 'home' ? game.onCourtHome : game.onCourtAway);
+
+      document.getElementById('subTeamSide').value = side;
+      document.getElementById('subModalTitle').textContent = `🔄 Cambios: ${team ? team.name : ''} (5 en cancha)`;
+
+      const listEl = document.getElementById('subPlayersList');
+      let expelledWarning = [];
+
+      listEl.innerHTML = teamPlayers.map(p => {
+        const st = getPlayerGameStats(game, p.id);
+        const isChecked = currentOnCourt.has(p.id) && !st.isFouledOut;
+        if (currentOnCourt.has(p.id) && st.isFouledOut) {
+          expelledWarning.push(`#${p.number} ${p.name} (${st.fouledOutReason})`);
+        }
+
+        return `
+          <label class="item-card ${st.isFouledOut ? 'player-expelled' : ''}" style="flex-direction:row; align-items:center; padding:0.65rem 0.9rem; cursor:${st.isFouledOut ? 'not-allowed' : 'pointer'};">
+            <div style="display:flex; align-items:center; gap:0.65rem;">
+              <input type="checkbox" name="subPlayerCheck" value="${p.id}"
+                ${isChecked ? 'checked' : ''}
+                ${st.isFouledOut ? 'disabled' : ''}
+                onchange="updateSubCounter()"
+                style="width:18px; height:18px;" />
+              <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+              <div>
+                <strong>${escapeHtml(p.name)}</strong>
+                <span style="font-size:0.78rem; color:var(--text-muted); margin-left:0.4rem;">${escapeHtml(p.position || '')}</span>
+                <div style="font-size:0.75rem; color:var(--text-muted);">
+                  MIN: ${st.formattedTime} | PTS: ${st.totalPts} | +/-: ${st.plusMinus > 0 ? '+' + st.plusMinus : st.plusMinus} | Faltas: ${st.totalFouls}
+                </div>
+              </div>
+            </div>
+            <div>
+              ${st.isFouledOut
+                ? `<span class="badge" style="background:var(--accent-red); color:#fff;">🚫 FUERA (${st.fouledOutReason})</span>`
+                : (currentOnCourt.has(p.id)
+                  ? `<span class="badge badge-live">En Cancha</span>`
+                  : `<span class="badge badge-pending">Banquillo</span>`)}
+            </div>
+          </label>
+        `;
+      }).join('');
+
+      const alertEl = document.getElementById('subAlertExpelled');
+      if (expelledWarning.length > 0) {
+        alertEl.classList.remove('hidden');
+        alertEl.innerHTML = `🚫 <strong>Jugador(es) descalificado(s) desmarcados:</strong> ${expelledWarning.join(', ')}. Selecciona a su sustituto.`;
+      } else {
+        alertEl.classList.add('hidden');
+      }
+
+      updateSubCounter();
+      openModal('modalSubstitutions');
+    }
+
+    function updateSubCounter() {
+      const checked = document.querySelectorAll('input[name="subPlayerCheck"]:checked').length;
+      const badge = document.getElementById('subSelectedCounter');
+      badge.textContent = `Seleccionados: ${checked} / 5`;
+      badge.className = checked === 5 ? 'badge badge-live' : 'badge badge-pending';
+    }
+
+    document.getElementById('formSubstitutions').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const side = document.getElementById('subTeamSide').value;
+      const checkedIds = Array.from(document.querySelectorAll('input[name="subPlayerCheck"]:checked')).map(cb => cb.value);
+
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+      const availablePlayers = store.players.filter(p => p.teamId === teamId && !getPlayerGameStats(game, p.id).isFouledOut);
+
+      if (availablePlayers.length >= 5 && checkedIds.length !== 5) {
+        alert(`Debes seleccionar exactamente 5 jugadores en cancha (actualmente tienes ${checkedIds.length}).`);
+        return;
+      }
+
+      if (side === 'home') {
+        game.onCourtHome = checkedIds;
+      } else {
+        game.onCourtAway = checkedIds;
+      }
+
+      saveStore(store);
+      closeModal('modalSubstitutions');
+    });
+
+    // =========================================================
+    // EDITAR CUALQUIER CASILLA DE UN JUGADOR (CON AJUSTE AUTOMÁTICO DE +/- EN CANCHA)
+    // =========================================================
+    function openEditPlayerStatsModal(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const allGamePlayers = store.players.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+      const selectEl = document.getElementById('editStatsPlayerSelect');
+
+      selectEl.innerHTML = allGamePlayers.map(p => {
+        const tm = store.teams.find(t => t.id === p.teamId);
+        return `<option value="${p.id}" ${p.id === playerId ? 'selected' : ''}>#${p.number} ${escapeHtml(p.name)} (${tm ? escapeHtml(tm.name) : ''})</option>`;
+      }).join('');
+
+      loadPlayerIntoEditModal(playerId || (allGamePlayers[0] && allGamePlayers[0].id));
+      openModal('modalEditPlayerStats');
+    }
+
+    function openEditAnyPlayerModal() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+      const firstId = (game.onCourtHome && game.onCourtHome[0]) || '';
+      openEditPlayerStatsModal(firstId);
+    }
+
+    function loadPlayerIntoEditModal(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game || !playerId) return;
+
+      const st = getPlayerGameStats(game, playerId);
+      modalInitialPlayerPts = st.totalPts;
+      modalInitialPlayerPM = st.plusMinus || 0;
+
+      document.getElementById('editStatsPlayerSelect').value = playerId;
+      document.getElementById('editStatTime').value = st.formattedTime;
+      document.getElementById('editStatPlusMinus').value = st.plusMinus || 0;
+      document.getElementById('editStatPts1').value = st.pts1 || 0;
+      document.getElementById('editStatPts2').value = st.pts2 || 0;
+      document.getElementById('editStatPts3').value = st.pts3 || 0;
+      document.getElementById('editStatMiss1').value = st.miss1 || 0;
+      document.getElementById('editStatMiss2').value = st.miss2 || 0;
+      document.getElementById('editStatMiss3').value = st.miss3 || 0;
+      document.getElementById('editStatPF').value = st.pf || 0;
+      document.getElementById('editStatOF').value = st.of || 0;
+      document.getElementById('editStatTF').value = st.tf || 0;
+      updateEditModalLivePreview();
+    }
+
+    function stepModalField(inputId, delta, allowNegative = false) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      let val = (parseInt(el.value, 10) || 0) + delta;
+      if (!allowNegative) val = Math.max(0, val);
+      if (el.max && val > parseInt(el.max, 10)) val = parseInt(el.max, 10);
+      el.value = val;
+
+      // Si cambió alguno de los puntos (+1, +2, +3), reflejar automáticamente esa diferencia en el campo +/- del modal
+      if (inputId === 'editStatPts1' || inputId === 'editStatPts2' || inputId === 'editStatPts3') {
+        const p1 = Math.max(0, parseInt(document.getElementById('editStatPts1').value, 10) || 0);
+        const p2 = Math.max(0, parseInt(document.getElementById('editStatPts2').value, 10) || 0);
+        const p3 = Math.max(0, parseInt(document.getElementById('editStatPts3').value, 10) || 0);
+        const newPts = p1 + (p2 * 2) + (p3 * 3);
+        const diffPts = newPts - modalInitialPlayerPts;
+        document.getElementById('editStatPlusMinus').value = modalInitialPlayerPM + diffPts;
+      }
+
+      updateEditModalLivePreview();
+    }
+
+    function stepTimeInModal(deltaSec) {
+      const el = document.getElementById('editStatTime');
+      if (!el) return;
+      const currentSec = parseMMSS(el.value);
+      const nextSec = Math.max(0, currentSec + deltaSec);
+      el.value = formatSecondsMMSS(nextSec);
+    }
+
+    function updateEditModalLivePreview() {
+      const p1 = Math.max(0, parseInt(document.getElementById('editStatPts1').value, 10) || 0);
+      const p2 = Math.max(0, parseInt(document.getElementById('editStatPts2').value, 10) || 0);
+      const p3 = Math.max(0, parseInt(document.getElementById('editStatPts3').value, 10) || 0);
+      const pf = Math.max(0, parseInt(document.getElementById('editStatPF').value, 10) || 0);
+      const of = Math.max(0, parseInt(document.getElementById('editStatOF').value, 10) || 0);
+      const tf = Math.max(0, parseInt(document.getElementById('editStatTF').value, 10) || 0);
+
+      const totalPts = p1 + (p2 * 2) + (p3 * 3);
+      const totalFouls = pf + of + tf;
+
+      document.getElementById('editModalLivePts').textContent = `${totalPts} PTS`;
+      const fBadge = document.getElementById('editModalLiveFouls');
+      fBadge.textContent = `${totalFouls}/5 Faltas`;
+      fBadge.style.background = (totalFouls >= 5 || tf >= 2) ? 'var(--accent-red)' : '';
+      fBadge.style.color = (totalFouls >= 5 || tf >= 2) ? '#fff' : '';
+    }
+
+    document.getElementById('formEditPlayerStats').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const playerId = document.getElementById('editStatsPlayerSelect').value;
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game || !playerId) return;
+
+      const player = store.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      if (!game.stats[playerId]) game.stats[playerId] = getEmptyPlayerStats();
+      const s = game.stats[playerId];
+
+      // Calcular diferencia de puntos (deltaPts) para ajustar el +/- de los 5 jugadores en cancha de ambos equipos
+      const oldPts = ((s.pts1 || 0) * 1) + ((s.pts2 || 0) * 2) + ((s.pts3 || 0) * 3);
+      const newPts1 = Math.max(0, parseInt(document.getElementById('editStatPts1').value, 10) || 0);
+      const newPts2 = Math.max(0, parseInt(document.getElementById('editStatPts2').value, 10) || 0);
+      const newPts3 = Math.max(0, parseInt(document.getElementById('editStatPts3').value, 10) || 0);
+      const newPts = (newPts1 * 1) + (newPts2 * 2) + (newPts3 * 3);
+      const deltaPts = newPts - oldPts;
+
+      // Diferencia adicional manual si el usuario tocó el botón +/- directamente
+      const inputPM = parseInt(document.getElementById('editStatPlusMinus').value, 10) || 0;
+      const expectedAutoPM = modalInitialPlayerPM + deltaPts;
+      const extraManualDeltaPM = inputPM - expectedAutoPM;
+
+      s.secondsPlayed = parseMMSS(document.getElementById('editStatTime').value);
+      s.pts1 = newPts1;
+      s.pts2 = newPts2;
+      s.pts3 = newPts3;
+      s.miss1 = Math.max(0, parseInt(document.getElementById('editStatMiss1').value, 10) || 0);
+      s.miss2 = Math.max(0, parseInt(document.getElementById('editStatMiss2').value, 10) || 0);
+      s.miss3 = Math.max(0, parseInt(document.getElementById('editStatMiss3').value, 10) || 0);
+      s.pf = Math.max(0, parseInt(document.getElementById('editStatPF').value, 10) || 0);
+      s.of = Math.max(0, parseInt(document.getElementById('editStatOF').value, 10) || 0);
+      s.tf = Math.max(0, parseInt(document.getElementById('editStatTF').value, 10) || 0);
+
+      // Si hubo cambio de puntos (ej. se restaron 2 puntos), restar/sumar esa diferencia al +/- de los 5 en cancha de ambos equipos
+      if (deltaPts !== 0) {
+        ensureOnCourtPlayers(store, game);
+        const isHomePlayer = player.teamId === game.homeTeamId;
+        const myTeamCourt = isHomePlayer ? (game.onCourtHome || []) : (game.onCourtAway || []);
+        const oppTeamCourt = isHomePlayer ? (game.onCourtAway || []) : (game.onCourtHome || []);
+
+        const myAffectedIds = new Set([...myTeamCourt, playerId]);
+        myAffectedIds.forEach(pid => {
+          if (!game.stats[pid]) game.stats[pid] = getEmptyPlayerStats();
+          game.stats[pid].plusMinus = (game.stats[pid].plusMinus || 0) + deltaPts;
+        });
+
+        oppTeamCourt.forEach(pid => {
+          if (!game.stats[pid]) game.stats[pid] = getEmptyPlayerStats();
+          game.stats[pid].plusMinus = (game.stats[pid].plusMinus || 0) - deltaPts;
+        });
+      }
+
+      if (extraManualDeltaPM !== 0) {
+        s.plusMinus = (s.plusMinus || 0) + extraManualDeltaPM;
+      }
+
+      updateGameLeadMetrics(store, game);
+      saveStore(store);
+      closeModal('modalEditPlayerStats');
+    });
+
+    // =========================================================
+    // HISTORIAL EXCLUSIVO DE PUNTOS.HTML (logsPuntos)
+    // =========================================================
+    function addPuntosLog(store, game, teamName, actorLabel, detailText) {
+      if (!game.logsPuntos) game.logsPuntos = [];
+      const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+
+      game.logsPuntos.unshift({
+        id: uid('logp'),
+        period: getPeriodLabel(game.period || 1),
+        clock: formatSecondsMMSS(game.clockSeconds || 0),
+        teamName,
+        actorLabel,
+        detailText,
+        scoreSnapshot: `${homeTotals.pts} - ${awayTotals.pts}`
+      });
+    }
+
+    function deletePuntosLogEntry(logId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game || !game.logsPuntos) return;
+      game.logsPuntos = game.logsPuntos.filter(l => l.id !== logId);
+      saveStore(store);
+    }
+
+    function scrollToHistory() {
+      document.getElementById('historySection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // =========================================================
+    // RENDERIZADO DE LA MESA DE ANOTACIÓN (PUNTOS.HTML)
+    // =========================================================
+    function renderScorerView() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) {
+        backToGameSelector();
+        return;
+      }
+
+      ensureOnCourtPlayers(store, game);
+      const isFinished = game.status === 'Finalizado';
+
+      // Mostrar u ocultar banner de partido finalizado
+      document.getElementById('lockedGameBanner').classList.toggle('hidden', !isFinished);
+      document.getElementById('btnFinishGameTop').classList.toggle('hidden', isFinished);
+
+      const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+      const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+
+      const homeName = homeTeam ? homeTeam.name : 'Local';
+      const awayName = awayTeam ? awayTeam.name : 'Visitante';
+
+      document.getElementById('scorerGameTitle').textContent = `🎯 ${homeName} vs ${awayName}`;
+      document.getElementById('homeNameDisplay').textContent = homeName;
+      document.getElementById('awayNameDisplay').textContent = awayName;
+      document.getElementById('homeCoachDisplay').textContent = game.coachHome || 'Sin asignar';
+      document.getElementById('awayCoachDisplay').textContent = game.coachAway || 'Sin asignar';
+      document.getElementById('homeScoreDisplay').textContent = homeTotals.pts;
+      document.getElementById('awayScoreDisplay').textContent = awayTotals.pts;
+
+      // Reloj y Cuarto
+      const pLabel = getPeriodLabel(game.period);
+      document.getElementById('periodBadgeDisplay').textContent = pLabel;
+      const stBadge = document.getElementById('statusBadgeDisplay');
+      stBadge.textContent = game.status || 'En Vivo';
+      stBadge.className = `badge ${isFinished ? 'badge-finished' : 'badge-live'}`;
+
+      const clockEl = document.getElementById('clockDisplay');
+      clockEl.textContent = formatSecondsMMSS(game.clockSeconds);
+      clockEl.classList.toggle('paused', !clockInterval);
+
+      const btnClock = document.getElementById('btnToggleClock');
+      btnClock.disabled = isFinished;
+      if (clockInterval) {
+        btnClock.textContent = '⏸️ Pausar Reloj';
+        btnClock.className = 'btn btn-sm btn-red';
+      } else {
+        btnClock.textContent = '▶️ Iniciar Reloj';
+        btnClock.className = 'btn btn-sm btn-green';
+      }
+
+      document.getElementById('btnNextQuarter').disabled = isFinished;
+      document.getElementById('btnTimeoutHome').disabled = isFinished;
+      document.getElementById('btnTimeoutAway').disabled = isFinished;
+
+      // Info de Dominio y Mayor Ventaja en vivo
+      document.getElementById('liveLeadInfo').textContent =
+        `Dominio: ${homeName} (${formatSecondsMMSS(game.leadTimeHome || 0)}) | ${awayName} (${formatSecondsMMSS(game.leadTimeAway || 0)}) • Máx Ventaja: +${game.biggestLeadHome || 0} / +${game.biggestLeadAway || 0}`;
+
+      const qHist = game.quarterHistory || [];
+      document.getElementById('quarterScoresSummary').textContent = qHist.length
+        ? 'Cierre de Cuartos: ' + qHist.map(q => `${q.period} (${q.homeScore}-${q.awayScore})`).join(' | ')
+        : '';
+
+      // Faltas de Equipo en el Cuarto y BONUS
+      const homeQFouls = getQuarterBonusFouls(game, game.period, 'home');
+      const awayQFouls = getQuarterBonusFouls(game, game.period, 'away');
+
+      document.getElementById('homeQuarterFoulsDisplay').textContent = `Faltas ${pLabel}: ${homeQFouls} / 5`;
+      document.getElementById('awayQuarterFoulsDisplay').textContent = `Faltas ${pLabel}: ${awayQFouls} / 5`;
+
+      const homeBonusEl = document.getElementById('homeBonusBadge');
+      const awayBonusEl = document.getElementById('awayBonusBadge');
+      homeBonusEl.classList.toggle('active', homeQFouls >= 5);
+      homeBonusEl.textContent = homeQFouls >= 5 ? '🚨 EN BONUS' : 'SIN BONUS';
+      awayBonusEl.classList.toggle('active', awayQFouls >= 5);
+      awayBonusEl.textContent = awayQFouls >= 5 ? '🚨 EN BONUS' : 'SIN BONUS';
+
+      // Tiempos Muertos
+      const homeTO = getTimeoutsInfo(game, 'home');
+      const awayTO = getTimeoutsInfo(game, 'away');
+      document.getElementById('homeTimeoutsLabel').textContent =
+        `Tiempos Muertos (${homeTO.stageLabel}): ${homeTO.remaining} de ${homeTO.max} disp.`;
+      document.getElementById('awayTimeoutsLabel').textContent =
+        `Tiempos Muertos (${awayTO.stageLabel}): ${awayTO.remaining} de ${awayTO.max} disp.`;
+
+      // Renderizar las tarjetas 2-2-1 de los 5 jugadores en cancha
+      document.getElementById('homeCourtTitle').textContent = `🏠 5 en Cancha: ${homeName}`;
+      document.getElementById('awayCourtTitle').textContent = `✈️ 5 en Cancha: ${awayName}`;
+
+      renderOnCourtTable(store, game, 'home', game.onCourtHome, document.getElementById('homeOnCourtBody'), isFinished);
+      renderOnCourtTable(store, game, 'away', game.onCourtAway, document.getElementById('awayOnCourtBody'), isFinished);
+
+      // Renderizar Historial de Puntos
+      const logs = game.logsPuntos || [];
+      document.getElementById('historyCountTop').textContent = logs.length;
+
+      const searchQ = (document.getElementById('historySearchInput').value || '').toLowerCase().trim();
+      const periodFilter = document.getElementById('historyFilterPeriod').value;
+
+      const filteredLogs = logs.filter(l => {
+        if (periodFilter !== 'ALL') {
+          if (periodFilter === 'OT' && !String(l.period).startsWith('OT')) return false;
+          if (periodFilter !== 'OT' && l.period !== periodFilter) return false;
+        }
+        if (searchQ) {
+          const hay = `${l.period} ${l.teamName} ${l.actorLabel} ${l.detailText}`.toLowerCase();
+          return hay.includes(searchQ);
+        }
+        return true;
+      });
+
+      const histBody = document.getElementById('puntosHistoryBody');
+      if (filteredLogs.length === 0) {
+        histBody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay jugadas registradas con ese filtro aún.</td></tr>`;
+      } else {
+        histBody.innerHTML = filteredLogs.map(l => `
+          <tr>
+            <td>
+              <span class="badge badge-pending">${escapeHtml(l.period)}</span>
+              <strong style="margin-left:0.3rem; font-family:monospace;">${escapeHtml(l.clock)}</strong>
+            </td>
+            <td><strong>${escapeHtml(l.teamName)}</strong></td>
+            <td><strong>${escapeHtml(l.actorLabel)}</strong></td>
+            <td style="color:var(--accent-orange); font-weight:600;">${escapeHtml(l.detailText)}</td>
+            <td><strong>${escapeHtml(l.scoreSnapshot || '')}</strong></td>
+            <td style="text-align:right;">
+              <button class="btn btn-sm btn-outline" title="Borrar entrada del historial" onclick="deletePuntosLogEntry('${l.id}')">✕</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function renderOnCourtTable(store, game, side, onCourtIds, container, isFinished) {
+      if (!onCourtIds || onCourtIds.length === 0) {
+        container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No hay jugadores en cancha. Usa el botón "🔄 Realizar Cambios" para elegir los 5 titulares.</div>`;
+        return;
+      }
+
+      const playersOnCourt = onCourtIds
+        .map(id => store.players.find(p => p.id === id))
+        .filter(Boolean);
+
+      const disAttr = isFinished ? 'disabled style="opacity:0.45;cursor:not-allowed;"' : '';
+
+      container.innerHTML = playersOnCourt.map(p => {
+        const st = getPlayerGameStats(game, p.id);
+        const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+        const pmColor = st.plusMinus > 0 ? '#4ade80' : (st.plusMinus < 0 ? '#f87171' : 'var(--text-muted)');
+
+        return `
+          <div class="player-stat-card ${st.isFouledOut ? 'player-expelled' : ''}">
+            <div class="player-card-top">
+              <div class="player-card-identity">
+                <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+                <div style="min-width:0;">
+                  <div class="player-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+                  <div class="player-card-pos">${escapeHtml(p.position || 'Jugador')}</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:0.25rem; align-items:center;">
+                <button class="btn-pencil" style="width:auto; padding:0 0.45rem; font-size:0.7rem; font-weight:800; color:#38bdf8; border-color:rgba(56,189,248,0.4);" onclick="deployPlayerStatsToOverlay('${p.id}','${side}',this)" title="Desplegar tira de 5 segundos en la Pizarra OBS con las mejores estadísticas de este jugador">
+                  📺 Desplegar
+                </button>
+                <button class="btn-pencil" onclick="openEditPlayerStatsModal('${p.id}')" title="Editar casillas de este jugador">
+                  ✏️
+                </button>
+              </div>
+            </div>
+
+            ${st.isFouledOut ? `<div class="badge" style="background:var(--accent-red);color:#fff;text-align:center;">🚫 ${st.fouledOutReason}</div>` : ''}
+
+            <div class="player-mini-stats">
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">PTS</span>
+                <span class="mini-stat-val" style="color:var(--accent-orange);">${st.totalPts}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">MIN</span>
+                <span class="mini-stat-val" style="font-family:monospace;">${st.formattedTime}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">+/-</span>
+                <span class="mini-stat-val" style="color:${pmColor};">${pmSign}</span>
+              </div>
+              <div class="mini-stat-box">
+                <span class="mini-stat-label">FALTAS</span>
+                <span class="mini-stat-val" style="color:${st.isFouledOut ? 'var(--accent-red)' : 'var(--text-main)'};">${st.totalFouls}/5</span>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); padding:0 0.15rem;">
+              <span>1P:${st.ftMade}/${st.ftAtt} • 2P:${st.pts2}/${st.pts2 + st.miss2} • 3P:${st.t3Made}/${st.t3Att}</span>
+              <span>PF:${st.pf} OF:${st.of} TF:${st.tf}</span>
+            </div>
+
+            <div class="player-shots-row">
+              <div class="shot-pair-box">
+                <button class="btn btn-sm btn-green" ${disAttr} onclick="scoreShot('${p.id}','${side}',1,true)">+1</button>
+                <button class="btn btn-sm btn-outline" ${disAttr} onclick="scoreShot('${p.id}','${side}',1,false)">F1</button>
+              </div>
+              <div class="shot-pair-box">
+                <button class="btn btn-sm btn-blue" ${disAttr} onclick="scoreShot('${p.id}','${side}',2,true)">+2</button>
+                <button class="btn btn-sm btn-outline" ${disAttr} onclick="scoreShot('${p.id}','${side}',2,false)">F2</button>
+              </div>
+              <div class="shot-pair-box">
+                <button class="btn btn-sm btn-primary" ${disAttr} onclick="scoreShot('${p.id}','${side}',3,true)">+3</button>
+                <button class="btn btn-sm btn-outline" ${disAttr} onclick="scoreShot('${p.id}','${side}',3,false)">F3</button>
+              </div>
+            </div>
+
+            <div class="player-fouls-row">
+              <button class="btn btn-sm btn-red" ${disAttr} title="Falta Personal (Suma al Bonus)" onclick="recordFoul('${p.id}','${side}','pf')">PF</button>
+              <button class="btn btn-sm btn-purple" ${disAttr} title="Falta Ofensiva (NO suma al Bonus)" onclick="recordFoul('${p.id}','${side}','of')">OF</button>
+              <button class="btn btn-sm btn-outline" ${disAttr} style="border-color:var(--accent-red); color:#fca5a5;" title="Falta Técnica (2 TF = Expulsión)" onclick="recordFoul('${p.id}','${side}','tf')">TF</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Desplegar por 5 segundos en la Pizarra OBS las mejores estadísticas de un jugador
+    function deployPlayerStatsToOverlay(playerId, side, btnEl) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      const player = store.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      const team = store.teams.find(t => t.id === player.teamId);
+      const st = getPlayerGameStats(game, player.id);
+
+      // Seleccionar únicamente las estadísticas donde más destaque (lo que más tenga > 0)
+      const extraStats = [
+        { key: 'REB', val: st.totalReb, weight: st.totalReb * 1.5 },
+        { key: 'AST', val: st.ast, weight: st.ast * 1.8 },
+        { key: '3PT', val: st.t3Made, weight: st.t3Made * 2.2 },
+        { key: 'ROB', val: st.stl, weight: st.stl * 2.5 },
+        { key: 'TAP', val: st.blk, weight: st.blk * 2.5 }
+      ].filter(item => item.val > 0).sort((a, b) => b.weight - a.weight || b.val - a.val);
+
+      const parts = [];
+      if (st.totalPts > 0) {
+        parts.push(`${st.totalPts} PTS`);
+      }
+      extraStats.slice(0, parts.length > 0 ? 3 : 4).forEach(item => {
+        parts.push(`${item.val} ${item.key}`);
+      });
+
+      const bestStatsStr = parts.length > 0 ? parts.join('  •  ') : '0 PTS  •  EN CANCHA';
+
+      if (!game.overlayConfig) game.overlayConfig = {};
+      const cfg = game.overlayConfig;
+
+      const teamDisplay = (side === 'home' ? cfg.homeName : cfg.awayName) || (team ? (team.shortName || team.name) : '');
+      const bgColor = (side === 'home' ? cfg.homeColor : cfg.awayColor) || (team && team.color) || (side === 'home' ? '#2b3244' : '#1d294b');
+      const textColor = (side === 'home' ? cfg.homeTextColor : cfg.awayTextColor) || '#ffffff';
+
+      game.overlayConfig.activeBanner = {
+        id: uid('banner'),
+        playerText: `#${player.number} ${player.name}`,
+        teamText: teamDisplay,
+        statsText: bestStatsStr,
+        bgColor,
+        textColor,
+        triggeredAt: Date.now(),
+        durationMs: 5000
+      };
+
+      saveStore(store);
+
+      if (btnEl) {
+        const orig = btnEl.innerHTML;
+        btnEl.innerHTML = '✅ 5s';
+        setTimeout(() => { btnEl.innerHTML = orig; }, 1800);
+      }
+    }
+
+    // =========================================================
+    // PANTALLA 3: HOJA OFICIAL DE RESUMEN DEL JUEGO Y EXPORTACIÓN PDF
+    // =========================================================
+    function openGameSummarySheet() {
+      pauseGameClock();
+      currentScreen = 'summary';
+      renderAllScreens();
+    }
+
+    function closeGameSummarySheet() {
+      currentScreen = 'scorer';
+      renderAllScreens();
+    }
+
+    let bwPreviewVisible = false;
+    function toggleBWPreviewOnScreen() {
+      bwPreviewVisible = !bwPreviewVisible;
+      const wrapper = document.getElementById('bwPrintWrapper');
+      const btn = document.getElementById('btnToggleBWPreview');
+      if (bwPreviewVisible) {
+        wrapper.style.position = 'static';
+        wrapper.style.left = 'auto';
+        wrapper.style.marginTop = '1.25rem';
+        if (btn) btn.textContent = '🙈 Ocultar Vista Previa Planilla B/N';
+      } else {
+        wrapper.style.position = 'fixed';
+        wrapper.style.left = '-9999px';
+        wrapper.style.marginTop = '0';
+        if (btn) btn.textContent = '👁️ Vista Previa Planilla B/N';
+      }
+    }
+
+    function renderGameSummaryView() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) {
+        backToGameSelector();
+        return;
+      }
+
+      const tourney = store.tournaments.find(t => t.id === game.tournamentId);
+      const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+      const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+      const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+
+      const homeName = homeTeam ? homeTeam.name : 'Equipo Local';
+      const awayName = awayTeam ? awayTeam.name : 'Equipo Visitante';
+
+      // 1. Encabezado del Torneo y Resultado (Vista interactiva en pantalla)
+      document.getElementById('sumTournamentName').textContent =
+        `🏆 ${tourney ? tourney.name : 'TORNEO DE BASKETBALL'} ${tourney && tourney.category ? '— ' + tourney.category : ''}`;
+      document.getElementById('sumMatchupTitle').innerHTML =
+        `${escapeHtml(homeName)} <span style="color:var(--accent-orange);">${homeTotals.pts} - ${awayTotals.pts}</span> ${escapeHtml(awayName)}`;
+      document.getElementById('sumGameMeta').textContent =
+        `📅 Fecha: ${game.date || '-'} • Hora: ${game.time || '-'} ${game.note ? '• ' + game.note : ''} • Estado: ${game.status || 'En Vivo'} (${getPeriodLabel(game.period)})`;
+
+      // 2. Tabla de Cómo Terminó Cada Cuarto
+      const qHist = game.quarterHistory || [];
+      const qTable = document.getElementById('sumQuartersTable');
+
+      if (qHist.length === 0) {
+        qTable.innerHTML = `
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Marcador Actual (${getPeriodLabel(game.period)})</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>🏠 ${escapeHtml(homeName)}</strong></td><td><strong style="color:var(--accent-orange);">${homeTotals.pts}</strong></td></tr>
+            <tr><td><strong>✈️ ${escapeHtml(awayName)}</strong></td><td><strong style="color:var(--accent-orange);">${awayTotals.pts}</strong></td></tr>
+          </tbody>
+        `;
+      } else {
+        const headers = qHist.map(q => `<th>${escapeHtml(q.period)} (Cierre)</th>`).join('');
+        let prevH = 0;
+        let prevA = 0;
+        const homeCells = qHist.map(q => {
+          const ptsInQ = q.homeScore - prevH;
+          prevH = q.homeScore;
+          return `<td><strong>${ptsInQ} pts</strong> <span style="font-size:0.75rem;color:var(--text-muted);">(${q.homeScore})</span></td>`;
+        }).join('');
+
+        const awayCells = qHist.map(q => {
+          const ptsInQ = q.awayScore - prevA;
+          prevA = q.awayScore;
+          return `<td><strong>${ptsInQ} pts</strong> <span style="font-size:0.75rem;color:var(--text-muted);">(${q.awayScore})</span></td>`;
+        }).join('');
+
+        qTable.innerHTML = `
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              ${headers}
+              <th>TOTAL FINAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>🏠 ${escapeHtml(homeName)}</strong></td>
+              ${homeCells}
+              <td><strong style="font-size:1.15rem; color:var(--accent-orange);">${homeTotals.pts}</strong></td>
+            </tr>
+            <tr>
+              <td><strong>✈️ ${escapeHtml(awayName)}</strong></td>
+              ${awayCells}
+              <td><strong style="font-size:1.15rem; color:var(--accent-orange);">${awayTotals.pts}</strong></td>
+            </tr>
+          </tbody>
+        `;
+      }
+
+      // 3. Calcular MVP del Partido SIEMPRE DEL EQUIPO GANADOR
+      // Si hay un equipo arriba en el marcador, solo evaluamos a los jugadores de ese equipo ganador.
+      let winningTeamId = null;
+      if (homeTotals.pts > awayTotals.pts) {
+        winningTeamId = game.homeTeamId;
+      } else if (awayTotals.pts > homeTotals.pts) {
+        winningTeamId = game.awayTeamId;
+      }
+
+      const candidatePlayers = winningTeamId
+        ? store.players.filter(p => p.teamId === winningTeamId)
+        : store.players.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+
+      let mvpPlayer = null;
+      let mvpStats = null;
+      candidatePlayers.forEach(p => {
+        const st = getPlayerGameStats(game, p.id);
+        if (
+          !mvpPlayer ||
+          st.efficiency > mvpStats.efficiency ||
+          (st.efficiency === mvpStats.efficiency && st.totalPts > mvpStats.totalPts) ||
+          (st.efficiency === mvpStats.efficiency && st.totalPts === mvpStats.totalPts && st.plusMinus > mvpStats.plusMinus)
+        ) {
+          mvpPlayer = p;
+          mvpStats = st;
+        }
+      });
+
+      const mvpTeam = mvpPlayer ? store.teams.find(t => t.id === mvpPlayer.teamId) : null;
+
+      // 4. Tarjetas de Dominio, Mayor Ventaja, Cambios de Líder y MVP (Equipo Ganador)
+      document.getElementById('sumMetricsGrid').innerHTML = `
+        <div class="summary-metric-box">
+          <div class="label">⏱️ Tiempo Dominando (${escapeHtml(homeName)})</div>
+          <div class="val">${formatSecondsMMSS(game.leadTimeHome || 0)} min</div>
+          <div class="sub">Liderando en el marcador</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⏱️ Tiempo Dominando (${escapeHtml(awayName)})</div>
+          <div class="val" style="color:var(--accent-blue);">${formatSecondsMMSS(game.leadTimeAway || 0)} min</div>
+          <div class="sub">Empatados: ${formatSecondsMMSS(game.tiedTime || 0)} min</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">📈 Mayor Ventaja ${escapeHtml(homeName)}</div>
+          <div class="val">+${game.biggestLeadHome || 0} PTS</div>
+          <div class="sub">${escapeHtml(game.biggestLeadHomeScore || 'Sin ventaja')}</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">📈 Mayor Ventaja ${escapeHtml(awayName)}</div>
+          <div class="val" style="color:var(--accent-blue);">+${game.biggestLeadAway || 0} PTS</div>
+          <div class="sub">${escapeHtml(game.biggestLeadAwayScore || 'Sin ventaja')}</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">🔄 Cambios de Líder / Empates</div>
+          <div class="val" style="color:#4ade80;">${game.leadChanges || 0} / ${game.timesTied || 0}</div>
+          <div class="sub">Alternancias en el marcador</div>
+        </div>
+        <div class="summary-metric-box">
+          <div class="label">⭐ MVP (${winningTeamId ? 'Equipo Ganador' : 'Partido Empatado'})</div>
+          <div class="val" style="font-size:1rem;">${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</div>
+          <div class="sub">${mvpStats ? `${mvpStats.totalPts} PTS • ${mvpStats.totalReb} REB • ${mvpStats.ast} AST • VAL ${mvpStats.efficiency} (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}</div>
+        </div>
+      `;
+
+      // 5. Box Score Completo Equipo A (Local) + Entrenador (5 Titulares primero)
+      document.getElementById('sumHomeTeamTitle').textContent = `🏠 ${homeName} — Estadísticas Oficiales (${homeTotals.pts} PTS)`;
+      document.getElementById('sumHomeCoach').textContent = `👔 Entrenador (Coach): ${game.coachHome || 'No especificado'}`;
+      document.getElementById('sumHomeTeamBadges').textContent =
+        `TC: ${homeTotals.fgMade}/${homeTotals.fgAtt} (${homeTotals.fgPct}%) | 3P: ${homeTotals.pts3}/${homeTotals.pts3 + homeTotals.miss3} (${homeTotals.t3Pct}%) | TL: ${homeTotals.pts1}/${homeTotals.pts1 + homeTotals.miss1} (${homeTotals.ftPct}%)`;
+
+      renderSummaryTeamTable(store, game, 'home', homeTotals, document.getElementById('sumHomePlayersBody'));
+
+      // 6. Box Score Completo Equipo B (Visitante) + Entrenador (5 Titulares primero)
+      document.getElementById('sumAwayTeamTitle').textContent = `✈️ ${awayName} — Estadísticas Oficiales (${awayTotals.pts} PTS)`;
+      document.getElementById('sumAwayCoach').textContent = `👔 Entrenador (Coach): ${game.coachAway || 'No especificado'}`;
+      document.getElementById('sumAwayTeamBadges').textContent =
+        `TC: ${awayTotals.fgMade}/${awayTotals.fgAtt} (${awayTotals.fgPct}%) | 3P: ${awayTotals.pts3}/${awayTotals.pts3 + awayTotals.miss3} (${awayTotals.t3Pct}%) | TL: ${awayTotals.pts1}/${awayTotals.pts1 + awayTotals.miss1} (${awayTotals.ftPct}%)`;
+
+      renderSummaryTeamTable(store, game, 'away', awayTotals, document.getElementById('sumAwayPlayersBody'));
+
+      // 7. Construir también la Planilla Oficial Blanco y Negro (1 sola hoja) para descarga PDF
+      renderBWPrintSheet(store, game, tourney, homeName, awayName, homeTotals, awayTotals, mvpPlayer, mvpStats, mvpTeam);
+    }
+
+    function renderSummaryTeamTable(store, game, side, totals, tbody) {
+      // Ordenar poniendo los 5 Titulares de primeros
+      const players = getOrderedTeamPlayersWithStartersFirst(store, game, side);
+      const starterIds = (side === 'home' ? game.startersHome : game.startersAway) || [];
+
+      if (players.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="14" class="empty-state">Sin jugadores registrados en este equipo.</td></tr>`;
+        return;
+      }
+
+      const rows = players.map((p, idx) => {
+        const st = getPlayerGameStats(game, p.id);
+        const isStarter = starterIds.includes(p.id) || idx < 5;
+        const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+        const pmColor = st.plusMinus > 0 ? '#4ade80' : (st.plusMinus < 0 ? '#f87171' : 'var(--text-muted)');
+        const rowBorder = idx === 4 && players.length > 5 ? 'border-bottom: 2px solid rgba(249,115,22,0.55);' : '';
+
+        return `
+          <tr style="${rowBorder}">
+            <td>
+              <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
+              <strong>${escapeHtml(p.name)}${isStarter ? ' *' : ''}</strong>
+              <button class="btn-pencil no-print" style="width:22px;height:22px;font-size:0.7rem;margin-left:0.35rem;" onclick="openEditPlayerStatsModal('${p.id}')" title="Editar este jugador">✏️</button>
+            </td>
+            <td style="font-family:monospace;">${st.formattedTime}</td>
+            <td><strong style="color:var(--accent-orange); font-size:1rem;">${st.totalPts}</strong></td>
+            <td><strong style="color:${pmColor};">${pmSign}</strong></td>
+            <td><strong>${st.totalReb}</strong> <span style="font-size:0.75rem;color:var(--text-muted);">(${st.rebOff}/${st.rebDef})</span></td>
+            <td><strong>${st.ast}</strong></td>
+            <td>${st.stl}</td>
+            <td>${st.blk}</td>
+            <td>${st.tov}</td>
+            <td style="font-size:0.8rem;">${st.t2Made}/${st.t2Att} (${st.t2Pct}%)</td>
+            <td style="font-size:0.8rem;">${st.t3Made}/${st.t3Att} (${st.t3Pct}%)</td>
+            <td style="font-size:0.8rem;">${st.ftMade}/${st.ftAtt} (${st.ftPct}%)</td>
+            <td style="font-size:0.8rem;">
+              <strong>${st.totalFouls}</strong> <span style="color:var(--text-muted);">(${st.pf}/${st.of}/${st.tf})</span>
+            </td>
+            <td><strong>${st.efficiency}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      const t2Att = totals.pts2 + totals.miss2;
+      const t3Att = totals.pts3 + totals.miss3;
+      const ftAtt = totals.pts1 + totals.miss1;
+
+      const totalRow = `
+        <tr style="background:rgba(249,115,22,0.1); font-weight:800;">
+          <td>TOTALES DEL EQUIPO</td>
+          <td>-</td>
+          <td style="color:var(--accent-orange); font-size:1.05rem;">${totals.pts}</td>
+          <td>-</td>
+          <td>${totals.reb} (${totals.rebOff}/${totals.rebDef})</td>
+          <td>${totals.ast}</td>
+          <td>${totals.stl}</td>
+          <td>${totals.blk}</td>
+          <td>${totals.tov}</td>
+          <td>${totals.pts2}/${t2Att} (${totals.t2Pct}%)</td>
+          <td>${totals.pts3}/${t3Att} (${totals.t3Pct}%)</td>
+          <td>${totals.pts1}/${ftAtt} (${totals.ftPct}%)</td>
+          <td>${totals.totalFouls} (${totals.pf}/${totals.of}/${totals.tf})</td>
+          <td>${totals.efficiency}</td>
+        </tr>
+      `;
+
+      tbody.innerHTML = rows + totalRow;
+    }
+
+    // =========================================================
+    // CONSTRUCCIÓN DE LA PLANILLA OFICIAL EN BLANCO Y NEGRO (1 HOJA)
+    // =========================================================
+    function buildBWTeamTableHTML(store, game, side, teamName, coachName, totals) {
+      const players = getOrderedTeamPlayersWithStartersFirst(store, game, side);
+      const starterIds = (side === 'home' ? game.startersHome : game.startersAway) || [];
+
+      const rowsHTML = players.map((p, idx) => {
+        const st = getPlayerGameStats(game, p.id);
+        const isStarter = starterIds.includes(p.id) || idx < 5;
+        const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+        const rowClass = (idx === 4 && players.length > 5) ? 'bw-starter-divider' : '';
+
+        return `
+          <tr class="${rowClass}">
+            <td class="left">
+              <strong>#${escapeHtml(String(p.number))} ${escapeHtml(p.name)}${isStarter ? ' *' : ''}</strong>
+            </td>
+            <td>${st.formattedTime}</td>
+            <td><strong>${st.totalPts}</strong></td>
+            <td>${pmSign}</td>
+            <td>${st.t2Made}/${st.t2Att} (${st.t2Pct}%)</td>
+            <td>${st.t3Made}/${st.t3Att} (${st.t3Pct}%)</td>
+            <td>${st.ftMade}/${st.ftAtt} (${st.ftPct}%)</td>
+            <td>${st.rebOff}-${st.rebDef} (<strong>${st.totalReb}</strong>)</td>
+            <td>${st.ast}</td>
+            <td>${st.stl}</td>
+            <td>${st.blk}</td>
+            <td>${st.tov}</td>
+            <td>${st.totalFouls} (${st.pf}/${st.of}/${st.tf})</td>
+            <td><strong>${st.efficiency}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      const t2Att = totals.pts2 + totals.miss2;
+      const t3Att = totals.pts3 + totals.miss3;
+      const ftAtt = totals.pts1 + totals.miss1;
+
+      return `
+        <div>
+          <div class="bw-team-header">
+            <span>EQUIPO: ${escapeHtml(teamName.toUpperCase())} (${totals.pts} PTS) — ENTRENADOR: ${escapeHtml(coachName || 'N/E')}</span>
+            <span>TC: ${totals.fgMade}/${totals.fgAtt} (${totals.fgPct}%) | 3P: ${totals.pts3}/${t3Att} (${totals.t3Pct}%) | TL: ${totals.pts1}/${ftAtt} (${totals.ftPct}%)</span>
+          </div>
+          <table class="bw-table">
+            <thead>
+              <tr>
+                <th class="left" style="width:20%;"># JUGADOR (* = TITULAR)</th>
+                <th>MIN</th>
+                <th>PTS</th>
+                <th>+/-</th>
+                <th>T2 (C/I %)</th>
+                <th>T3 (C/I %)</th>
+                <th>TL (C/I %)</th>
+                <th>REB (O-D/T)</th>
+                <th>AST</th>
+                <th>ROB</th>
+                <th>TAP</th>
+                <th>PER</th>
+                <th>FALTAS (P/O/T)</th>
+                <th>VAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML || `<tr><td colspan="14">Sin jugadores registrados</td></tr>`}
+              <tr class="bw-totals-row">
+                <td class="left">TOTALES (${escapeHtml(teamName)})</td>
+                <td>-</td>
+                <td>${totals.pts}</td>
+                <td>-</td>
+                <td>${totals.pts2}/${t2Att} (${totals.t2Pct}%)</td>
+                <td>${totals.pts3}/${t3Att} (${totals.t3Pct}%)</td>
+                <td>${totals.pts1}/${ftAtt} (${totals.ftPct}%)</td>
+                <td>${totals.rebOff}-${totals.rebDef} (${totals.reb})</td>
+                <td>${totals.ast}</td>
+                <td>${totals.stl}</td>
+                <td>${totals.blk}</td>
+                <td>${totals.tov}</td>
+                <td>${totals.totalFouls} (${totals.pf}/${totals.of}/${totals.tf})</td>
+                <td>${totals.efficiency}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderBWPrintSheet(store, game, tourney, homeName, awayName, homeTotals, awayTotals, mvpPlayer, mvpStats, mvpTeam) {
+      const sheet = document.getElementById('bwOfficialPdfSheet');
+      if (!sheet) return;
+
+      const qHist = game.quarterHistory || [];
+      let qHeaders = '';
+      let qHomeRow = '';
+      let qAwayRow = '';
+
+      if (qHist.length > 0) {
+        let prevH = 0;
+        let prevA = 0;
+        qHist.forEach(q => {
+          const hPts = q.homeScore - prevH;
+          const aPts = q.awayScore - prevA;
+          prevH = q.homeScore;
+          prevA = q.awayScore;
+          qHeaders += `<th>${escapeHtml(q.period)}</th>`;
+          qHomeRow += `<td><strong>${hPts}</strong> (${q.homeScore})</td>`;
+          qAwayRow += `<td><strong>${aPts}</strong> (${q.awayScore})</td>`;
+        });
+      } else {
+        qHeaders = `<th>ACTUAL (${getPeriodLabel(game.period)})</th>`;
+        qHomeRow = `<td>${homeTotals.pts}</td>`;
+        qAwayRow = `<td>${awayTotals.pts}</td>`;
+      }
+
+      const winnerLabel = homeTotals.pts > awayTotals.pts
+        ? `GANADOR: ${homeName.toUpperCase()}`
+        : (awayTotals.pts > homeTotals.pts ? `GANADOR: ${awayName.toUpperCase()}` : 'EMPATE');
+
+      sheet.innerHTML = `
+        <div class="bw-header">
+          <div>
+            <div class="bw-title">${escapeHtml(tourney ? tourney.name : 'TORNEO OFICIAL DE BALONCESTO')} ${tourney && tourney.category ? '— ' + escapeHtml(tourney.category) : ''}</div>
+            <div class="bw-sub">PLANILLA OFICIAL DE ESTADÍSTICAS • FECHA: ${escapeHtml(game.date || '-')} • HORA: ${escapeHtml(game.time || '-')} ${game.note ? '• ' + escapeHtml(game.note) : ''} • ESTADO: ${escapeHtml((game.status || 'Finalizado').toUpperCase())}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="bw-scoreline">${escapeHtml(homeName)} ${homeTotals.pts} - ${awayTotals.pts} ${escapeHtml(awayName)}</div>
+            <div class="bw-sub">${escapeHtml(winnerLabel)}</div>
+          </div>
+        </div>
+
+        <div class="bw-meta-grid">
+          <div>
+            <table class="bw-table">
+              <thead>
+                <tr>
+                  <th class="left">MARCADOR POR CUARTOS</th>
+                  ${qHeaders}
+                  <th>FINAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="left"><strong>${escapeHtml(homeName)}</strong></td>
+                  ${qHomeRow}
+                  <td><strong>${homeTotals.pts}</strong></td>
+                </tr>
+                <tr>
+                  <td class="left"><strong>${escapeHtml(awayName)}</strong></td>
+                  ${qAwayRow}
+                  <td><strong>${awayTotals.pts}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <table class="bw-table">
+              <thead>
+                <tr>
+                  <th>DOMINIO ${escapeHtml(homeName)}</th>
+                  <th>DOMINIO ${escapeHtml(awayName)}</th>
+                  <th>MAYOR VENTAJA LOCAL</th>
+                  <th>MAYOR VENTAJA VISITA</th>
+                  <th>CAMBIOS LÍDER / EMPATES</th>
+                  <th>MVP (EQUIPO GANADOR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>${formatSecondsMMSS(game.leadTimeHome || 0)} min</strong></td>
+                  <td><strong>${formatSecondsMMSS(game.leadTimeAway || 0)} min</strong> (Emp: ${formatSecondsMMSS(game.tiedTime || 0)})</td>
+                  <td><strong>+${game.biggestLeadHome || 0} PTS</strong> (${escapeHtml(game.biggestLeadHomeScore || '-')})</td>
+                  <td><strong>+${game.biggestLeadAway || 0} PTS</strong> (${escapeHtml(game.biggestLeadAwayScore || '-')})</td>
+                  <td><strong>${game.leadChanges || 0} / ${game.timesTied || 0}</strong></td>
+                  <td>
+                    <strong>${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</strong>
+                    ${mvpStats ? `<br/>${mvpStats.totalPts} PTS | ${mvpStats.totalReb} REB | ${mvpStats.ast} AST (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        ${buildBWTeamTableHTML(store, game, 'home', homeName, game.coachHome, homeTotals)}
+        ${buildBWTeamTableHTML(store, game, 'away', awayName, game.coachAway, awayTotals)}
+
+        <div style="display:flex; justify-content:space-between; margin-top:6px; padding-top:4px; border-top:1px solid #000; font-size:8px;">
+          <div><strong>LEYENDA:</strong> * = Jugador Titular (Primeros 5 jugadores) | FALTAS (P/O/T) = Personal / Ofensiva / Técnica | VAL = Valoración</div>
+          <div>FIRMA ANOTADOR: ______________________ &nbsp;&nbsp; FIRMA ÁRBITRO PRINCIPAL: ______________________</div>
+        </div>
+      `;
+    }
+
+    // Descargar la Planilla Oficial Blanco y Negro en 1 SOLA HOJA PDF
+    function downloadSummaryPDF() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeGameId);
+      if (!game) return;
+
+      // Asegurarnos de que la hoja B/N esté actualizada antes de exportar
+      renderGameSummaryView();
+
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const fileName = `Planilla_Oficial_${home ? home.name : 'Local'}_vs_${away ? away.name : 'Visitante'}.pdf`.replace(/\s+/g, '_');
+
+      const wrapper = document.getElementById('bwPrintWrapper');
+      const element = document.getElementById('bwOfficialPdfSheet');
+
+      if (window.html2pdf && element) {
+        const prevPos = wrapper.style.position;
+        const prevLeft = wrapper.style.left;
+        wrapper.style.position = 'static';
+        wrapper.style.left = '0';
+
+        // Calcular ancho proporcional para que SIEMPRE quepa en 1 sola página A4 horizontal (287 x 200 mm útiles)
+        const currentH = element.scrollHeight || element.offsetHeight || 600;
+        const minWidthForSinglePage = Math.max(1080, Math.ceil(currentH * (287 / 192)));
+        element.style.width = minWidthForSinglePage + 'px';
+
+        const restoreWrapper = () => {
+          element.style.width = '';
+          if (!bwPreviewVisible) {
+            wrapper.style.position = prevPos;
+            wrapper.style.left = prevLeft;
+          }
+        };
+
+        const opt = {
+          margin: 5,
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+
+        window.html2pdf().set(opt).from(element).save().then(() => {
+          restoreWrapper();
+        }).catch((err) => {
+          console.error('Error al generar PDF:', err);
+          restoreWrapper();
+          window.print();
+        });
+      } else {
+        window.print();
+      }
+    }
+
+    function renderAllScreens() {
+      document.getElementById('viewSelectGame').classList.toggle('hidden', currentScreen !== 'select');
+      document.getElementById('viewScorerTable').classList.toggle('hidden', currentScreen !== 'scorer');
+      document.getElementById('viewGameSummary').classList.toggle('hidden', currentScreen !== 'summary');
+
+      if (currentScreen === 'select') {
+        renderSelectGameScreen();
+      } else if (currentScreen === 'scorer') {
+        renderScorerView();
+      } else if (currentScreen === 'summary') {
+        renderGameSummaryView();
+      }
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // =========================================================
+    // BOTÓN DE TIEMPO MOVIBLE A CUALQUIER LUGAR Y RETORNABLE A SU SITIO
+    // =========================================================
+    let isTimeWidgetFloating = false;
+    let timeDragActive = false;
+    let timeDragOffsetX = 0;
+    let timeDragOffsetY = 0;
+
+    function dockTimeWidgetBack() {
+      const widget = document.getElementById('movableTimeWidget');
+      const placeholder = document.getElementById('dockedTimePlaceholder');
+      const btnBack = document.getElementById('btnDockTimeBack');
+      if (!widget) return;
+
+      isTimeWidgetFloating = false;
+      widget.classList.remove('is-floating');
+      widget.style.left = '';
+      widget.style.top = '';
+      if (placeholder) placeholder.classList.add('hidden');
+      if (btnBack) btnBack.classList.add('hidden');
+    }
+
+    function initMovableTimeWidget() {
+      const widget = document.getElementById('movableTimeWidget');
+      const handle = document.getElementById('timeDragHandle');
+      const placeholder = document.getElementById('dockedTimePlaceholder');
+      const btnBack = document.getElementById('btnDockTimeBack');
+      if (!widget || !handle) return;
+
+      const startDrag = (clientX, clientY) => {
+        const rect = widget.getBoundingClientRect();
+        if (!isTimeWidgetFloating) {
+          isTimeWidgetFloating = true;
+          widget.classList.add('is-floating');
+          widget.style.left = `${rect.left}px`;
+          widget.style.top = `${rect.top}px`;
+          if (placeholder) placeholder.classList.remove('hidden');
+          if (btnBack) btnBack.classList.remove('hidden');
+        }
+        const currentRect = widget.getBoundingClientRect();
+        timeDragActive = true;
+        timeDragOffsetX = clientX - currentRect.left;
+        timeDragOffsetY = clientY - currentRect.top;
+      };
+
+      const moveDrag = (clientX, clientY) => {
+        if (!timeDragActive) return;
+        const w = widget.offsetWidth || 230;
+        const h = widget.offsetHeight || 130;
+        const maxX = Math.max(8, window.innerWidth - w - 8);
+        const maxY = Math.max(8, window.innerHeight - h - 8);
+        const nextLeft = Math.min(maxX, Math.max(8, clientX - timeDragOffsetX));
+        const nextTop = Math.min(maxY, Math.max(8, clientY - timeDragOffsetY));
+        widget.style.left = `${nextLeft}px`;
+        widget.style.top = `${nextTop}px`;
+      };
+
+      const endDrag = () => {
+        timeDragActive = false;
+      };
+
+      // Soporte Ratón (PC)
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!timeDragActive) return;
+        moveDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener('mouseup', endDrag);
+
+      // Soporte Táctil (Tableta / Celular)
+      handle.addEventListener('touchstart', (e) => {
+        if (!e.touches || !e.touches[0]) return;
+        e.preventDefault();
+        startDrag(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: false });
+      window.addEventListener('touchmove', (e) => {
+        if (!timeDragActive || !e.touches || !e.touches[0]) return;
+        e.preventDefault();
+        moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: false });
+      window.addEventListener('touchend', endDrag);
+    }
+
+    window.addEventListener('storeUpdated', () => {
+      renderAllScreens();
+    });
+
+    initMovableTimeWidget();
+    renderAllScreens();
+    updateFirebaseBadge();
+  </script>
+</body>
+</html>

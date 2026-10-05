@@ -1,0 +1,3145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mesa de Anotación Oficial - Baseball</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    /* Estilos específicos para la Mesa de Baseball y Diamante Interactivo */
+    .bb-scoreboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr 1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 980px) {
+      .bb-scoreboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .bb-team-score-box {
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.65rem;
+    }
+
+    .bb-team-score-box.batting-now {
+      border-color: rgba(250, 204, 21, 0.75);
+      box-shadow: 0 0 22px rgba(250, 204, 21, 0.14);
+    }
+
+    .bb-runs-big {
+      font-size: 3.3rem;
+      font-weight: 900;
+      line-height: 1;
+      color: #facc15;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bb-rhe-pills {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .bb-rhe-pill {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 8px;
+      padding: 0.28rem 0.6rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    /* Panel central: Inning y Conteo B-S-O */
+    .bb-center-state-box {
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
+      border: 1px solid rgba(250, 204, 21, 0.4);
+      border-radius: 14px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .bb-inning-badge {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: #facc15;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid rgba(250, 204, 21, 0.4);
+      padding: 0.3rem 0.9rem;
+      border-radius: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .bso-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      padding: 0.45rem 0.7rem;
+      border-radius: 10px;
+    }
+
+    .bso-label {
+      font-size: 0.8rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      min-width: 70px;
+    }
+
+    .bso-dots {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .bso-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(51, 65, 85, 0.8);
+      border: 2px solid rgba(148, 163, 184, 0.4);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .bso-dot.active-ball {
+      background: #22c55e;
+      border-color: #86efac;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+    }
+
+    .bso-dot.active-strike {
+      background: #eab308;
+      border-color: #fde047;
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.8);
+    }
+
+    .bso-dot.active-out {
+      background: #ef4444;
+      border-color: #fca5a5;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+    }
+
+    /* Pizarra por entradas (Line Score) */
+    .bb-linescore-table th,
+    .bb-linescore-table td {
+      text-align: center;
+      padding: 0.42rem 0.5rem;
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bb-linescore-table th.team-col,
+    .bb-linescore-table td.team-col {
+      text-align: left;
+      min-width: 140px;
+      font-weight: 800;
+    }
+
+    .bb-linescore-total {
+      background: rgba(250, 204, 21, 0.12);
+      font-weight: 900;
+      color: #fde047;
+    }
+
+    /* Diamante Interactivo de Bases */
+    .bb-diamond-card {
+      background: radial-gradient(circle at 50% 60%, rgba(22, 101, 52, 0.35), rgba(15, 23, 42, 0.96) 75%);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      border-radius: 14px;
+      padding: 1.1rem;
+    }
+
+    .bb-diamond-visual {
+      position: relative;
+      width: 220px;
+      height: 175px;
+      margin: 0.35rem auto 0.8rem auto;
+      user-select: none;
+    }
+
+    .bb-diamond-lines {
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      left: 55px;
+      top: 34px;
+      border: 2px dashed rgba(250, 204, 21, 0.38);
+      transform: rotate(45deg);
+      pointer-events: none;
+    }
+
+    .bb-base-node {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      background: #f8fafc;
+      border: 3px solid #94a3b8;
+      transform: rotate(45deg);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.45);
+      transition: all 0.18s ease;
+    }
+
+    .bb-base-node:hover {
+      transform: rotate(45deg) scale(1.07);
+    }
+
+    .bb-base-node.occupied {
+      background: linear-gradient(135deg, #fde047, #eab308);
+      border-color: #fef08a;
+      box-shadow: 0 0 22px rgba(250, 204, 21, 0.85);
+    }
+
+    .bb-base-node span {
+      transform: rotate(-45deg);
+      font-size: 0.76rem;
+      font-weight: 900;
+      color: #0f172a;
+      text-align: center;
+      line-height: 1.05;
+    }
+
+    .bb-base-2b {
+      top: 8px;
+      left: 86px;
+    }
+
+    .bb-base-3b {
+      top: 66px;
+      left: 24px;
+    }
+
+    .bb-base-1b {
+      top: 66px;
+      right: 24px;
+    }
+
+    .bb-home-plate {
+      position: absolute;
+      bottom: 6px;
+      left: 93px;
+      width: 34px;
+      height: 34px;
+      background: #e2e8f0;
+      clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    .bb-runner-slot {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.55rem 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .bb-runner-slot.occupied {
+      border-color: rgba(250, 204, 21, 0.7);
+      background: rgba(234, 179, 8, 0.09);
+    }
+
+    /* Panel del Bateador Actual en el Plato */
+    .bb-batter-box-card {
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.92));
+      border: 2px solid rgba(249, 115, 22, 0.6);
+      border-radius: 14px;
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.85rem;
+    }
+
+    .bb-live-strip-preview {
+      background: #0b0e14;
+      border: 2px solid #eab308;
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      font-family: 'Arial Narrow', 'Roboto Condensed', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 0.6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.7);
+    }
+
+    .bb-action-buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .bb-action-buttons-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .btn-hr-boom {
+      background: linear-gradient(135deg, #f59e0b, #dc2626);
+      color: #fff;
+      font-weight: 900;
+      border: 1px solid #fde047;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-hr-boom:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    tr.active-batter-row {
+      background: linear-gradient(90deg, rgba(250, 204, 21, 0.22), rgba(250, 204, 21, 0.07)) !important;
+      outline: 2px solid rgba(250, 204, 21, 0.75);
+    }
+
+    tr.ondeck-batter-row {
+      background: rgba(59, 130, 246, 0.08) !important;
+    }
+
+    .bb-stat-cell {
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      font-weight: 800;
+      font-size: 0.92rem;
+    }
+
+    .bb-avg-cell {
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: #fde047;
+      background: rgba(250, 204, 21, 0.1);
+    }
+
+    .bb-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .bb-row-actions .btn-play {
+      padding: 0.34rem 0.62rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .bb-order-controls {
+      display: inline-flex;
+      gap: 0.2rem;
+      align-items: center;
+    }
+
+    .bb-order-btn {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #cbd5e1;
+      border-radius: 6px;
+      padding: 0.15rem 0.38rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .bb-order-btn:hover {
+      background: rgba(59, 130, 246, 0.3);
+      color: #fff;
+      border-color: #60a5fa;
+    }
+
+    /* Estilos del Box Score Oficial de Baseball en Pantalla */
+    .bb-summary-hero {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.92));
+      border: 1px solid rgba(250, 204, 21, 0.35);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .bb-summary-scoreline {
+      display: flex;
+      align-items: center;
+      gap: 1.15rem;
+      flex-wrap: wrap;
+    }
+
+    .bb-summary-team-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0.6rem 1rem;
+      border-radius: 12px;
+    }
+
+    .bb-summary-team-chip.winner-chip {
+      border-color: rgba(74, 222, 128, 0.65);
+      background: rgba(22, 101, 52, 0.22);
+      box-shadow: 0 0 18px rgba(74, 222, 128, 0.15);
+    }
+
+    .bb-summary-team-runs {
+      font-size: 2.1rem;
+      font-weight: 900;
+      color: #fde047;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bb-box-team-card {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .bb-box-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .bb-box-table th,
+    .bb-box-table td {
+      padding: 0.58rem 0.65rem;
+      text-align: center;
+      white-space: nowrap;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bb-box-table th {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #94a3b8;
+      background: rgba(30, 41, 59, 0.65);
+    }
+
+    .bb-box-table th.left-col,
+    .bb-box-table td.left-col {
+      text-align: left;
+    }
+
+    .bb-box-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Hoja imprimible de Resumen / Box Score Oficial Baseball */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      #bwBaseballPrintWrapper {
+        position: static !important;
+        left: 0 !important;
+      }
+      #baseballPrintableSheet {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de navegación -->
+  <nav class="navbar no-print">
+    <a href="index.html" class="brand">
+      ⚾ Basket & Baseball Stats <span class="badge-sport">Mesa: Baseball</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status">⏳ Firebase...</span>
+      <a href="index.html" class="nav-link">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="baseball.html" class="nav-link active">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- =========================================================
+         PANTALLA 1: SELECCIONAR JUEGO DE BASEBALL A ANOTAR
+         ========================================================= -->
+    <section id="viewSelectBaseballGame" class="no-print">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">⚾ Seleccionar Juego de Baseball para Anotar</h1>
+          <p class="page-subtitle">En la pantalla principal aparecen solo los juegos de Baseball en vivo o por anotar. Los juegos terminados pasan al apartado de Últimos Juegos.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <label style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">Filtrar por Torneo:</label>
+          <select id="filterBbTournamentSelect" style="width:auto; min-width:220px;" onchange="renderSelectBaseballGameScreen()"></select>
+        </div>
+      </div>
+
+      <!-- Pestañas: Juegos en Vivo / Por Anotar vs Apartado de Últimos Juegos Finalizados -->
+      <div class="tabs-bar" style="margin-bottom:1.25rem;">
+        <button type="button" class="tab-btn active" id="tabBbActive" onclick="switchBbGamesTab('active')">
+          🔴 Juegos por Anotar / En Vivo <span id="badgeBbActiveCount" class="badge badge-live" style="margin-left:0.35rem;">0</span>
+        </button>
+        <button type="button" class="tab-btn" id="tabBbFinished" onclick="switchBbGamesTab('finished')">
+          🏁 Últimos Juegos (Finalizados) <span id="badgeBbFinishedCount" class="badge badge-finished" style="margin-left:0.35rem;">0</span>
+        </button>
+      </div>
+
+      <!-- Sub-vista 1A: Juegos Activos / Por Anotar -->
+      <div id="bbActiveGamesWrapper">
+        <div id="bbGamesPickerGrid" class="grid-2"></div>
+      </div>
+
+      <!-- Sub-vista 1B: Apartado de Últimos Juegos Finalizados (El último terminado siempre arriba) -->
+      <div id="bbFinishedGamesWrapper" class="hidden">
+        <div class="card" style="background:rgba(15,23,42,0.65); border-color:rgba(59,130,246,0.35); margin-bottom:1rem; padding:0.85rem 1.15rem;">
+          <span style="font-size:0.88rem; color:var(--text-muted);">
+            🏁 <strong>Apartado de Últimos Juegos Finalizados:</strong> Ordenados del más reciente al más antiguo (el último juego terminado aparece siempre arriba de primero).
+          </span>
+        </div>
+        <div id="bbFinishedGamesPickerGrid" class="grid-2"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 2: MESA DE ANOTACIÓN DE BASEBALL
+         ========================================================= -->
+    <section id="viewBaseballScorer" class="hidden no-print">
+      <!-- Barra superior de acciones -->
+      <div class="page-header" style="margin-bottom:1rem;">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="backToBbGameSelector()" style="margin-bottom:0.35rem;">
+            ← Cambiar de Juego / Ver Lista de Juegos
+          </button>
+          <h1 class="page-title" id="bbScorerGameTitle">⚾ Partido de Baseball</h1>
+          <p class="page-subtitle">Selecciona quién está al bate y en cada base; calcula automáticamente Hits, AVG, SLG y sincroniza en vivo con la Pizarra OBS.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-sm btn-primary" onclick="openBaseballObsFromScorer()" title="Abrir y configurar la Pizarra OBS conectada a este juego">
+            🎥 Abrir Pizarra OBS
+          </button>
+          <button class="btn btn-sm btn-hr-boom" onclick="triggerManualHrAnimationFromScorer()" title="Lanzar animación de HOME RUN en la Pizarra OBS ahora mismo">
+            💥 Animación HOME RUN
+          </button>
+          <button class="btn btn-sm btn-blue" onclick="openBaseballSummarySheet()">
+            📊 Box Score / PDF
+          </button>
+          <button id="btnToggleFinishBbGame" class="btn btn-sm btn-red" onclick="toggleFinishBaseballGame()">
+            🏁 Finalizar Juego
+          </button>
+        </div>
+      </div>
+
+      <!-- MARCADOR PRINCIPAL + CONTROL DE ENTRADA, BOLAS, STRIKES Y OUTS -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="bb-scoreboard-grid">
+
+          <!-- Equipo Visitante (Batea en la Alta ▲) -->
+          <div id="bbAwayScoreBox" class="bb-team-score-box">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+              <div>
+                <span class="badge badge-pending" id="bbAwayBattingBadge">✈️ VISITANTE (Alta ▲)</span>
+                <h2 id="bbAwayTeamName" style="font-size:1.35rem; font-weight:900; margin-top:0.3rem;">Visitante</h2>
+              </div>
+              <div class="bb-runs-big" id="bbAwayRunsBig">0</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+              <div class="bb-rhe-pills">
+                <span class="bb-rhe-pill">R: <strong id="bbAwayRVal">0</strong></span>
+                <span class="bb-rhe-pill">H: <strong id="bbAwayHVal">0</strong></span>
+                <span class="bb-rhe-pill">E: <strong id="bbAwayEVal">0</strong></span>
+                <span class="bb-rhe-pill">AVG: <strong id="bbAwayAvgVal" style="color:#fde047;">.000</strong></span>
+              </div>
+              <div style="display:flex; gap:0.3rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="adjustTeamExtraRuns('away', -1)" title="Restar carrera de ajuste">-R</button>
+                <button type="button" class="btn btn-sm btn-green" onclick="adjustTeamExtraRuns('away', 1)" title="Sumar carrera directa al marcador">+R</button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="adjustTeamErrors('away', 1)" title="Sumar error defensivo">+E</button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="adjustTeamErrors('away', -1)" title="Restar error">-E</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Centro: Entrada (▲ / ▼) y Conteo de Bolas, Strikes y Outs -->
+          <div class="bb-center-state-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:0.45rem;">
+                <span class="bb-inning-badge" id="bbInningBadgeDisplay">▲ 1</span>
+                <span class="badge badge-live" id="bbStatusBadgeDisplay">En Vivo</span>
+              </div>
+              <div style="display:flex; gap:0.3rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="stepHalfInning(-1)" title="Entrada anterior">◀ Ant.</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="toggleHalfInning()" title="Cambiar entre Alta (▲) y Baja (▼)">▲/▼ Mitad</button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="stepHalfInning(1)" title="Siguiente mitad de entrada">Sig. ▶</button>
+              </div>
+            </div>
+
+            <!-- Controles interactivos de Bolas (0-3), Strikes (0-2) y Outs (0-2) -->
+            <div style="display:flex; flex-direction:column; gap:0.42rem;">
+              <!-- BOLAS -->
+              <div class="bso-row">
+                <span class="bso-label" style="color:#4ade80;">🟢 BOLAS (<span id="bbBallsNum">0</span>)</span>
+                <div class="bso-dots">
+                  <span class="bso-dot" id="ballDot1" onclick="setExactCount('balls', 1)" title="1 Bola"></span>
+                  <span class="bso-dot" id="ballDot2" onclick="setExactCount('balls', 2)" title="2 Bolas"></span>
+                  <span class="bso-dot" id="ballDot3" onclick="setExactCount('balls', 3)" title="3 Bolas"></span>
+                </div>
+                <div style="display:flex; gap:0.28rem;">
+                  <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.5rem;" onclick="stepCount('balls', -1)">−</button>
+                  <button type="button" class="btn btn-sm btn-green" style="padding:0.2rem 0.6rem;" onclick="stepCount('balls', 1)">+1 Bola</button>
+                </div>
+              </div>
+
+              <!-- STRIKES -->
+              <div class="bso-row">
+                <span class="bso-label" style="color:#facc15;">🟡 STRIKES (<span id="bbStrikesNum">0</span>)</span>
+                <div class="bso-dots">
+                  <span class="bso-dot" id="strikeDot1" onclick="setExactCount('strikes', 1)" title="1 Strike"></span>
+                  <span class="bso-dot" id="strikeDot2" onclick="setExactCount('strikes', 2)" title="2 Strikes"></span>
+                </div>
+                <div style="display:flex; gap:0.28rem;">
+                  <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.5rem;" onclick="stepCount('strikes', -1)">−</button>
+                  <button type="button" class="btn btn-sm btn-amber" style="padding:0.2rem 0.6rem;" onclick="stepCount('strikes', 1)">+1 Strike</button>
+                </div>
+              </div>
+
+              <!-- OUTS (SISTEMA 1: OUT GENERAL / CORREDOR vs SISTEMA 2: OUT AL BATEADOR QUE CAMBIA EL TURNO) -->
+              <div class="bso-row" style="flex-direction:column; align-items:stretch; gap:0.42rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem;">
+                  <span class="bso-label" style="color:#f87171;">🔴 OUTS (<span id="bbOutsNum">0</span>)</span>
+                  <div class="bso-dots">
+                    <span class="bso-dot" id="outDot1" onclick="setExactCount('outs', 1)" title="1 Out"></span>
+                    <span class="bso-dot" id="outDot2" onclick="setExactCount('outs', 2)" title="2 Outs"></span>
+                  </div>
+                  <div style="display:flex; gap:0.28rem;">
+                    <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.5rem;" onclick="stepCount('outs', -1)" title="Restar 1 Out">−</button>
+                    <button type="button" class="btn btn-sm btn-red" style="padding:0.2rem 0.6rem;" onclick="stepCount('outs', 1)" title="Sumar +1 Out general / en base (NO cambia al bateador)">+1 Out</button>
+                    <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.5rem;" onclick="resetBatterCount()" title="Reiniciar conteo a 0 Bolas y 0 Strikes">0-0</button>
+                  </div>
+                </div>
+
+                <!-- Debajo del botón de Out: Out al Bateador (cambia bateador auto) + Out a cualquier jugador -->
+                <div style="display:flex; flex-direction:column; gap:0.32rem; padding-top:0.35rem; border-top:1px dashed rgba(248,113,113,0.3);">
+                  <button type="button" class="btn btn-sm btn-red" style="width:100%; font-weight:900; padding:0.32rem 0.6rem; background:linear-gradient(135deg,#dc2626,#b91c1c); border:1px solid #fca5a5;" onclick="recordBatterPlay('OUT')" title="Out al bateador actual: suma +1 AB, +1 Out y pasa automáticamente al siguiente bateador">
+                    🏏 Out al Bateador (+AB y Sig. Bateador)
+                  </button>
+                  <div style="display:flex; gap:0.28rem; align-items:center;">
+                    <select id="selectAnyPlayerOut" style="font-size:0.74rem; padding:0.22rem 0.4rem; flex:1;" title="Elegir cualquier jugador para cantarle Out (sin cambiar al bateador actual)"></select>
+                    <button type="button" class="btn btn-sm btn-outline" style="padding:0.22rem 0.5rem; font-size:0.73rem; color:#fca5a5; border-color:rgba(248,113,113,0.45); white-space:nowrap;" onclick="recordOutFromAnyPlayerSelect()" title="Anotar Out a este jugador/corredor sin cambiar el turno del bateador">
+                      🏃 Out Jugador
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Equipo Local (Batea en la Baja ▼) -->
+          <div id="bbHomeScoreBox" class="bb-team-score-box">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+              <div>
+                <span class="badge badge-pending" id="bbHomeBattingBadge">🏠 LOCAL (Baja ▼)</span>
+                <h2 id="bbHomeTeamName" style="font-size:1.35rem; font-weight:900; margin-top:0.3rem;">Local</h2>
+              </div>
+              <div class="bb-runs-big" id="bbHomeRunsBig">0</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+              <div class="bb-rhe-pills">
+                <span class="bb-rhe-pill">R: <strong id="bbHomeRVal">0</strong></span>
+                <span class="bb-rhe-pill">H: <strong id="bbHomeHVal">0</strong></span>
+                <span class="bb-rhe-pill">E: <strong id="bbHomeEVal">0</strong></span>
+                <span class="bb-rhe-pill">AVG: <strong id="bbHomeAvgVal" style="color:#fde047;">.000</strong></span>
+              </div>
+              <div style="display:flex; gap:0.3rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="adjustTeamExtraRuns('home', -1)" title="Restar carrera de ajuste">-R</button>
+                <button type="button" class="btn btn-sm btn-green" onclick="adjustTeamExtraRuns('home', 1)" title="Sumar carrera directa al marcador">+R</button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="adjustTeamErrors('home', 1)" title="Sumar error defensivo">+E</button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="adjustTeamErrors('home', -1)" title="Restar error">-E</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pizarra Line Score por Entradas (1 al 9+ | R | H | E) -->
+        <div class="table-responsive" style="margin-top:0.9rem;">
+          <table class="bb-linescore-table" id="bbLineScoreTable"></table>
+        </div>
+      </div>
+
+      <!-- =========================================================
+           FILA INTERACTIVA: DIAMANTE (CORREDORES EN BASE) + BATEADOR EN TURNO
+           ========================================================= -->
+      <div class="grid-2" style="margin-bottom:1.2rem; align-items:stretch;">
+
+        <!-- TARJETA IZQUIERDA: QUIÉN ESTÁ EN CADA BASE (1B, 2B, 3B) -->
+        <div class="bb-diamond-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.4rem;">
+            <div>
+              <h3 class="card-title" style="font-size:1rem;">💎 Corredores en Base (1B, 2B, 3B)</h3>
+              <p style="font-size:0.76rem; color:var(--text-muted);">Toca una base en el diamante o elige qué jugador está en cada base. Puedes anotarle Carrera o Out en base.</p>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="clearAllBases()">🧹 Limpiar Bases</button>
+          </div>
+
+          <!-- Diamante Visual Interactivo -->
+          <div class="bb-diamond-visual">
+            <div class="bb-diamond-lines"></div>
+            <div id="visualBase2B" class="bb-base-node bb-base-2b" onclick="toggleBaseQuick('second')" title="Clic para activar/desactivar 2da Base">
+              <span id="visualBase2BText">2B</span>
+            </div>
+            <div id="visualBase3B" class="bb-base-node bb-base-3b" onclick="toggleBaseQuick('third')" title="Clic para activar/desactivar 3ra Base">
+              <span id="visualBase3BText">3B</span>
+            </div>
+            <div id="visualBase1B" class="bb-base-node bb-base-1b" onclick="toggleBaseQuick('first')" title="Clic para activar/desactivar 1ra Base">
+              <span id="visualBase1BText">1B</span>
+            </div>
+            <div class="bb-home-plate">HOME</div>
+          </div>
+
+          <!-- Selectores de quién está en 1ra, 2da y 3ra base + botones Anotar Carrera y Out en Base -->
+          <div class="grid-3" style="gap:0.55rem;">
+            <!-- 3ra Base -->
+            <div id="runnerSlotThird" class="bb-runner-slot">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:0.78rem; color:#fde047;">3ra Base (3B)</strong>
+                <button type="button" class="btn btn-sm btn-outline" style="padding:0.1rem 0.35rem; font-size:0.68rem;" onclick="setBaseRunner('third', '')">✕</button>
+              </div>
+              <select id="selectRunnerThird" style="font-size:0.8rem; padding:0.35rem;" onchange="setBaseRunner('third', this.value)"></select>
+              <div style="display:flex; gap:0.3rem;">
+                <button type="button" class="btn btn-sm btn-green" style="flex:1; font-size:0.72rem; padding:0.28rem 0.35rem;" onclick="scoreRunnerFromBase('third')" title="El corredor de 3B anota carrera (+1 R)">
+                  🏠 +1 R
+                </button>
+                <button type="button" class="btn btn-sm btn-red" style="flex:1; font-size:0.72rem; padding:0.28rem 0.35rem;" onclick="outRunnerFromBase('third')" title="Out al corredor de 3B (+1 Out, sale de base, no cambia bateador)">
+                  🔴 Out 3B
+                </button>
+              </div>
+            </div>
+
+            <!-- 2da Base -->
+            <div id="runnerSlotSecond" class="bb-runner-slot">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:0.78rem; color:#fde047;">2da Base (2B)</strong>
+                <button type="button" class="btn btn-sm btn-outline" style="padding:0.1rem 0.35rem; font-size:0.68rem;" onclick="setBaseRunner('second', '')">✕</button>
+              </div>
+              <select id="selectRunnerSecond" style="font-size:0.8rem; padding:0.35rem;" onchange="setBaseRunner('second', this.value)"></select>
+              <div style="display:flex; gap:0.3rem;">
+                <button type="button" class="btn btn-sm btn-green" style="flex:1; font-size:0.72rem; padding:0.28rem 0.35rem;" onclick="scoreRunnerFromBase('second')" title="El corredor de 2B anota carrera (+1 R)">
+                  🏠 +1 R
+                </button>
+                <button type="button" class="btn btn-sm btn-red" style="flex:1; font-size:0.72rem; padding:0.28rem 0.35rem;" onclick="outRunnerFromBase('second')" title="Out al corredor de 2B (+1 Out, sale de base, no cambia bateador)">
+                  🔴 Out 2B
+                </button>
+              </div>
+            </div>
+
+            <!-- 1ra Base -->
+            <div id="runnerSlotFirst" class="bb-runner-slot">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:0.78rem; color:#fde047;">1ra Base (1B)</strong>
+                <button type="button" class="btn btn-sm btn-outline" style="padding:0.1rem 0.35rem; font-size:0.68rem;" onclick="setBaseRunner('first', '')">✕</button>
+              </div>
+              <select id="selectRunnerFirst" style="font-size:0.8rem; padding:0.35rem;" onchange="setBaseRunner('first', this.value)"></select>
+              <div style="display:flex; gap:0.3rem;">
+                <button type="button" class="btn btn-sm btn-green" style="flex:1; font-size:0.72rem; padding:0.28rem 0.35rem;" onclick="scoreRunnerFromBase('first')" title="El corredor de 1B anota carrera (+1 R)">
+                  🏠 +1 R
+                </button>
+                <button type="button" class="btn btn-sm btn-red" style="flex:1; font-size:0.72rem; padding:0.28rem 0.35rem;" onclick="outRunnerFromBase('first')" title="Out al corredor de 1B (+1 Out, sale de base, no cambia bateador)">
+                  🔴 Out 1B
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TARJETA DERECHA: BATEADOR EN EL PLATO + BOTONES DE ANOTACIÓN RÁPIDA -->
+        <div class="bb-batter-box-card">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;">
+              <div>
+                <h3 class="card-title" style="font-size:1.02rem; color:#fb923c;">🏏 Bateador en Turno (Aparece arriba en la Pizarra OBS)</h3>
+                <p style="font-size:0.76rem; color:var(--text-muted);">Al elegir un bateador aquí o tocar <strong>🏏 Al Bate</strong> en la tabla de abajo, sus estadísticas salen al instante en el texto superior de la Pizarra OBS.</p>
+              </div>
+            </div>
+
+            <!-- Selector de Bateador Actual -->
+            <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.65rem;">
+              <select id="selectCurrentBatter" style="font-weight:800; font-size:0.95rem; flex:1;" onchange="setCurrentBatter(this.value)"></select>
+              <button type="button" class="btn btn-sm btn-outline" onclick="selectNextBatterInLineup()" title="Pasar al siguiente bateador del equipo al bate">
+                ⏭️ Sig. Bateador
+              </button>
+            </div>
+
+            <!-- Vista previa exacta de la barra superior que sale en OBS -->
+            <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; margin-bottom:0.25rem;">
+              📺 TEXTO EN VIVO EN LA BARRA SUPERIOR DE LA PIZARRA OBS:
+            </div>
+            <div class="bb-live-strip-preview">
+              <span id="liveBatterStripPreviewText">SELECCIONA UN BATEADOR...</span>
+              <span class="badge badge-live" style="font-size:0.68rem;">EN VIVO OBS</span>
+            </div>
+          </div>
+
+          <!-- Botonera Rápida para Anotar el Turno del Bateador Actual -->
+          <div>
+            <div style="font-size:0.76rem; font-weight:800; color:var(--text-muted); margin-bottom:0.45rem;">
+              ⚡ ANOTAR JUGADA DEL BATEADOR EN TURNO (Actualiza AB, Hits, Bases, Carreras y AVG):
+            </div>
+            <div class="bb-action-buttons-grid">
+              <button type="button" class="btn btn-green" onclick="recordBatterPlay('1B')">
+                🟢 Hit (1B)
+              </button>
+              <button type="button" class="btn btn-blue" onclick="recordBatterPlay('2B')">
+                🔵 Doble (2B)
+              </button>
+              <button type="button" class="btn btn-purple" onclick="recordBatterPlay('3B')">
+                🟣 Triple (3B)
+              </button>
+              <button type="button" class="btn btn-hr-boom" onclick="recordBatterPlay('HR')">
+                💥 HOME RUN
+              </button>
+              <button type="button" class="btn btn-red" onclick="recordBatterPlay('OUT')">
+                🔴 Out (AB)
+              </button>
+              <button type="button" class="btn btn-red" onclick="recordBatterPlay('K')">
+                삼 Ponche (K)
+              </button>
+              <button type="button" class="btn btn-outline" onclick="recordBatterPlay('BB')">
+                🚶 Bola (BB)
+              </button>
+              <button type="button" class="btn btn-amber" onclick="recordBatterPlay('RBI_R')">
+                ➕ +1 R / +1 RBI
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- =========================================================
+           BARRA DE CONTROL DE LINEUP Y TABLAS DE BATEO EN ANCHO COMPLETO (100%)
+           ========================================================= -->
+      <div class="card" style="margin-bottom:1rem; padding:0.85rem 1.15rem; background:rgba(15,23,42,0.88); border-color:rgba(250,204,21,0.35);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center;">
+            <span style="font-size:0.8rem; font-weight:800; color:var(--text-muted); margin-right:0.2rem;">👁️ Ver Equipo:</span>
+            <button type="button" class="btn btn-sm btn-primary" id="btnBbViewBoth" onclick="setBbTablesViewMode('both')">
+              📋 Ambos Equipos (Ancho Completo)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="btnBbViewBatting" onclick="setBbTablesViewMode('batting')">
+              🏏 Solo Equipo al Bate Ahora
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="btnBbViewAway" onclick="setBbTablesViewMode('away')">
+              ✈️ Solo Visitante (Alta ▲)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="btnBbViewHome" onclick="setBbTablesViewMode('home')">
+              🏠 Solo Local (Baja ▼)
+            </button>
+          </div>
+
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center;">
+            <span style="font-size:0.8rem; font-weight:800; color:var(--text-muted);">🔄 Orden de Filas:</span>
+            <button type="button" class="btn btn-sm btn-amber" id="btnBbSortRotating" onclick="setBbOrderSortMode('rotating')" title="Los jugadores que van a batear aparecen siempre arriba de primero y rotan tras cada turno">
+              🔄 Próximos a Batear Primero (Rotativo)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="btnBbSortFixed" onclick="setBbOrderSortMode('fixed')" title="Mantener fijo del 1° Bate al último sin rotar la vista">
+              🔢 Lineup Fijo (1° al N° Bate)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="bbBattingTablesContainer" style="display:flex; flex-direction:column; gap:1.25rem;">
+
+        <!-- Box Score Bateo Visitante (100% Ancho Completo) -->
+        <div class="card" id="bbAwayTableCard" style="width:100%;">
+          <div class="card-header" style="flex-wrap:wrap; gap:0.75rem;">
+            <div>
+              <h2 class="card-title" id="bbAwayTableTitle" style="font-size:1.2rem;">✈️ Bateo Visitante</h2>
+              <p style="font-size:0.8rem; color:var(--text-muted);">
+                Arriba aparecen siempre <strong>los próximos a batear</strong>. Puedes cambiar el turno o el orden manualmente en cualquier momento con <strong>🏏 Poner al Bate</strong> o las flechas <strong>⬆️ ⬇️</strong>.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+              <form onsubmit="quickAddBaseballPlayerInGame(event, 'away')" style="display:flex; gap:0.35rem; align-items:center;">
+                <input type="number" id="quickAddAwayNumber" placeholder="#" min="0" max="999" style="width:68px; padding:0.32rem 0.45rem; font-size:0.8rem;" required />
+                <input type="text" id="quickAddAwayName" placeholder="Agregar bateador / cambio..." style="width:185px; padding:0.32rem 0.55rem; font-size:0.8rem;" required />
+                <button type="submit" class="btn btn-sm btn-outline" title="Agregar jugador al orden al bate visitante">➕ Agregar Bate</button>
+              </form>
+              <button type="button" class="btn btn-sm btn-primary" onclick="setBattingHalf('top')">
+                ▲ Poner a Batear (Alta)
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th style="min-width:170px;">Turno / Orden al Bate</th>
+                  <th style="min-width:180px;">Bateador</th>
+                  <th title="Turnos al Bate" style="text-align:center;">AB</th>
+                  <th title="Carreras Anotadas" style="text-align:center;">R</th>
+                  <th title="Hits Totales" style="text-align:center;">H</th>
+                  <th title="Dobles" style="text-align:center;">2B</th>
+                  <th title="Triples" style="text-align:center;">3B</th>
+                  <th title="Home Runs" style="text-align:center;">HR</th>
+                  <th title="Carreras Impulsadas" style="text-align:center;">RBI</th>
+                  <th title="Base por Bolas" style="text-align:center;">BB</th>
+                  <th title="Ponches" style="text-align:center;">K</th>
+                  <th title="Promedio de Bateo" style="text-align:center;">AVG</th>
+                  <th style="min-width:440px;">Anotación Rápida del Turno / Ajuste Manual</th>
+                </tr>
+              </thead>
+              <tbody id="bbAwayPlayersTbody"></tbody>
+              <tfoot id="bbAwayPlayersTfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Box Score Bateo Local (100% Ancho Completo) -->
+        <div class="card" id="bbHomeTableCard" style="width:100%;">
+          <div class="card-header" style="flex-wrap:wrap; gap:0.75rem;">
+            <div>
+              <h2 class="card-title" id="bbHomeTableTitle" style="font-size:1.2rem;">🏠 Bateo Local</h2>
+              <p style="font-size:0.8rem; color:var(--text-muted);">
+                Arriba aparecen siempre <strong>los próximos a batear</strong>. Puedes cambiar el turno o el orden manualmente en cualquier momento con <strong>🏏 Poner al Bate</strong> o las flechas <strong>⬆️ ⬇️</strong>.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+              <form onsubmit="quickAddBaseballPlayerInGame(event, 'home')" style="display:flex; gap:0.35rem; align-items:center;">
+                <input type="number" id="quickAddHomeNumber" placeholder="#" min="0" max="999" style="width:68px; padding:0.32rem 0.45rem; font-size:0.8rem;" required />
+                <input type="text" id="quickAddHomeName" placeholder="Agregar bateador / cambio..." style="width:185px; padding:0.32rem 0.55rem; font-size:0.8rem;" required />
+                <button type="submit" class="btn btn-sm btn-outline" title="Agregar jugador al orden al bate local">➕ Agregar Bate</button>
+              </form>
+              <button type="button" class="btn btn-sm btn-primary" onclick="setBattingHalf('bottom')">
+                ▼ Poner a Batear (Baja)
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th style="min-width:170px;">Turno / Orden al Bate</th>
+                  <th style="min-width:180px;">Bateador</th>
+                  <th title="Turnos al Bate" style="text-align:center;">AB</th>
+                  <th title="Carreras Anotadas" style="text-align:center;">R</th>
+                  <th title="Hits Totales" style="text-align:center;">H</th>
+                  <th title="Dobles" style="text-align:center;">2B</th>
+                  <th title="Triples" style="text-align:center;">3B</th>
+                  <th title="Home Runs" style="text-align:center;">HR</th>
+                  <th title="Carreras Impulsadas" style="text-align:center;">RBI</th>
+                  <th title="Base por Bolas" style="text-align:center;">BB</th>
+                  <th title="Ponches" style="text-align:center;">K</th>
+                  <th title="Promedio de Bateo" style="text-align:center;">AVG</th>
+                  <th style="min-width:440px;">Anotación Rápida del Turno / Ajuste Manual</th>
+                </tr>
+              </thead>
+              <tbody id="bbHomePlayersTbody"></tbody>
+              <tfoot id="bbHomePlayersTfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Historial de Jugadas del Partido de Baseball -->
+      <div class="card" style="margin-top:1rem;">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📜 Historial de Jugadas de Baseball</h2>
+            <p style="font-size:0.78rem; color:var(--text-muted);">Registro cronológico de Hits, Dobles, Triples, Home Runs, Carreras y Ponches.</p>
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height:250px; overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Entrada</th>
+                <th>Equipo</th>
+                <th>Bateador / Jugador</th>
+                <th>Jugada Registrada</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody id="bbLogsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =========================================================
+         PANTALLA 3: RESUMEN / BOX SCORE OFICIAL IMPRIMIBLE (PDF)
+         ========================================================= -->
+    <section id="viewBaseballSummary" class="hidden">
+      <div class="page-header no-print">
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="closeBaseballSummarySheet()">
+            ← Volver a la Mesa de Baseball
+          </button>
+          <h1 class="page-title" style="margin-top:0.35rem;">📊 Box Score Oficial de Baseball</h1>
+          <p class="page-subtitle">Resumen completo por entradas, líderes ofensivos, estadísticas de bateo y planilla oficial en PDF.</p>
+        </div>
+        <div style="display:flex; gap:0.55rem; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="downloadBaseballBoxScorePDF()">
+            📥 Descargar Planilla PDF Oficial
+          </button>
+          <button class="btn btn-outline" onclick="window.print()">
+            🖨️ Imprimir Planilla
+          </button>
+        </div>
+      </div>
+
+      <div id="baseballPrintableSheet" class="no-print"></div>
+
+      <!-- PLANILLA OFICIAL EN BLANCO Y NEGRO (1 SOLA HOJA HORIZONTAL PARA DESCARGAR EN PDF O IMPRIMIR) -->
+      <div id="bwBaseballPrintWrapper" style="position:fixed; left:-9999px; top:0; overflow-x:auto;">
+        <div id="bwBaseballOfficialPdfSheet" class="bw-print-sheet"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================
+       MODAL INTERACTIVO PARA EDITAR / CORREGIR ESTADÍSTICAS DE UN BATEADOR
+       ========================================================= -->
+  <div id="modalEditBbPlayer" class="modal-backdrop" onclick="if(event.target===this) closeModal('modalEditBbPlayer')">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditBbPlayer')">← Atrás</button>
+        <h3 class="card-title" style="font-size:1rem;">✏️ Editar Estadísticas de Bateo</h3>
+        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modalEditBbPlayer')">✕</button>
+      </div>
+      <form id="formEditBbPlayer">
+        <input type="hidden" id="editBbPlayerId" />
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card-alt); padding:0.65rem 0.9rem; border-radius:10px; border:1px solid var(--border-color); margin-bottom:0.85rem;">
+          <strong id="editBbPlayerTitle" style="font-size:1rem; color:var(--text-main);">Jugador</strong>
+          <span id="editBbLiveAvgBadge" class="badge badge-live" style="background:rgba(250,204,21,0.2); color:#fde047; border-color:rgba(250,204,21,0.4);">AVG: .000</span>
+        </div>
+
+        <div class="interactive-stats-grid">
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">AB (Turnos)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbAB', -1)">−</button>
+              <input type="number" id="editBbAB" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbAB', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(34,197,94,0.45);">
+            <span class="stat-stepper-label" style="color:#4ade80;">H (Hits Totales)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbH', -1)">−</button>
+              <input type="number" id="editBbH" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbH', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(250,204,21,0.45);">
+            <span class="stat-stepper-label" style="color:#fde047;">R (Carreras)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbR', -1)">−</button>
+              <input type="number" id="editBbR" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbR', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="interactive-stats-grid">
+          <div class="stat-stepper-card" style="border-color:rgba(59,130,246,0.45);">
+            <span class="stat-stepper-label" style="color:#60a5fa;">2B (Dobles)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBb2B', -1)">−</button>
+              <input type="number" id="editBb2B" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBb2B', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(168,85,247,0.45);">
+            <span class="stat-stepper-label" style="color:#c084fc;">3B (Triples)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBb3B', -1)">−</button>
+              <input type="number" id="editBb3B" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBb3B', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card" style="border-color:rgba(239,68,68,0.55);">
+            <span class="stat-stepper-label" style="color:#f87171;">HR (Home Runs)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbHR', -1)">−</button>
+              <input type="number" id="editBbHR" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbHR', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="interactive-stats-grid" style="margin-bottom:0;">
+          <div class="stat-stepper-card" style="border-color:rgba(249,115,22,0.45);">
+            <span class="stat-stepper-label" style="color:#fb923c;">RBI (Impulsadas)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbRBI', -1)">−</button>
+              <input type="number" id="editBbRBI" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbRBI', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">K (Ponches)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbK', -1)">−</button>
+              <input type="number" id="editBbK" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbK', 1)">+</button>
+            </div>
+          </div>
+          <div class="stat-stepper-card">
+            <span class="stat-stepper-label">BB (Base x Bolas)</span>
+            <div class="stat-stepper-controls">
+              <button type="button" class="btn-step minus" onclick="stepBbModalField('editBbBB', -1)">−</button>
+              <input type="number" id="editBbBB" class="stat-stepper-input" min="0" oninput="updateBbModalPreview()" required />
+              <button type="button" class="btn-step plus" onclick="stepBbModalField('editBbBB', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modalEditBbPlayer')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">✅ Guardar Estadísticas</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentBbScreen = 'select'; // 'select' | 'scorer' | 'summary'
+    let currentBbGamesTab = 'active'; // 'active' | 'finished'
+    let activeBbGameId = null;
+    let bbTablesViewMode = 'both'; // 'both' | 'batting' | 'away' | 'home'
+    let bbOrderSortMode = 'rotating'; // 'rotating' | 'fixed'
+
+    function updateFirebaseBadge() {
+      const info = getFirebaseStatus();
+      const el = document.getElementById('firebaseBadge');
+      if (!el) return;
+      if (info.status === 'connected') {
+        el.className = 'db-status connected';
+        el.textContent = '🟢 Firebase Conectado';
+      } else if (info.status === 'permission_denied') {
+        el.className = 'db-status error';
+        el.textContent = '🔒 Reglas Firebase Bloqueadas';
+      } else {
+        el.className = 'db-status';
+        el.textContent = '⏳ Modo Local / Conectando';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function switchBbGamesTab(tab) {
+      currentBbGamesTab = tab;
+      document.getElementById('tabBbActive').classList.toggle('active', tab === 'active');
+      document.getElementById('tabBbFinished').classList.toggle('active', tab === 'finished');
+      document.getElementById('bbActiveGamesWrapper').classList.toggle('hidden', tab !== 'active');
+      document.getElementById('bbFinishedGamesWrapper').classList.toggle('hidden', tab !== 'finished');
+      renderSelectBaseballGameScreen();
+    }
+
+    function buildBbGameCardHTML(store, g, isFinished, idx) {
+      const tourney = store.tournaments.find(t => t.id === g.tournamentId);
+      const home = store.teams.find(t => t.id === g.homeTeamId);
+      const away = store.teams.find(t => t.id === g.awayTeamId);
+      const homeTot = getBaseballTeamTotals(store, g, g.homeTeamId);
+      const awayTot = getBaseballTeamTotals(store, g, g.awayTeamId);
+      const isLatestFinished = isFinished && idx === 0;
+      const innArrow = g.half === 'bottom' ? '▼' : '▲';
+      const innLabel = isFinished ? 'FINAL' : `${innArrow} Entrada ${g.inning || 1}`;
+
+      return `
+        <div class="card item-card" style="${isLatestFinished ? 'border-color:rgba(59,130,246,0.75); box-shadow:0 0 18px rgba(59,130,246,0.14);' : (g.status === 'En Vivo' ? 'border-color:rgba(250,204,21,0.65);' : '')}">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+              <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
+                <span class="badge badge-pending">⚾ ${tourney ? escapeHtml(tourney.name) : 'Torneo Baseball'}</span>
+                ${isLatestFinished ? `<span class="badge" style="background:var(--accent-blue); color:#fff;">🆕 ÚLTIMO TERMINADO</span>` : ''}
+              </div>
+              <span class="badge ${g.status === 'En Vivo' ? 'badge-live' : (isFinished ? 'badge-finished' : 'badge-pending')}">
+                ${g.status || 'Programado'} • ${innLabel}
+              </span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-top:1px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+              <div>
+                <div style="font-size:1.1rem; font-weight:800;">✈️ ${away ? escapeHtml(away.name) : 'Visitante'} <span style="font-size:0.76rem; color:var(--text-muted);">(${awayTot.h} H, ${awayTot.avg})</span></div>
+                <div style="font-size:1.1rem; font-weight:800; margin-top:0.35rem;">🏠 ${home ? escapeHtml(home.name) : 'Local'} <span style="font-size:0.76rem; color:var(--text-muted);">(${homeTot.h} H, ${homeTot.avg})</span></div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:1.45rem; font-weight:900; color:#facc15;">${awayTot.runs}</div>
+                <div style="font-size:1.45rem; font-weight:900; color:#facc15; margin-top:0.1rem;">${homeTot.runs}</div>
+              </div>
+            </div>
+
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">
+              📅 ${g.date || ''} ${g.time || ''} ${g.note ? '• ' + escapeHtml(g.note) : ''}
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn ${isFinished ? 'btn-outline' : 'btn-primary'}" style="flex:1;" onclick="enterBaseballScorer('${g.id}')">
+              ${isFinished ? '✏️ Ver / Editar Anotación' : '⚾ Entrar a Anotar Juego'}
+            </button>
+            <button class="btn btn-blue" onclick="openBaseballSummaryForGame('${g.id}')">
+              📊 Box Score / PDF
+            </button>
+            <a href="pizarrabaseball.html?mode=game&gameId=${encodeURIComponent(g.id)}" target="_blank" class="btn btn-outline" title="Abrir Pizarra OBS de este juego">
+              🎥 Abrir Pizarra
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSelectBaseballGameScreen() {
+      const store = loadStore();
+      const filterSelect = document.getElementById('filterBbTournamentSelect');
+      const prevTourney = filterSelect.value || 'ALL';
+      const bbTournaments = store.tournaments.filter(t => t.sport === 'baseball');
+
+      filterSelect.innerHTML = `<option value="ALL">Todos los Torneos de Baseball (${bbTournaments.length})</option>` +
+        bbTournaments.map(t => `<option value="${t.id}" ${t.id === prevTourney ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+
+      const selectedTourney = filterSelect.value;
+      const games = store.games.filter(g => getGameSport(store, g) === 'baseball' && (selectedTourney === 'ALL' || g.tournamentId === selectedTourney));
+
+      const activeGames = sortActiveGamesToScore(games.filter(g => g.status !== 'Finalizado'));
+      const finishedGames = sortFinishedGamesNewestFirst(games.filter(g => g.status === 'Finalizado'), store.games);
+
+      document.getElementById('badgeBbActiveCount').textContent = activeGames.length;
+      document.getElementById('badgeBbFinishedCount').textContent = finishedGames.length;
+
+      document.getElementById('tabBbActive').classList.toggle('active', currentBbGamesTab === 'active');
+      document.getElementById('tabBbFinished').classList.toggle('active', currentBbGamesTab === 'finished');
+      document.getElementById('bbActiveGamesWrapper').classList.toggle('hidden', currentBbGamesTab !== 'active');
+      document.getElementById('bbFinishedGamesWrapper').classList.toggle('hidden', currentBbGamesTab !== 'finished');
+
+      const activeGrid = document.getElementById('bbGamesPickerGrid');
+      if (activeGames.length === 0) {
+        activeGrid.innerHTML = `
+          <div class="card empty-state" style="grid-column:1/-1;">
+            <h3>⚾ No hay juegos de Baseball pendientes ni en vivo</h3>
+            <p style="margin-top:0.5rem;">
+              ${finishedGames.length > 0
+                ? `Tienes <strong>${finishedGames.length}</strong> juego(s) finalizado(s) en <a href="#" onclick="switchBbGamesTab('finished'); return false;" style="color:var(--accent-blue); font-weight:700;">🏁 Últimos Juegos (Finalizados)</a>, o puedes crear un torneo/juego de Baseball en <a href="index.html" style="color:var(--accent-orange); font-weight:700;">Admin / Torneos</a>.`
+                : `Ve a <a href="index.html" style="color:var(--accent-orange); font-weight:700;">Admin / Torneos (index.html)</a>, elige el deporte <strong>⚾ Baseball</strong> al crear tu torneo y arma el partido.`}
+            </p>
+          </div>
+        `;
+      } else {
+        activeGrid.innerHTML = activeGames.map((g, idx) => buildBbGameCardHTML(store, g, false, idx)).join('');
+      }
+
+      const finishedGrid = document.getElementById('bbFinishedGamesPickerGrid');
+      if (finishedGames.length === 0) {
+        finishedGrid.innerHTML = `
+          <div class="card empty-state" style="grid-column:1/-1;">
+            <h3>🏁 Aún no hay juegos de Baseball finalizados</h3>
+            <p style="margin-top:0.5rem;">Cuando finalices un juego de Baseball, pasará automáticamente a este apartado con el último terminado siempre arriba.</p>
+          </div>
+        `;
+      } else {
+        finishedGrid.innerHTML = finishedGames.map((g, idx) => buildBbGameCardHTML(store, g, true, idx)).join('');
+      }
+    }
+
+    function enterBaseballScorer(gameId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === gameId);
+      if (!game) return;
+
+      activeBbGameId = gameId;
+      store.activeGameId = gameId;
+
+      // Si no hay bateador seleccionado todavía, elegir el primero del equipo al bate
+      ensureCurrentBatterValid(store, game);
+      saveStore(store);
+
+      currentBbScreen = 'scorer';
+      renderAllBbScreens();
+    }
+
+    function backToBbGameSelector() {
+      currentBbScreen = 'select';
+      renderAllBbScreens();
+    }
+
+    function openBaseballObsFromScorer() {
+      if (!activeBbGameId) return;
+      window.open(`pizarrabaseball.html?mode=game&gameId=${encodeURIComponent(activeBbGameId)}`, '_blank');
+    }
+
+    function ensureCurrentBatterValid(store, game) {
+      const awayLineup = getTeamBaseballLineup(store, game, game.awayTeamId);
+      const homeLineup = getTeamBaseballLineup(store, game, game.homeTeamId);
+
+      if (awayLineup.length > 0 && (!game.nextBatterAwayId || !awayLineup.some(p => p.id === game.nextBatterAwayId))) {
+        game.nextBatterAwayId = awayLineup[0].id;
+      }
+      if (homeLineup.length > 0 && (!game.nextBatterHomeId || !homeLineup.some(p => p.id === game.nextBatterHomeId))) {
+        game.nextBatterHomeId = homeLineup[0].id;
+      }
+
+      const isBottom = game.half === 'bottom';
+      const activeLineup = isBottom ? homeLineup : awayLineup;
+      const activeNextId = isBottom ? game.nextBatterHomeId : game.nextBatterAwayId;
+
+      if (activeLineup.length > 0) {
+        if (!game.currentBatterId || !activeLineup.some(p => p.id === game.currentBatterId)) {
+          game.currentBatterId = activeNextId || activeLineup[0].id;
+        }
+      }
+    }
+
+    function advanceNextBatterForTeam(store, game, teamId, finishedBatterId) {
+      const lineup = getTeamBaseballLineup(store, game, teamId);
+      if (lineup.length === 0) return;
+
+      const isHome = teamId === game.homeTeamId;
+      const currentRefId = finishedBatterId || (isHome ? game.nextBatterHomeId : game.nextBatterAwayId) || lineup[0].id;
+      const idx = lineup.findIndex(p => p.id === currentRefId);
+      const nextIdx = idx >= 0 ? (idx + 1) % lineup.length : 0;
+      const nextId = lineup[nextIdx].id;
+
+      if (isHome) {
+        game.nextBatterHomeId = nextId;
+      } else {
+        game.nextBatterAwayId = nextId;
+      }
+
+      // Si este equipo sigue al bate en la mitad actual, poner al siguiente bateador automáticamente en turno
+      const battingTeamId = game.half === 'bottom' ? game.homeTeamId : game.awayTeamId;
+      if (battingTeamId === teamId) {
+        game.currentBatterId = nextId;
+      }
+    }
+
+    function setBbTablesViewMode(mode) {
+      bbTablesViewMode = mode;
+      renderBaseballScorerScreen();
+    }
+
+    function setBbOrderSortMode(mode) {
+      bbOrderSortMode = mode;
+      renderBaseballScorerScreen();
+    }
+
+    function renderAllBbScreens() {
+      document.getElementById('viewSelectBaseballGame').classList.toggle('hidden', currentBbScreen !== 'select');
+      document.getElementById('viewBaseballScorer').classList.toggle('hidden', currentBbScreen !== 'scorer');
+      document.getElementById('viewBaseballSummary').classList.toggle('hidden', currentBbScreen !== 'summary');
+
+      if (currentBbScreen === 'select') {
+        renderSelectBaseballGameScreen();
+      } else if (currentBbScreen === 'scorer') {
+        renderBaseballScorerScreen();
+      } else if (currentBbScreen === 'summary') {
+        renderBaseballSummaryScreen();
+      }
+    }
+
+    function addInningRun(game, side /* 'away' | 'home' */, delta) {
+      if (!game.inningRuns) game.inningRuns = { away: {}, home: {} };
+      if (!game.inningRuns[side]) game.inningRuns[side] = {};
+      const innKey = String(game.inning || 1);
+      const curr = Number(game.inningRuns[side][innKey] || 0);
+      game.inningRuns[side][innKey] = Math.max(0, curr + delta);
+    }
+
+    function logBaseballPlay(store, game, playerId, text) {
+      const p = store.players.find(x => x.id === playerId);
+      const tm = p ? store.teams.find(t => t.id === p.teamId) : null;
+      const innArrow = game.half === 'bottom' ? '▼' : '▲';
+      if (!Array.isArray(game.logsBaseball)) game.logsBaseball = [];
+      game.logsBaseball.unshift({
+        id: uid('bblog'),
+        inning: `${innArrow}${game.inning || 1}`,
+        teamName: tm ? (tm.shortName || tm.name) : '',
+        playerName: p ? `#${p.number} ${p.name}` : 'Equipo',
+        text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      });
+    }
+
+    function renderBaseballScorerScreen() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) {
+        currentBbScreen = 'select';
+        renderAllBbScreens();
+        return;
+      }
+
+      ensureCurrentBatterValid(store, game);
+
+      const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+      const homeTot = getBaseballTeamTotals(store, game, game.homeTeamId);
+      const awayTot = getBaseballTeamTotals(store, game, game.awayTeamId);
+
+      const awayName = awayTeam ? awayTeam.name : 'Visitante';
+      const homeName = homeTeam ? homeTeam.name : 'Local';
+
+      document.getElementById('bbScorerGameTitle').textContent = `⚾ ${awayName} vs ${homeName}`;
+      document.getElementById('bbAwayTeamName').textContent = awayName;
+      document.getElementById('bbHomeTeamName').textContent = homeName;
+
+      document.getElementById('bbAwayRunsBig').textContent = awayTot.runs;
+      document.getElementById('bbHomeRunsBig').textContent = homeTot.runs;
+
+      document.getElementById('bbAwayRVal').textContent = awayTot.runs;
+      document.getElementById('bbAwayHVal').textContent = awayTot.h;
+      document.getElementById('bbAwayEVal').textContent = awayTot.errors;
+      document.getElementById('bbAwayAvgVal').textContent = awayTot.avg;
+
+      document.getElementById('bbHomeRVal').textContent = homeTot.runs;
+      document.getElementById('bbHomeHVal').textContent = homeTot.h;
+      document.getElementById('bbHomeEVal').textContent = homeTot.errors;
+      document.getElementById('bbHomeAvgVal').textContent = homeTot.avg;
+
+      const isBottom = game.half === 'bottom';
+      const isFinished = game.status === 'Finalizado';
+      const winInfo = isFinished ? getBaseballWinnerSummary(store, game) : null;
+
+      document.getElementById('bbAwayScoreBox').classList.toggle('batting-now', (!isBottom && !isFinished) || (isFinished && winInfo && winInfo.winnerSide === 'away'));
+      document.getElementById('bbHomeScoreBox').classList.toggle('batting-now', (isBottom && !isFinished) || (isFinished && winInfo && winInfo.winnerSide === 'home'));
+
+      if (isFinished && winInfo) {
+        document.getElementById('bbAwayBattingBadge').textContent = winInfo.winnerSide === 'away' ? '🏆 GANADOR DEL PARTIDO' : '✈️ VISITANTE (Final)';
+        document.getElementById('bbHomeBattingBadge').textContent = winInfo.winnerSide === 'home' ? '🏆 GANADOR DEL PARTIDO' : '🏠 LOCAL (Final)';
+      } else {
+        document.getElementById('bbAwayBattingBadge').textContent = !isBottom ? '🏏 BATEANDO AHORA (Alta ▲)' : '✈️ VISITANTE (Alta ▲)';
+        document.getElementById('bbHomeBattingBadge').textContent = isBottom ? '🏏 BATEANDO AHORA (Baja ▼)' : '🏠 LOCAL (Baja ▼)';
+      }
+
+      const innArrow = isBottom ? '▼' : '▲';
+      document.getElementById('bbInningBadgeDisplay').textContent = isFinished ? '🏁 FINAL' : `${innArrow} ${game.inning || 1}`;
+
+      const statusBadge = document.getElementById('bbStatusBadgeDisplay');
+      statusBadge.textContent = (isFinished && winInfo) ? winInfo.summaryText : (game.status || 'En Vivo');
+      statusBadge.className = `badge ${game.status === 'En Vivo' ? 'badge-live' : (isFinished ? 'badge-finished' : 'badge-pending')}`;
+
+      const finishBtn = document.getElementById('btnToggleFinishBbGame');
+      if (isFinished) {
+        finishBtn.textContent = '🔓 Reabrir Juego';
+        finishBtn.className = 'btn btn-sm btn-outline';
+      } else {
+        finishBtn.textContent = '🏁 Finalizar Juego';
+        finishBtn.className = 'btn btn-sm btn-red';
+      }
+
+      // Conteo B-S-O
+      const balls = Number(game.balls || 0);
+      const strikes = Number(game.strikes || 0);
+      const outs = Number(game.outs || 0);
+      document.getElementById('bbBallsNum').textContent = balls;
+      document.getElementById('bbStrikesNum').textContent = strikes;
+      document.getElementById('bbOutsNum').textContent = outs;
+
+      document.getElementById('ballDot1').className = `bso-dot ${balls >= 1 ? 'active-ball' : ''}`;
+      document.getElementById('ballDot2').className = `bso-dot ${balls >= 2 ? 'active-ball' : ''}`;
+      document.getElementById('ballDot3').className = `bso-dot ${balls >= 3 ? 'active-ball' : ''}`;
+
+      document.getElementById('strikeDot1').className = `bso-dot ${strikes >= 1 ? 'active-strike' : ''}`;
+      document.getElementById('strikeDot2').className = `bso-dot ${strikes >= 2 ? 'active-strike' : ''}`;
+
+      document.getElementById('outDot1').className = `bso-dot ${outs >= 1 ? 'active-out' : ''}`;
+      document.getElementById('outDot2').className = `bso-dot ${outs >= 2 ? 'active-out' : ''}`;
+
+      // Actualizar botones de filtro de vista y orden rotativo
+      ['both', 'batting', 'away', 'home'].forEach(m => {
+        const btn = document.getElementById(
+          m === 'both' ? 'btnBbViewBoth' : (m === 'batting' ? 'btnBbViewBatting' : (m === 'away' ? 'btnBbViewAway' : 'btnBbViewHome'))
+        );
+        if (btn) {
+          btn.className = `btn btn-sm ${bbTablesViewMode === m ? 'btn-primary' : 'btn-outline'}`;
+        }
+      });
+
+      const btnRot = document.getElementById('btnBbSortRotating');
+      const btnFix = document.getElementById('btnBbSortFixed');
+      if (btnRot && btnFix) {
+        btnRot.className = `btn btn-sm ${bbOrderSortMode === 'rotating' ? 'btn-amber' : 'btn-outline'}`;
+        btnFix.className = `btn btn-sm ${bbOrderSortMode === 'fixed' ? 'btn-amber' : 'btn-outline'}`;
+      }
+
+      const awayCard = document.getElementById('bbAwayTableCard');
+      const homeCard = document.getElementById('bbHomeTableCard');
+      if (awayCard && homeCard) {
+        // Colocar arriba de primero al equipo que está al bate ahora cuando se ven ambos
+        awayCard.style.order = isBottom ? '2' : '1';
+        homeCard.style.order = isBottom ? '1' : '2';
+        awayCard.style.borderColor = !isBottom ? 'rgba(250, 204, 21, 0.7)' : 'var(--border-color)';
+        homeCard.style.borderColor = isBottom ? 'rgba(250, 204, 21, 0.7)' : 'var(--border-color)';
+
+        const showAway = bbTablesViewMode === 'both' || bbTablesViewMode === 'away' || (bbTablesViewMode === 'batting' && !isBottom);
+        const showHome = bbTablesViewMode === 'both' || bbTablesViewMode === 'home' || (bbTablesViewMode === 'batting' && isBottom);
+        awayCard.classList.toggle('hidden', !showAway);
+        homeCard.classList.toggle('hidden', !showHome);
+      }
+
+      // Renderizar Pizarra por Entradas (Line Score)
+      renderLineScoreTable(game, awayTeam, homeTeam, awayTot, homeTot);
+
+      // Renderizar Diamante y Corredores en Base
+      renderDiamondAndRunners(store, game);
+
+      // Renderizar Selector de Bateador Actual y Vista Previa de Barra OBS
+      renderCurrentBatterBox(store, game);
+
+      // Renderizar Tablas de Jugadores de ambos equipos (en ancho completo y orden rotativo)
+      document.getElementById('bbAwayTableTitle').innerHTML = `✈️ Bateo Visitante: ${escapeHtml(awayName)} ${!isBottom && !isFinished ? '<span class="badge badge-live" style="margin-left:0.4rem;">🏏 BATEANDO AHORA (Alta ▲)</span>' : ''}`;
+      document.getElementById('bbHomeTableTitle').innerHTML = `🏠 Bateo Local: ${escapeHtml(homeName)} ${isBottom && !isFinished ? '<span class="badge badge-live" style="margin-left:0.4rem;">🏏 BATEANDO AHORA (Baja ▼)</span>' : ''}`;
+      renderTeamBattingTable(store, game, game.awayTeamId, 'bbAwayPlayersTbody', 'bbAwayPlayersTfoot', awayTot);
+      renderTeamBattingTable(store, game, game.homeTeamId, 'bbHomePlayersTbody', 'bbHomePlayersTfoot', homeTot);
+
+      // Renderizar Historial
+      const logsTbody = document.getElementById('bbLogsTbody');
+      const logs = Array.isArray(game.logsBaseball) ? game.logsBaseball : [];
+      if (logs.length === 0) {
+        logsTbody.innerHTML = `<tr><td colspan="5" class="empty-state" style="padding:1rem;">Aún no hay jugadas registradas en este partido.</td></tr>`;
+      } else {
+        logsTbody.innerHTML = logs.slice(0, 60).map(l => `
+          <tr>
+            <td><span class="badge badge-pending">${escapeHtml(l.inning)}</span></td>
+            <td><strong>${escapeHtml(l.teamName)}</strong></td>
+            <td>${escapeHtml(l.playerName)}</td>
+            <td style="color:#fde047; font-weight:700;">${escapeHtml(l.text)}</td>
+            <td style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(l.time)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function renderLineScoreTable(game, awayTeam, homeTeam, awayTot, homeTot) {
+      const currInn = Number(game.inning || 1);
+      const maxInning = Math.max(9, currInn);
+      const innings = [];
+      for (let i = 1; i <= maxInning; i++) innings.push(i);
+
+      const awayShort = awayTeam ? (awayTeam.shortName || awayTeam.name) : 'VIS';
+      const homeShort = homeTeam ? (homeTeam.shortName || homeTeam.name) : 'LOC';
+      const innRunsAway = (game.inningRuns && game.inningRuns.away) || {};
+      const innRunsHome = (game.inningRuns && game.inningRuns.home) || {};
+      const isFinished = game.status === 'Finalizado';
+
+      const table = document.getElementById('bbLineScoreTable');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="team-col">EQUIPO</th>
+            ${innings.map(i => `<th style="${!isFinished && i === currInn ? 'color:#facc15; background:rgba(250,204,21,0.14);' : ''}">${i}</th>`).join('')}
+            <th class="bb-linescore-total">R</th>
+            <th class="bb-linescore-total">H</th>
+            <th class="bb-linescore-total">E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="team-col">✈️ ${escapeHtml(awayShort)}</td>
+            ${innings.map(i => {
+              const val = innRunsAway[String(i)];
+              return `<td>${val !== undefined ? val : (i <= currInn ? 0 : '-')}</td>`;
+            }).join('')}
+            <td class="bb-linescore-total">${awayTot.runs}</td>
+            <td class="bb-linescore-total">${awayTot.h}</td>
+            <td class="bb-linescore-total">${awayTot.errors}</td>
+          </tr>
+          <tr>
+            <td class="team-col">🏠 ${escapeHtml(homeShort)}</td>
+            ${innings.map(i => {
+              const val = innRunsHome[String(i)];
+              if (val !== undefined) return `<td>${val}</td>`;
+              if (isFinished && i === currInn && game.half === 'top' && homeTot.runs > awayTot.runs) {
+                return `<td style="color:#fde047; font-weight:900;">X</td>`;
+              }
+              return `<td>${(i < currInn || (i === currInn && game.half === 'bottom')) ? 0 : '-'}</td>`;
+            }).join('')}
+            <td class="bb-linescore-total">${homeTot.runs}</td>
+            <td class="bb-linescore-total">${homeTot.h}</td>
+            <td class="bb-linescore-total">${homeTot.errors}</td>
+          </tr>
+        </tbody>
+      `;
+    }
+
+    function renderDiamondAndRunners(store, game) {
+      const bases = game.bases || { first: '', second: '', third: '' };
+      const battingTeamId = game.half === 'bottom' ? game.homeTeamId : game.awayTeamId;
+      const battingPlayers = getTeamBaseballLineup(store, game, battingTeamId);
+
+      const buildRunnerOptions = (currentVal) => {
+        let html = `<option value="">— Vacía —</option>`;
+        html += `<option value="OCCUPIED" ${currentVal === 'OCCUPIED' ? 'selected' : ''}>🟡 Corredor en Base (Genérico)</option>`;
+        battingPlayers.forEach(p => {
+          html += `<option value="${p.id}" ${currentVal === p.id ? 'selected' : ''}>${p.battingSlot}° Bate • #${escapeHtml(String(p.number))} ${escapeHtml(p.name)}</option>`;
+        });
+        return html;
+      };
+
+      const getShortRunnerLabel = (val, defaultLabel) => {
+        if (!val) return defaultLabel;
+        if (val === 'OCCUPIED' || val === true) return `${defaultLabel}<br>🟡`;
+        const p = store.players.find(x => x.id === val);
+        return p ? `#${p.number}` : `${defaultLabel}<br>🟡`;
+      };
+
+      const b1 = Boolean(bases.first);
+      const b2 = Boolean(bases.second);
+      const b3 = Boolean(bases.third);
+
+      document.getElementById('visualBase1B').classList.toggle('occupied', b1);
+      document.getElementById('visualBase2B').classList.toggle('occupied', b2);
+      document.getElementById('visualBase3B').classList.toggle('occupied', b3);
+
+      document.getElementById('visualBase1BText').innerHTML = getShortRunnerLabel(bases.first, '1B');
+      document.getElementById('visualBase2BText').innerHTML = getShortRunnerLabel(bases.second, '2B');
+      document.getElementById('visualBase3BText').innerHTML = getShortRunnerLabel(bases.third, '3B');
+
+      document.getElementById('runnerSlotFirst').classList.toggle('occupied', b1);
+      document.getElementById('runnerSlotSecond').classList.toggle('occupied', b2);
+      document.getElementById('runnerSlotThird').classList.toggle('occupied', b3);
+
+      document.getElementById('selectRunnerFirst').innerHTML = buildRunnerOptions(bases.first);
+      document.getElementById('selectRunnerSecond').innerHTML = buildRunnerOptions(bases.second);
+      document.getElementById('selectRunnerThird').innerHTML = buildRunnerOptions(bases.third);
+    }
+
+    function renderCurrentBatterBox(store, game) {
+      const battingTeamId = game.half === 'bottom' ? game.homeTeamId : game.awayTeamId;
+      const otherTeamId = game.half === 'bottom' ? game.awayTeamId : game.homeTeamId;
+      const battingTeam = store.teams.find(t => t.id === battingTeamId);
+      const otherTeam = store.teams.find(t => t.id === otherTeamId);
+
+      const battingQueue = getRotatingBaseballQueueForTeam(store, game, battingTeamId);
+      const otherQueue = getRotatingBaseballQueueForTeam(store, game, otherTeamId);
+
+      const selectEl = document.getElementById('selectCurrentBatter');
+      let opts = `<option value="">— Seleccionar Bateador en Turno —</option>`;
+      if (battingQueue.length > 0) {
+        opts += `<optgroup label="🏏 Equipo al Bate (${escapeHtml(battingTeam ? battingTeam.name : 'Al Bate')}) — Orden de Turno">`;
+        battingQueue.forEach((p, qIdx) => {
+          const st = getBaseballPlayerStats(game, p.id);
+          const turnTag = qIdx === 0 ? '🔥 AL BATE: ' : (qIdx === 1 ? '⏳ Prevenido: ' : '');
+          opts += `<option value="${p.id}" ${game.currentBatterId === p.id ? 'selected' : ''}>${turnTag}${p.battingSlot}° Bate • #${escapeHtml(String(p.number))} ${escapeHtml(p.name)} (${st.h}-${st.ab}, AVG ${st.avg})</option>`;
+        });
+        opts += `</optgroup>`;
+      }
+      if (otherQueue.length > 0) {
+        opts += `<optgroup label="Otro Equipo (${escapeHtml(otherTeam ? otherTeam.name : 'Otro')})">`;
+        otherQueue.forEach(p => {
+          const st = getBaseballPlayerStats(game, p.id);
+          opts += `<option value="${p.id}" ${game.currentBatterId === p.id ? 'selected' : ''}>${p.battingSlot}° Bate • #${escapeHtml(String(p.number))} ${escapeHtml(p.name)} (${st.h}-${st.ab}, AVG ${st.avg})</option>`;
+        });
+        opts += `</optgroup>`;
+      }
+      selectEl.innerHTML = opts;
+
+      // Poblar selector rápido para cantar Out a cualquier jugador / corredor sin cambiar al bateador
+      const anyOutSelectEl = document.getElementById('selectAnyPlayerOut');
+      if (anyOutSelectEl) {
+        const prevVal = anyOutSelectEl.value;
+        const bases = game.bases || {};
+        let outOpts = `<option value="">— Elegir Jugador / Corredor —</option>`;
+        if (battingQueue.length > 0) {
+          outOpts += `<optgroup label="🏃 Equipo Ofensivo (${escapeHtml(battingTeam ? battingTeam.name : 'Al Bate')})">`;
+          battingQueue.forEach(p => {
+            const onBaseTag = bases.third === p.id ? ' [En 3B]' : (bases.second === p.id ? ' [En 2B]' : (bases.first === p.id ? ' [En 1B]' : ''));
+            outOpts += `<option value="${p.id}" ${prevVal === p.id ? 'selected' : ''}>${p.battingSlot}° Bate • #${escapeHtml(String(p.number))} ${escapeHtml(p.name)}${onBaseTag}</option>`;
+          });
+          outOpts += `</optgroup>`;
+        }
+        if (otherQueue.length > 0) {
+          outOpts += `<optgroup label="Otro Equipo (${escapeHtml(otherTeam ? otherTeam.name : 'Otro')})">`;
+          otherQueue.forEach(p => {
+            outOpts += `<option value="${p.id}" ${prevVal === p.id ? 'selected' : ''}>${p.battingSlot}° Bate • #${escapeHtml(String(p.number))} ${escapeHtml(p.name)}</option>`;
+          });
+          outOpts += `</optgroup>`;
+        }
+        anyOutSelectEl.innerHTML = outOpts;
+      }
+
+      document.getElementById('liveBatterStripPreviewText').textContent = getBaseballBatterSummaryText(store, game);
+    }
+
+    function renderTeamBattingTable(store, game, teamId, tbodyId, tfootId, totals) {
+      const fixedLineup = getTeamBaseballLineup(store, game, teamId);
+      const rotatingQueue = getRotatingBaseballQueueForTeam(store, game, teamId);
+      const rows = bbOrderSortMode === 'rotating' ? rotatingQueue : fixedLineup;
+
+      const tbody = document.getElementById(tbodyId);
+      const tfoot = document.getElementById(tfootId);
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13" class="empty-state" style="padding:1.25rem;">No hay jugadores en este equipo todavía. Usa el formulario <strong>➕ Agregar Bate</strong> de arriba o agrégalos en <a href="index.html" style="color:var(--accent-orange); font-weight:700;">Admin / Torneos</a>.</td></tr>`;
+        tfoot.innerHTML = '';
+        return;
+      }
+
+      const isTeamBattingNow = (game.half === 'bottom' ? game.homeTeamId : game.awayTeamId) === teamId;
+      const teamNextBatterId = teamId === game.homeTeamId ? game.nextBatterHomeId : game.nextBatterAwayId;
+
+      tbody.innerHTML = rows.map((p, idx) => {
+        const st = getBaseballPlayerStats(game, p.id);
+        const isCurrentObsBatter = game.currentBatterId === p.id;
+        const isNextUpForTeam = teamNextBatterId === p.id || (idx === 0 && bbOrderSortMode === 'rotating');
+        const isOnDeckForTeam = bbOrderSortMode === 'rotating' && idx === 1 && rows.length > 1;
+
+        let turnBadgeHtml = '';
+        if (isCurrentObsBatter || (isTeamBattingNow && isNextUpForTeam)) {
+          turnBadgeHtml = `<span class="badge badge-live" style="background:#eab308; color:#0f172a; font-weight:900;">🏏 AL BATE AHORA</span>`;
+        } else if (isNextUpForTeam) {
+          turnBadgeHtml = `<span class="badge" style="background:rgba(250,204,21,0.18); color:#fde047; border:1px solid rgba(250,204,21,0.45);">🏏 Próximo del Equipo</span>`;
+        } else if (isOnDeckForTeam) {
+          turnBadgeHtml = `<span class="badge" style="background:rgba(59,130,246,0.2); color:#93c5fd; border:1px solid rgba(59,130,246,0.4);">⏳ Prevenido (2°)</span>`;
+        } else if (bbOrderSortMode === 'rotating' && idx === 2) {
+          turnBadgeHtml = `<span class="badge badge-pending">🔜 En Espera (3°)</span>`;
+        }
+
+        return `
+          <tr class="${(isCurrentObsBatter || (isTeamBattingNow && isNextUpForTeam)) ? 'active-batter-row' : (isOnDeckForTeam ? 'ondeck-batter-row' : '')}">
+            <td>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap;">
+                  <span class="badge" style="background:rgba(249,115,22,0.18); color:#fb923c; border:1px solid rgba(249,115,22,0.4); font-weight:900;">
+                    ${p.battingSlot}° Bate
+                  </span>
+                  <div class="bb-order-controls" title="Cambiar orden al bate manualmente">
+                    <button type="button" class="bb-order-btn" onclick="moveGameLineupSlot('${teamId}', '${p.id}', -1)" title="Subir en el orden al bate">⬆️</button>
+                    <button type="button" class="bb-order-btn" onclick="moveGameLineupSlot('${teamId}', '${p.id}', 1)" title="Bajar en el orden al bate">⬇️</button>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-sm ${(isCurrentObsBatter || (isTeamBattingNow && isNextUpForTeam)) ? 'btn-amber' : 'btn-outline'}" style="padding:0.24rem 0.55rem; font-size:0.74rem; font-weight:800;" onclick="setManualBatterTurn('${teamId}', '${p.id}')" title="Poner manualmente a este jugador al bate ahora mismo (cambio de turno o emergente)">
+                  ${(isCurrentObsBatter || (isTeamBattingNow && isNextUpForTeam)) ? '🏏 En el Plato' : '🏏 Poner al Bate'}
+                </button>
+              </div>
+              ${turnBadgeHtml ? `<div style="margin-top:0.3rem;">${turnBadgeHtml}</div>` : ''}
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:0.45rem;">
+                <span class="jersey-badge" style="font-size:0.85rem; padding:0.2rem 0.5rem;">#${escapeHtml(String(p.number))}</span>
+                <strong style="font-size:0.98rem; color:var(--text-main);">${escapeHtml(p.name)}</strong>
+              </div>
+            </td>
+            <td class="bb-stat-cell">${st.ab}</td>
+            <td class="bb-stat-cell" style="color:#fde047;">${st.r}</td>
+            <td class="bb-stat-cell" style="color:#4ade80;">${st.h}</td>
+            <td class="bb-stat-cell">${st.d2b}</td>
+            <td class="bb-stat-cell">${st.t3b}</td>
+            <td class="bb-stat-cell" style="color:#f87171;">${st.hr}</td>
+            <td class="bb-stat-cell" style="color:#fb923c;">${st.rbi}</td>
+            <td class="bb-stat-cell">${st.bb}</td>
+            <td class="bb-stat-cell">${st.k}</td>
+            <td class="bb-avg-cell">${st.avg}</td>
+            <td>
+              <div class="bb-row-actions">
+                <button type="button" class="btn btn-sm btn-green btn-play" onclick="quickPlayerPlay('${p.id}', '1B')" title="Hit Sencillo (+1 AB, +1 H y pasa al siguiente bateador)">🟢 1B</button>
+                <button type="button" class="btn btn-sm btn-blue btn-play" onclick="quickPlayerPlay('${p.id}', '2B')" title="Doble (+1 AB, +1 H, +1 2B y pasa al siguiente bateador)">🔵 2B</button>
+                <button type="button" class="btn btn-sm btn-purple btn-play" onclick="quickPlayerPlay('${p.id}', '3B')" title="Triple (+1 AB, +1 H, +1 3B y pasa al siguiente bateador)">🟣 3B</button>
+                <button type="button" class="btn btn-sm btn-hr-boom btn-play" onclick="quickPlayerPlay('${p.id}', 'HR')" title="Home Run (+1 AB, +1 H, +1 HR + Animación Pizarra OBS)">💥 HR</button>
+                <button type="button" class="btn btn-sm btn-red btn-play" onclick="quickPlayerPlay('${p.id}', 'OUT')" title="Out al Bateador (+1 AB, +1 Out y pasa automáticamente al siguiente bateador)">🔴 Out Bate</button>
+                <button type="button" class="btn btn-sm btn-outline btn-play" style="color:#fca5a5; border-color:rgba(248,113,113,0.45);" onclick="recordRunnerOutOnPlayer('${p.id}')" title="Out a este jugador / corredor en base (+1 Out sin consumir AB ni cambiar al bateador actual)">🏃 Out Corr.</button>
+                <button type="button" class="btn btn-sm btn-red btn-play" onclick="quickPlayerPlay('${p.id}', 'K')" title="Ponche (+1 AB, +1 K, +1 Out y pasa al siguiente bateador)">삼 K</button>
+                <button type="button" class="btn btn-sm btn-outline btn-play" onclick="quickPlayerPlay('${p.id}', 'BB')" title="Base por Bolas (+1 BB y pasa al siguiente bateador)">🚶 BB</button>
+                <button type="button" class="btn btn-sm btn-outline btn-play" onclick="quickIncrementStat('${p.id}', 'r', 1)" title="Sumar +1 Carrera Anotada (R)">+1 R</button>
+                <button type="button" class="btn btn-sm btn-outline btn-play" onclick="quickIncrementStat('${p.id}', 'rbi', 1)" title="Sumar +1 Carrera Impulsada (RBI)">+1 RBI</button>
+                <button type="button" class="btn btn-sm btn-outline btn-play" onclick="openEditBbPlayerModal('${p.id}')" title="Editar o restar cualquier estadística de este bateador">✏️ Editar</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tfoot.innerHTML = `
+        <tr style="background:rgba(15,23,42,0.94); font-weight:900; border-top:2px solid var(--border-color);">
+          <td colspan="2">TOTALES DEL EQUIPO (${rows.length} BATES)</td>
+          <td class="bb-stat-cell">${totals.ab}</td>
+          <td class="bb-stat-cell" style="color:#fde047;">${totals.runs}</td>
+          <td class="bb-stat-cell" style="color:#4ade80;">${totals.h}</td>
+          <td class="bb-stat-cell">${totals.d2b}</td>
+          <td class="bb-stat-cell">${totals.t3b}</td>
+          <td class="bb-stat-cell" style="color:#f87171;">${totals.hr}</td>
+          <td class="bb-stat-cell" style="color:#fb923c;">${totals.rbi}</td>
+          <td class="bb-stat-cell">${totals.bb}</td>
+          <td class="bb-stat-cell">${totals.k}</td>
+          <td class="bb-avg-cell">${totals.avg}</td>
+          <td style="font-size:0.8rem; color:var(--text-muted);">OBP: ${totals.obp} • SLG: ${totals.slg} • OPS: <strong style="color:#fde047;">${totals.ops}</strong></td>
+        </tr>
+      `;
+    }
+
+    // =========================================================
+    // CONTROLES DE LINEUP, ORDEN AL BATE MANUAL, CONTEO Y JUGADAS
+    // =========================================================
+    function setCurrentBatter(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      const p = store.players.find(x => x.id === playerId);
+      game.currentBatterId = playerId || '';
+      if (p) {
+        if (p.teamId === game.homeTeamId) {
+          game.nextBatterHomeId = p.id;
+        } else if (p.teamId === game.awayTeamId) {
+          game.nextBatterAwayId = p.id;
+        }
+      }
+      if (game.baseballOverlayConfig) {
+        game.baseballOverlayConfig.customBatterText = '';
+      }
+      saveStore(store);
+    }
+
+    function setManualBatterTurn(teamId, playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (teamId === game.homeTeamId) {
+        game.nextBatterHomeId = playerId;
+      } else {
+        game.nextBatterAwayId = playerId;
+      }
+      game.currentBatterId = playerId;
+      if (game.baseballOverlayConfig) {
+        game.baseballOverlayConfig.customBatterText = '';
+      }
+      saveStore(store);
+    }
+
+    function moveGameLineupSlot(teamId, playerId, dir) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      const currentLineup = getTeamBaseballLineup(store, game, teamId);
+      const ids = currentLineup.map(p => p.id);
+      const idx = ids.indexOf(playerId);
+      const targetIdx = idx + dir;
+      if (idx < 0 || targetIdx < 0 || targetIdx >= ids.length) return;
+
+      const tmp = ids[idx];
+      ids[idx] = ids[targetIdx];
+      ids[targetIdx] = tmp;
+
+      if (teamId === game.homeTeamId) {
+        game.battingOrderHome = ids;
+      } else {
+        game.battingOrderAway = ids;
+      }
+
+      // Actualizar también el orden base en el equipo para mantener consistencia
+      ids.forEach((id, i) => {
+        const pl = store.players.find(p => p.id === id);
+        if (pl) pl.battingOrder = i + 1;
+      });
+
+      saveStore(store);
+    }
+
+    function quickAddBaseballPlayerInGame(e, side /* 'away' | 'home' */) {
+      e.preventDefault();
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+      const numInput = document.getElementById(side === 'home' ? 'quickAddHomeNumber' : 'quickAddAwayNumber');
+      const nameInput = document.getElementById(side === 'home' ? 'quickAddHomeName' : 'quickAddAwayName');
+      const number = parseInt(numInput.value, 10);
+      const name = (nameInput.value || '').trim();
+      if (!name || isNaN(number)) return;
+
+      const existingTeamPlayers = store.players.filter(p => p.teamId === teamId);
+      const nextSlot = existingTeamPlayers.length + 1;
+      const newPlayer = {
+        id: uid('pl'),
+        teamId,
+        name,
+        number,
+        position: '',
+        battingOrder: nextSlot
+      };
+      store.players.push(newPlayer);
+
+      if (side === 'home') {
+        if (!Array.isArray(game.battingOrderHome)) game.battingOrderHome = existingTeamPlayers.map(p => p.id);
+        game.battingOrderHome.push(newPlayer.id);
+        if (!game.nextBatterHomeId) game.nextBatterHomeId = newPlayer.id;
+      } else {
+        if (!Array.isArray(game.battingOrderAway)) game.battingOrderAway = existingTeamPlayers.map(p => p.id);
+        game.battingOrderAway.push(newPlayer.id);
+        if (!game.nextBatterAwayId) game.nextBatterAwayId = newPlayer.id;
+      }
+
+      if (!game.baseballStats) game.baseballStats = {};
+      game.baseballStats[newPlayer.id] = getEmptyBaseballPlayerStats();
+
+      numInput.value = '';
+      nameInput.value = '';
+      ensureCurrentBatterValid(store, game);
+      saveStore(store);
+    }
+
+    function selectNextBatterInLineup() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      const battingTeamId = game.half === 'bottom' ? game.homeTeamId : game.awayTeamId;
+      advanceNextBatterForTeam(store, game, battingTeamId, game.currentBatterId);
+      saveStore(store);
+    }
+
+    function setBattingHalf(half /* 'top' | 'bottom' */) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      game.half = half === 'bottom' ? 'bottom' : 'top';
+      const nextId = game.half === 'bottom' ? game.nextBatterHomeId : game.nextBatterAwayId;
+      if (nextId) game.currentBatterId = nextId;
+      ensureCurrentBatterValid(store, game);
+      saveStore(store);
+    }
+
+    function toggleHalfInning() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (game.half === 'top' && Number(game.inning || 1) >= Number(game.regulationInnings || 9)) {
+        const res = evaluateBaseballThirdOutTransition(store, game);
+        if (res.finished) {
+          saveStore(store);
+          return;
+        }
+      } else {
+        game.half = game.half === 'bottom' ? 'top' : 'bottom';
+        game.outs = 0;
+        game.balls = 0;
+        game.strikes = 0;
+        game.bases = { first: '', second: '', third: '' };
+      }
+      const nextId = game.half === 'bottom' ? game.nextBatterHomeId : game.nextBatterAwayId;
+      if (nextId) game.currentBatterId = nextId;
+      ensureCurrentBatterValid(store, game);
+      saveStore(store);
+    }
+
+    function stepHalfInning(dir) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      if (dir > 0) {
+        if (Number(game.inning || 1) >= Number(game.regulationInnings || 9)) {
+          const res = evaluateBaseballThirdOutTransition(store, game);
+          if (res.finished) {
+            saveStore(store);
+            return;
+          }
+        } else {
+          if (game.half === 'top') {
+            game.half = 'bottom';
+          } else {
+            game.half = 'top';
+            game.inning = Math.max(1, Number(game.inning || 1) + 1);
+          }
+          game.outs = 0;
+          game.balls = 0;
+          game.strikes = 0;
+          game.bases = { first: '', second: '', third: '' };
+        }
+      } else {
+        if (game.status === 'Finalizado') {
+          game.status = 'En Vivo';
+        }
+        if (game.half === 'bottom') {
+          game.half = 'top';
+        } else if ((game.inning || 1) > 1) {
+          game.inning = Number(game.inning) - 1;
+          game.half = 'bottom';
+        }
+        game.outs = 0;
+        game.balls = 0;
+        game.strikes = 0;
+        game.bases = { first: '', second: '', third: '' };
+      }
+      const nextId = game.half === 'bottom' ? game.nextBatterHomeId : game.nextBatterAwayId;
+      if (nextId) game.currentBatterId = nextId;
+      ensureCurrentBatterValid(store, game);
+      saveStore(store);
+    }
+
+    function resetBatterCount() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      game.balls = 0;
+      game.strikes = 0;
+      saveStore(store);
+    }
+
+    function setExactCount(type /* 'balls' | 'strikes' | 'outs' */, val) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      game[type] = game[type] === val ? val - 1 : val;
+      saveStore(store);
+    }
+
+    function stepCount(type /* 'balls' | 'strikes' | 'outs' */, delta) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      if (type === 'balls') {
+        const next = Number(game.balls || 0) + delta;
+        if (next >= 4) {
+          // 4ta bola = Base por bolas (BB) automática al bateador en turno
+          if (game.currentBatterId) {
+            applyPlayToGame(store, game, game.currentBatterId, 'BB');
+          } else {
+            game.balls = 0;
+            game.strikes = 0;
+          }
+        } else {
+          game.balls = Math.max(0, next);
+        }
+      } else if (type === 'strikes') {
+        const next = Number(game.strikes || 0) + delta;
+        if (next >= 3) {
+          // 3er strike = Ponche (K) automático
+          if (game.currentBatterId) {
+            applyPlayToGame(store, game, game.currentBatterId, 'K');
+          } else {
+            game.kAnimation = {
+              id: uid('k'),
+              playerText: 'TERCER STRIKE • OUT',
+              teamText: '',
+              subtitle: '¡PONCHE! (STRIKEOUT)',
+              triggeredAt: Date.now(),
+              durationMs: 3600
+            };
+            recordOutAndCheckInning(store, game, true);
+          }
+        } else {
+          game.strikes = Math.max(0, next);
+        }
+      } else if (type === 'outs') {
+        if (delta > 0) {
+          logBaseballPlay(store, game, '', '🔴 Out General (+1 Out)');
+          recordOutAndCheckInning(store, game, false);
+        } else {
+          game.outs = Math.max(0, Number(game.outs || 0) - 1);
+        }
+      }
+
+      saveStore(store);
+    }
+
+    function recordOutAndCheckInning(store, game, resetBatterCountFlag = true) {
+      const nextOuts = Number(game.outs || 0) + 1;
+      if (resetBatterCountFlag) {
+        game.balls = 0;
+        game.strikes = 0;
+      }
+      if (nextOuts >= 3) {
+        // 3er out: evalúa si el partido termina (9° o Extra Inning) o si pasa a la siguiente mitad / extra inning
+        const res = evaluateBaseballThirdOutTransition(store, game);
+        if (!res.finished) {
+          const nextHalfBatterId = game.half === 'bottom' ? game.nextBatterHomeId : game.nextBatterAwayId;
+          if (nextHalfBatterId) {
+            game.currentBatterId = nextHalfBatterId;
+          }
+          ensureCurrentBatterValid(store, game);
+        }
+      } else {
+        game.outs = nextOuts;
+      }
+    }
+
+    function outRunnerFromBase(baseKey /* 'first' | 'second' | 'third' */) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (game.status === 'Finalizado') {
+        alert('🔒 Este juego está Finalizado. Reábrelo arriba si necesitas anotar.');
+        return;
+      }
+      if (!game.bases) game.bases = { first: '', second: '', third: '' };
+
+      const runnerId = game.bases[baseKey];
+      const baseLabel = baseKey === 'third' ? '3B' : (baseKey === 'second' ? '2B' : '1B');
+      game.bases[baseKey] = '';
+
+      if (runnerId && runnerId !== 'OCCUPIED' && store.players.some(p => p.id === runnerId)) {
+        logBaseballPlay(store, game, runnerId, `🔴 Out en Base (${baseLabel}) — No cambia bateador`);
+      } else {
+        logBaseballPlay(store, game, '', `🔴 Out Corredor en ${baseLabel} — No cambia bateador`);
+      }
+
+      recordOutAndCheckInning(store, game, false);
+      saveStore(store);
+    }
+
+    function recordRunnerOutOnPlayer(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game || !playerId) return;
+      if (game.status === 'Finalizado') {
+        alert('🔒 Este juego está Finalizado. Reábrelo arriba si necesitas anotar.');
+        return;
+      }
+      if (!game.bases) game.bases = { first: '', second: '', third: '' };
+
+      let removedFromBase = '';
+      ['third', 'second', 'first'].forEach(bKey => {
+        if (game.bases[bKey] === playerId) {
+          game.bases[bKey] = '';
+          removedFromBase = bKey === 'third' ? '3B' : (bKey === 'second' ? '2B' : '1B');
+        }
+      });
+
+      logBaseballPlay(store, game, playerId, `🏃 Out a Jugador/Corredor${removedFromBase ? ' en ' + removedFromBase : ''} (Sin consumir turno del bateador)`);
+      recordOutAndCheckInning(store, game, false);
+      saveStore(store);
+    }
+
+    function recordOutFromAnyPlayerSelect() {
+      const sel = document.getElementById('selectAnyPlayerOut');
+      const playerId = sel ? sel.value : '';
+      if (!playerId) {
+        // Si no eligió jugador específico, sumar 1 out general sin cambiar bateador
+        stepCount('outs', 1);
+        return;
+      }
+      recordRunnerOutOnPlayer(playerId);
+    }
+
+    function toggleBaseQuick(baseKey /* 'first' | 'second' | 'third' */) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (!game.bases) game.bases = { first: '', second: '', third: '' };
+
+      if (game.bases[baseKey]) {
+        game.bases[baseKey] = '';
+      } else {
+        game.bases[baseKey] = game.currentBatterId || 'OCCUPIED';
+      }
+      saveStore(store);
+    }
+
+    function setBaseRunner(baseKey, val) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (!game.bases) game.bases = { first: '', second: '', third: '' };
+      game.bases[baseKey] = val || '';
+      saveStore(store);
+    }
+
+    function clearAllBases() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      game.bases = { first: '', second: '', third: '' };
+      saveStore(store);
+    }
+
+    function scoreRunnerFromBase(baseKey /* 'first' | 'second' | 'third' */) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game || !game.bases) return;
+
+      const runnerId = game.bases[baseKey];
+      const side = game.half === 'bottom' ? 'home' : 'away';
+
+      if (runnerId && runnerId !== 'OCCUPIED' && store.players.some(p => p.id === runnerId)) {
+        if (!game.baseballStats[runnerId]) game.baseballStats[runnerId] = getEmptyBaseballPlayerStats();
+        game.baseballStats[runnerId].r = Number(game.baseballStats[runnerId].r || 0) + 1;
+        logBaseballPlay(store, game, runnerId, `🏠 Carrera Anotada (+1 R) desde ${baseKey === 'third' ? '3B' : (baseKey === 'second' ? '2B' : '1B')}`);
+      } else {
+        if (side === 'home') {
+          game.runsAdjustHome = Number(game.runsAdjustHome || 0) + 1;
+        } else {
+          game.runsAdjustAway = Number(game.runsAdjustAway || 0) + 1;
+        }
+        logBaseballPlay(store, game, '', `🏠 Carrera Anotada (+1 R)`);
+      }
+
+      addInningRun(game, side, 1);
+      game.bases[baseKey] = '';
+      checkBaseballWalkOffWin(store, game);
+      saveStore(store);
+    }
+
+    function adjustTeamExtraRuns(side /* 'away' | 'home' */, delta) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (side === 'home') {
+        game.runsAdjustHome = Number(game.runsAdjustHome || 0) + delta;
+      } else {
+        game.runsAdjustAway = Number(game.runsAdjustAway || 0) + delta;
+      }
+      addInningRun(game, side, delta);
+      if (delta > 0) {
+        checkBaseballWalkOffWin(store, game);
+      }
+      saveStore(store);
+    }
+
+    function adjustTeamErrors(side /* 'away' | 'home' */, delta) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (side === 'home') {
+        game.errorsHome = Math.max(0, Number(game.errorsHome || 0) + delta);
+      } else {
+        game.errorsAway = Math.max(0, Number(game.errorsAway || 0) + delta);
+      }
+      saveStore(store);
+    }
+
+    function recordBatterPlay(playType) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (!game.currentBatterId) {
+        alert('Selecciona primero al bateador en turno.');
+        return;
+      }
+      applyPlayToGame(store, game, game.currentBatterId, playType);
+      saveStore(store);
+    }
+
+    function quickPlayerPlay(playerId, playType) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      game.currentBatterId = playerId;
+      applyPlayToGame(store, game, playerId, playType);
+      saveStore(store);
+    }
+
+    function quickIncrementStat(playerId, statKey, delta) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      if (!game.baseballStats) game.baseballStats = {};
+      if (!game.baseballStats[playerId]) game.baseballStats[playerId] = getEmptyBaseballPlayerStats();
+
+      const curr = Number(game.baseballStats[playerId][statKey] || 0);
+      game.baseballStats[playerId][statKey] = Math.max(0, curr + delta);
+
+      if (statKey === 'r' && delta > 0) {
+        const player = store.players.find(p => p.id === playerId);
+        const side = player && player.teamId === game.homeTeamId ? 'home' : 'away';
+        addInningRun(game, side, delta);
+        logBaseballPlay(store, game, playerId, `➕ Carrera Anotada (+1 R)`);
+        checkBaseballWalkOffWin(store, game);
+      } else if (statKey === 'rbi' && delta > 0) {
+        logBaseballPlay(store, game, playerId, `➕ Carrera Impulsada (+1 RBI)`);
+      } else if (statKey === 'k' && delta > 0) {
+        const player = store.players.find(p => p.id === playerId);
+        const team = player ? store.teams.find(t => t.id === player.teamId) : null;
+        game.kAnimation = {
+          id: uid('k'),
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : 'BATEADOR',
+          teamText: team ? (team.shortName || team.name).toUpperCase() : '',
+          subtitle: '¡PONCHE!',
+          kCount: Number(game.baseballStats[playerId].k || 1),
+          triggeredAt: Date.now(),
+          durationMs: 3800
+        };
+      }
+
+      saveStore(store);
+    }
+
+    function applyPlayToGame(store, game, playerId, playType) {
+      if (game.status === 'Finalizado') {
+        alert('🔒 Este juego está Finalizado. Reábrelo arriba si necesitas anotar.');
+        return;
+      }
+
+      if (!game.baseballStats) game.baseballStats = {};
+      if (!game.baseballStats[playerId]) game.baseballStats[playerId] = getEmptyBaseballPlayerStats();
+      const st = game.baseballStats[playerId];
+      const player = store.players.find(p => p.id === playerId);
+      const isHomePlayer = player ? player.teamId === game.homeTeamId : (game.half === 'bottom');
+      const side = isHomePlayer ? 'home' : 'away';
+      const playerTeamId = isHomePlayer ? game.homeTeamId : game.awayTeamId;
+      const team = player ? store.teams.find(t => t.id === player.teamId) : null;
+
+      if (!game.bases) game.bases = { first: '', second: '', third: '' };
+
+      // Auxiliar para anotar a un corredor que estaba en base
+      const scoreRunnerId = (rId) => {
+        if (!rId) return;
+        if (rId !== 'OCCUPIED' && store.players.some(p => p.id === rId)) {
+          if (!game.baseballStats[rId]) game.baseballStats[rId] = getEmptyBaseballPlayerStats();
+          game.baseballStats[rId].r = Number(game.baseballStats[rId].r || 0) + 1;
+        } else {
+          if (side === 'home') game.runsAdjustHome = Number(game.runsAdjustHome || 0) + 1;
+          else game.runsAdjustAway = Number(game.runsAdjustAway || 0) + 1;
+        }
+        addInningRun(game, side, 1);
+      };
+
+      if (playType === '1B') {
+        st.ab = Number(st.ab || 0) + 1;
+        st.h = Number(st.h || 0) + 1;
+        // Si había corredor forzado en 1B -> pasa a 2B (y si había en 2B -> a 3B)
+        if (game.bases.first && game.bases.second && game.bases.third) {
+          scoreRunnerId(game.bases.third);
+          st.rbi = Number(st.rbi || 0) + 1;
+          game.bases.third = game.bases.second;
+          game.bases.second = game.bases.first;
+        } else if (game.bases.first && game.bases.second) {
+          game.bases.third = game.bases.second;
+          game.bases.second = game.bases.first;
+        } else if (game.bases.first) {
+          game.bases.second = game.bases.first;
+        }
+        game.bases.first = playerId;
+        game.balls = 0;
+        game.strikes = 0;
+        game.playBadgeAnimation = {
+          id: uid('pb'),
+          type: '1B',
+          label: '🟢 HIT SENCILLO (1B)',
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : '',
+          triggeredAt: Date.now(),
+          durationMs: 3200
+        };
+        logBaseballPlay(store, game, playerId, '🟢 Hit Sencillo (1B)');
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        checkBaseballWalkOffWin(store, game);
+      } else if (playType === '2B') {
+        st.ab = Number(st.ab || 0) + 1;
+        st.h = Number(st.h || 0) + 1;
+        st.d2b = Number(st.d2b || 0) + 1;
+        if (game.bases.third) {
+          scoreRunnerId(game.bases.third);
+          st.rbi = Number(st.rbi || 0) + 1;
+          game.bases.third = '';
+        }
+        if (game.bases.second) {
+          scoreRunnerId(game.bases.second);
+          st.rbi = Number(st.rbi || 0) + 1;
+          game.bases.second = '';
+        }
+        if (game.bases.first) {
+          game.bases.third = game.bases.first;
+          game.bases.first = '';
+        }
+        game.bases.second = playerId;
+        game.balls = 0;
+        game.strikes = 0;
+        game.playBadgeAnimation = {
+          id: uid('pb'),
+          type: '2B',
+          label: '🔵 ¡DOBLE! (2B)',
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : '',
+          triggeredAt: Date.now(),
+          durationMs: 3200
+        };
+        logBaseballPlay(store, game, playerId, '🔵 Doble (2B)');
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        checkBaseballWalkOffWin(store, game);
+      } else if (playType === '3B') {
+        st.ab = Number(st.ab || 0) + 1;
+        st.h = Number(st.h || 0) + 1;
+        st.t3b = Number(st.t3b || 0) + 1;
+        ['third', 'second', 'first'].forEach(bKey => {
+          if (game.bases[bKey]) {
+            scoreRunnerId(game.bases[bKey]);
+            st.rbi = Number(st.rbi || 0) + 1;
+            game.bases[bKey] = '';
+          }
+        });
+        game.bases.third = playerId;
+        game.balls = 0;
+        game.strikes = 0;
+        game.playBadgeAnimation = {
+          id: uid('pb'),
+          type: '3B',
+          label: '🟣 ¡TRIPLE! (3B)',
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : '',
+          triggeredAt: Date.now(),
+          durationMs: 3200
+        };
+        logBaseballPlay(store, game, playerId, '🟣 Triple (3B)');
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        checkBaseballWalkOffWin(store, game);
+      } else if (playType === 'HR') {
+        // ¡HOME RUN! Anotan todos los corredores en base + el bateador + se lanza animación en la Pizarra OBS
+        let runnersCount = 0;
+        ['third', 'second', 'first'].forEach(bKey => {
+          if (game.bases[bKey]) {
+            scoreRunnerId(game.bases[bKey]);
+            runnersCount++;
+            game.bases[bKey] = '';
+          }
+        });
+
+        const totalRunsOnPlay = 1 + runnersCount;
+        st.ab = Number(st.ab || 0) + 1;
+        st.h = Number(st.h || 0) + 1;
+        st.hr = Number(st.hr || 0) + 1;
+        st.r = Number(st.r || 0) + 1;
+        st.rbi = Number(st.rbi || 0) + totalRunsOnPlay;
+        addInningRun(game, side, 1);
+
+        game.balls = 0;
+        game.strikes = 0;
+
+        const hrLabel = totalRunsOnPlay === 4 ? '¡GRAND SLAM! (4 RBI)' : `¡HOME RUN! (${totalRunsOnPlay} RBI)`;
+        game.hrAnimation = {
+          id: uid('hr'),
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : '¡CUADRANGULAR!',
+          teamText: team ? (team.shortName || team.name).toUpperCase() : '',
+          subtitle: hrLabel,
+          triggeredAt: Date.now(),
+          durationMs: 6000
+        };
+        logBaseballPlay(store, game, playerId, `💥 ${hrLabel}`);
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        checkBaseballWalkOffWin(store, game);
+      } else if (playType === 'OUT') {
+        st.ab = Number(st.ab || 0) + 1;
+        logBaseballPlay(store, game, playerId, '🔴 Out en Turno (AB)');
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        recordOutAndCheckInning(store, game);
+      } else if (playType === 'K') {
+        st.ab = Number(st.ab || 0) + 1;
+        st.k = Number(st.k || 0) + 1;
+        game.kAnimation = {
+          id: uid('k'),
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : 'BATEADOR',
+          teamText: team ? (team.shortName || team.name).toUpperCase() : '',
+          subtitle: '¡PONCHE!',
+          kCount: Number(st.k || 1),
+          triggeredAt: Date.now(),
+          durationMs: 3800
+        };
+        logBaseballPlay(store, game, playerId, '삼 Ponche (K)');
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        recordOutAndCheckInning(store, game);
+      } else if (playType === 'BB') {
+        st.bb = Number(st.bb || 0) + 1;
+        if (game.bases.first && game.bases.second && game.bases.third) {
+          scoreRunnerId(game.bases.third);
+          st.rbi = Number(st.rbi || 0) + 1;
+          game.bases.third = game.bases.second;
+          game.bases.second = game.bases.first;
+        } else if (game.bases.first && game.bases.second) {
+          game.bases.third = game.bases.second;
+          game.bases.second = game.bases.first;
+        } else if (game.bases.first) {
+          game.bases.second = game.bases.first;
+        }
+        game.bases.first = playerId;
+        game.balls = 0;
+        game.strikes = 0;
+        game.playBadgeAnimation = {
+          id: uid('pb'),
+          type: 'BB',
+          label: '🎯 BASE POR BOLAS (BB)',
+          playerText: player ? `#${player.number} ${player.name.toUpperCase()}` : '',
+          triggeredAt: Date.now(),
+          durationMs: 3000
+        };
+        logBaseballPlay(store, game, playerId, '🚶 Base por Bolas (BB)');
+        advanceNextBatterForTeam(store, game, playerTeamId, playerId);
+        checkBaseballWalkOffWin(store, game);
+      } else if (playType === 'RBI_R') {
+        st.r = Number(st.r || 0) + 1;
+        st.rbi = Number(st.rbi || 0) + 1;
+        addInningRun(game, side, 1);
+        logBaseballPlay(store, game, playerId, '➕ +1 Carrera (R) y +1 Impulsada (RBI)');
+        checkBaseballWalkOffWin(store, game);
+      }
+    }
+
+    function triggerManualHrAnimationFromScorer() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      const p = store.players.find(x => x.id === game.currentBatterId);
+      const tm = p ? store.teams.find(t => t.id === p.teamId) : null;
+      game.hrAnimation = {
+        id: uid('hr'),
+        playerText: p ? `#${p.number} ${p.name.toUpperCase()}` : '¡HOME RUN!',
+        teamText: tm ? (tm.shortName || tm.name).toUpperCase() : 'CUADRANGULAR',
+        subtitle: '¡HOME RUN!',
+        triggeredAt: Date.now(),
+        durationMs: 6000
+      };
+      saveStore(store);
+    }
+
+    function toggleFinishBaseballGame() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      if (game.status === 'Finalizado') {
+        game.status = 'En Vivo';
+      } else {
+        if (!confirm('¿Deseas finalizar oficialmente este partido de Baseball? La Pizarra OBS mostrará FINAL y el juego pasará al apartado de Últimos Juegos.')) {
+          return;
+        }
+        game.status = 'Finalizado';
+        game.finishedAt = Date.now();
+      }
+      saveStore(store);
+    }
+
+    // =========================================================
+    // MODAL DE EDICIÓN DE ESTADÍSTICAS DEL BATEADOR
+    // =========================================================
+    function openEditBbPlayerModal(playerId) {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+      const p = store.players.find(x => x.id === playerId);
+      if (!p) return;
+
+      const st = getBaseballPlayerStats(game, playerId);
+      document.getElementById('editBbPlayerId').value = playerId;
+      document.getElementById('editBbPlayerTitle').textContent = `#${p.number} ${p.name}`;
+      document.getElementById('editBbAB').value = st.ab;
+      document.getElementById('editBbH').value = st.h;
+      document.getElementById('editBbR').value = st.r;
+      document.getElementById('editBb2B').value = st.d2b;
+      document.getElementById('editBb3B').value = st.t3b;
+      document.getElementById('editBbHR').value = st.hr;
+      document.getElementById('editBbRBI').value = st.rbi;
+      document.getElementById('editBbK').value = st.k;
+      document.getElementById('editBbBB').value = st.bb;
+      updateBbModalPreview();
+      openModal('modalEditBbPlayer');
+    }
+
+    function stepBbModalField(inputId, delta) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      el.value = Math.max(0, (parseInt(el.value, 10) || 0) + delta);
+      updateBbModalPreview();
+    }
+
+    function updateBbModalPreview() {
+      const d2b = Math.max(0, parseInt(document.getElementById('editBb2B').value, 10) || 0);
+      const t3b = Math.max(0, parseInt(document.getElementById('editBb3B').value, 10) || 0);
+      const hr = Math.max(0, parseInt(document.getElementById('editBbHR').value, 10) || 0);
+      const h = Math.max(d2b + t3b + hr, parseInt(document.getElementById('editBbH').value, 10) || 0);
+      const ab = Math.max(h, parseInt(document.getElementById('editBbAB').value, 10) || 0);
+      const avg = formatBaseballAvg(ab > 0 ? h / ab : 0);
+      document.getElementById('editBbLiveAvgBadge').textContent = `AVG: ${avg} (${h}-${ab})`;
+    }
+
+    document.getElementById('formEditBbPlayer').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const playerId = document.getElementById('editBbPlayerId').value;
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game || !playerId) return;
+
+      const d2b = Math.max(0, parseInt(document.getElementById('editBb2B').value, 10) || 0);
+      const t3b = Math.max(0, parseInt(document.getElementById('editBb3B').value, 10) || 0);
+      const hr = Math.max(0, parseInt(document.getElementById('editBbHR').value, 10) || 0);
+      const h = Math.max(d2b + t3b + hr, parseInt(document.getElementById('editBbH').value, 10) || 0);
+      const ab = Math.max(h, parseInt(document.getElementById('editBbAB').value, 10) || 0);
+      const r = Math.max(0, parseInt(document.getElementById('editBbR').value, 10) || 0);
+      const rbi = Math.max(0, parseInt(document.getElementById('editBbRBI').value, 10) || 0);
+      const k = Math.max(0, parseInt(document.getElementById('editBbK').value, 10) || 0);
+      const bb = Math.max(0, parseInt(document.getElementById('editBbBB').value, 10) || 0);
+
+      if (!game.baseballStats) game.baseballStats = {};
+      game.baseballStats[playerId] = { ab, h, r, d2b, t3b, hr, rbi, k, bb };
+
+      checkBaseballWalkOffWin(store, game);
+
+      saveStore(store);
+      closeModal('modalEditBbPlayer');
+    });
+
+    // =========================================================
+    // BOX SCORE OFICIAL / PLANILLA PDF DE BASEBALL
+    // =========================================================
+    function openBaseballSummaryForGame(gameId) {
+      activeBbGameId = gameId;
+      currentBbScreen = 'summary';
+      renderAllBbScreens();
+    }
+
+    function openBaseballSummarySheet() {
+      currentBbScreen = 'summary';
+      renderAllBbScreens();
+    }
+
+    function closeBaseballSummarySheet() {
+      currentBbScreen = 'scorer';
+      renderAllBbScreens();
+    }
+
+    function getBaseballMvpFromGame(store, game, homeTot, awayTot) {
+      let winTeamId = null;
+      if (homeTot.runs > awayTot.runs) winTeamId = game.homeTeamId;
+      else if (awayTot.runs > homeTot.runs) winTeamId = game.awayTeamId;
+
+      const candidates = winTeamId
+        ? store.players.filter(p => p.teamId === winTeamId)
+        : store.players.filter(p => p.teamId === game.homeTeamId || p.teamId === game.awayTeamId);
+
+      let mvpPlayer = null;
+      let mvpStats = null;
+      let bestScore = -999999;
+
+      candidates.forEach(p => {
+        const st = getBaseballPlayerStats(game, p.id);
+        const score = (st.hr * 10) + (st.t3b * 6) + (st.d2b * 4) + (st.h * 5) + (st.rbi * 4) + (st.r * 3) + (st.bb * 1.5) - (st.k * 0.5);
+        if (score > bestScore && (st.h > 0 || st.r > 0 || st.rbi > 0 || st.ab > 0 || st.bb > 0)) {
+          bestScore = score;
+          mvpPlayer = p;
+          mvpStats = st;
+        }
+      });
+
+      const mvpTeam = mvpPlayer ? store.teams.find(t => t.id === mvpPlayer.teamId) : null;
+      return { mvpPlayer, mvpStats, mvpTeam };
+    }
+
+    function buildBaseballBWTeamTableHTML(store, game, teamId, teamName, totals) {
+      const players = getTeamBaseballLineup(store, game, teamId);
+      const rowsHTML = players.map(p => {
+        const st = getBaseballPlayerStats(game, p.id);
+        return `
+          <tr>
+            <td><strong>${p.battingSlot}° Bate</strong></td>
+            <td class="left"><strong>#${escapeHtml(String(p.number))} ${escapeHtml(p.name)}</strong></td>
+            <td>${st.ab}</td>
+            <td><strong>${st.r}</strong></td>
+            <td><strong>${st.h}</strong></td>
+            <td>${st.d2b}</td>
+            <td>${st.t3b}</td>
+            <td>${st.hr}</td>
+            <td><strong>${st.rbi}</strong></td>
+            <td>${st.bb}</td>
+            <td>${st.k}</td>
+            <td><strong>${st.avg}</strong></td>
+            <td>${st.obp}</td>
+            <td>${st.slg}</td>
+            <td><strong>${st.ops}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div>
+          <div class="bw-team-header">
+            <span>EQUIPO: ${escapeHtml(teamName.toUpperCase())} (${totals.runs} CARRERAS, ${totals.h} HITS, ${totals.errors} ERRORES)</span>
+            <span>AVG COLECTIVO: ${totals.avg} | OBP: ${totals.obp} | SLG: ${totals.slg} | OPS: ${totals.ops}</span>
+          </div>
+          <table class="bw-table">
+            <thead>
+              <tr>
+                <th style="width:9%;">ORDEN</th>
+                <th class="left" style="width:21%;"># BATEADOR</th>
+                <th>AB</th>
+                <th>R</th>
+                <th>H</th>
+                <th>2B</th>
+                <th>3B</th>
+                <th>HR</th>
+                <th>RBI</th>
+                <th>BB</th>
+                <th>K</th>
+                <th>AVG</th>
+                <th>OBP</th>
+                <th>SLG</th>
+                <th>OPS</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML || `<tr><td colspan="15">Sin bateadores registrados</td></tr>`}
+              <tr class="bw-totals-row">
+                <td colspan="2" class="left">TOTALES (${escapeHtml(teamName)})</td>
+                <td>${totals.ab}</td>
+                <td>${totals.runs}</td>
+                <td>${totals.h}</td>
+                <td>${totals.d2b}</td>
+                <td>${totals.t3b}</td>
+                <td>${totals.hr}</td>
+                <td>${totals.rbi}</td>
+                <td>${totals.bb}</td>
+                <td>${totals.k}</td>
+                <td>${totals.avg}</td>
+                <td>${totals.obp}</td>
+                <td>${totals.slg}</td>
+                <td>${totals.ops}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderBaseballSummaryScreen() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      const tourney = store.tournaments.find(t => t.id === game.tournamentId);
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const homeName = home ? home.name : 'Equipo Local';
+      const awayName = away ? away.name : 'Equipo Visitante';
+      const homeTot = getBaseballTeamTotals(store, game, game.homeTeamId);
+      const awayTot = getBaseballTeamTotals(store, game, game.awayTeamId);
+      const winInfo = getBaseballWinnerSummary(store, game);
+      const { mvpPlayer, mvpStats, mvpTeam } = getBaseballMvpFromGame(store, game, homeTot, awayTot);
+
+      const maxInn = Math.max(9, Number(game.inning || 1));
+      const innings = [];
+      for (let i = 1; i <= maxInn; i++) innings.push(i);
+      const innRunsAway = (game.inningRuns && game.inningRuns.away) || {};
+      const innRunsHome = (game.inningRuns && game.inningRuns.home) || {};
+      const currInn = Number(game.inning || 1);
+      const isBottom = game.half === 'bottom';
+      const isFin = game.status === 'Finalizado';
+
+      const renderTeamBox = (team, totals, isHomeSide) => {
+        const players = getTeamBaseballLineup(store, game, team ? team.id : '');
+        const isWinner = isFin && ((isHomeSide && winInfo.winnerSide === 'home') || (!isHomeSide && winInfo.winnerSide === 'away'));
+        return `
+          <div class="bb-box-team-card" style="${isWinner ? 'border-color:rgba(74,222,128,0.45);' : ''}">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.65rem; margin-bottom:0.85rem; padding-bottom:0.65rem; border-bottom:1px solid var(--border-color);">
+              <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <span class="badge ${isHomeSide ? 'badge-live' : 'badge-pending'}" style="${isHomeSide ? 'background:rgba(250,204,21,0.16); color:#fde047; border-color:rgba(250,204,21,0.35);' : ''}">
+                  ${isHomeSide ? '🏠 EQUIPO LOCAL' : '✈️ EQUIPO VISITANTE'}
+                </span>
+                <h3 style="font-size:1.18rem; font-weight:900; color:#ffffff; margin:0;">
+                  ⚾ ${escapeHtml(team ? team.name : 'Equipo')}
+                </h3>
+                ${isWinner ? `<span class="badge" style="background:rgba(34,197,94,0.2); color:#4ade80; border:1px solid rgba(34,197,94,0.45); font-weight:900;">🏆 GANADOR</span>` : ''}
+              </div>
+              <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+                <span class="bb-rhe-pill">Carreras (R): <strong style="color:#fde047;">${totals.runs}</strong></span>
+                <span class="bb-rhe-pill">Hits (H): <strong style="color:#4ade80;">${totals.h}</strong></span>
+                <span class="bb-rhe-pill">Errores (E): <strong style="color:#f87171;">${totals.errors}</strong></span>
+                <span class="bb-rhe-pill">AVG: <strong style="color:#fde047;">${totals.avg}</strong></span>
+                <span class="bb-rhe-pill">OPS: <strong>${totals.ops}</strong></span>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="bb-box-table">
+                <thead>
+                  <tr>
+                    <th style="width:90px;">ORDEN</th>
+                    <th style="width:60px;">#</th>
+                    <th class="left-col" style="min-width:160px;">BATEADOR</th>
+                    <th>AB</th>
+                    <th style="color:#fde047;">R</th>
+                    <th style="color:#4ade80;">H</th>
+                    <th style="color:#60a5fa;">2B</th>
+                    <th style="color:#c084fc;">3B</th>
+                    <th style="color:#f87171;">HR</th>
+                    <th style="color:#fb923c;">RBI</th>
+                    <th>BB</th>
+                    <th>K</th>
+                    <th style="color:#fde047;">AVG</th>
+                    <th>OBP</th>
+                    <th>SLG</th>
+                    <th>OPS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${players.map(p => {
+                    const st = getBaseballPlayerStats(game, p.id);
+                    return `
+                      <tr>
+                        <td>
+                          <span class="badge" style="background:rgba(249,115,22,0.16); color:#fb923c; border:1px solid rgba(249,115,22,0.35); font-weight:800; white-space:nowrap;">
+                            ${p.battingSlot}° Bate
+                          </span>
+                        </td>
+                        <td><span class="jersey-badge">#${escapeHtml(String(p.number))}</span></td>
+                        <td class="left-col"><strong style="font-size:0.95rem; color:#f8fafc;">${escapeHtml(p.name)}</strong></td>
+                        <td><strong>${st.ab}</strong></td>
+                        <td style="color:#fde047; font-weight:900;">${st.r}</td>
+                        <td style="color:#4ade80; font-weight:900;">${st.h}</td>
+                        <td>${st.d2b}</td>
+                        <td>${st.t3b}</td>
+                        <td style="color:${st.hr > 0 ? '#f87171' : 'inherit'}; font-weight:${st.hr > 0 ? '900' : '400'};">${st.hr}</td>
+                        <td style="color:${st.rbi > 0 ? '#fb923c' : 'inherit'}; font-weight:${st.rbi > 0 ? '900' : '400'};">${st.rbi}</td>
+                        <td>${st.bb}</td>
+                        <td>${st.k}</td>
+                        <td style="background:rgba(250,204,21,0.08);"><strong style="color:#fde047;">${st.avg}</strong></td>
+                        <td style="color:var(--text-muted);">${st.obp}</td>
+                        <td style="color:var(--text-muted);">${st.slg}</td>
+                        <td><strong>${st.ops}</strong></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+                <tfoot>
+                  <tr style="font-weight:900; background:rgba(250,204,21,0.12); border-top:2px solid rgba(250,204,21,0.35);">
+                    <td colspan="3" class="left-col" style="color:#fde047;">TOTALES DEL EQUIPO (${escapeHtml(team ? team.name : '')})</td>
+                    <td>${totals.ab}</td>
+                    <td style="color:#fde047; font-size:1.05rem;">${totals.runs}</td>
+                    <td style="color:#4ade80; font-size:1.05rem;">${totals.h}</td>
+                    <td>${totals.d2b}</td>
+                    <td>${totals.t3b}</td>
+                    <td style="color:#f87171;">${totals.hr}</td>
+                    <td style="color:#fb923c;">${totals.rbi}</td>
+                    <td>${totals.bb}</td>
+                    <td>${totals.k}</td>
+                    <td style="color:#fde047;">${totals.avg}</td>
+                    <td>${totals.obp}</td>
+                    <td>${totals.slg}</td>
+                    <td>${totals.ops}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        `;
+      };
+
+      const sheet = document.getElementById('baseballPrintableSheet');
+      sheet.innerHTML = `
+        <!-- ENCABEZADO HERO DEL PARTIDO -->
+        <div class="bb-summary-hero">
+          <div>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem;">
+              <span class="badge badge-pending">🏆 ${tourney ? escapeHtml(tourney.name) : 'TORNEO OFICIAL DE BASEBALL'}</span>
+              <span class="badge ${isFin ? 'badge-finished' : 'badge-live'}">
+                ${isFin ? '🏁 PARTIDO FINALIZADO' : `🔴 EN VIVO • ${isBottom ? '▼' : '▲'} Entrada ${currInn}`}
+              </span>
+              <span style="font-size:0.8rem; color:var(--text-muted);">📅 ${escapeHtml(game.date || '-')} ${game.time ? '• 🕒 ' + escapeHtml(game.time) : ''}</span>
+            </div>
+            ${isFin ? `
+              <div style="font-size:1.05rem; font-weight:900; color:#4ade80; margin-bottom:0.2rem;">
+                🏁 FINAL • ${escapeHtml(winInfo.summaryText)}
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="bb-summary-scoreline">
+            <div class="bb-summary-team-chip ${isFin && winInfo.winnerSide === 'away' ? 'winner-chip' : ''}">
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); font-weight:800;">✈️ VISITANTE</div>
+                <div style="font-size:1.1rem; font-weight:900; color:#fff;">${escapeHtml(awayName)}</div>
+              </div>
+              <div class="bb-summary-team-runs">${awayTot.runs}</div>
+            </div>
+
+            <div style="font-size:1rem; font-weight:900; color:var(--text-muted);">VS</div>
+
+            <div class="bb-summary-team-chip ${isFin && winInfo.winnerSide === 'home' ? 'winner-chip' : ''}">
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); font-weight:800;">🏠 LOCAL</div>
+                <div style="font-size:1.1rem; font-weight:900; color:#fff;">${escapeHtml(homeName)}</div>
+              </div>
+              <div class="bb-summary-team-runs">${homeTot.runs}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PIZARRA OFICIAL POR ENTRADAS (LINE SCORE 1..9 | R | H | E) -->
+        <div class="bb-box-team-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.7rem;">
+            <h3 style="font-size:1rem; font-weight:900; color:#fde047; margin:0;">🔢 Pizarra Oficial por Entradas (Line Score)</h3>
+            ${mvpPlayer && mvpStats ? `
+              <span class="badge" style="background:rgba(250,204,21,0.14); color:#fde047; border:1px solid rgba(250,204,21,0.4); font-size:0.8rem; padding:0.3rem 0.65rem;">
+                ⭐ MVP: #${escapeHtml(String(mvpPlayer.number))} ${escapeHtml(mvpPlayer.name)} (${mvpTeam ? escapeHtml(mvpTeam.name) : ''}) — ${mvpStats.h}-${mvpStats.ab}, ${mvpStats.r} R, ${mvpStats.rbi} RBI, ${mvpStats.hr} HR (AVG ${mvpStats.avg})
+              </span>
+            ` : ''}
+          </div>
+          <div class="table-responsive">
+            <table class="bb-linescore-table">
+              <thead>
+                <tr>
+                  <th class="team-col">EQUIPO</th>
+                  ${innings.map(i => `<th>${i}</th>`).join('')}
+                  <th class="rhe-col">R</th>
+                  <th class="rhe-col">H</th>
+                  <th class="rhe-col">E</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="team-col">✈️ ${escapeHtml(awayName)} ${isFin && winInfo.winnerSide === 'away' ? '🏆' : ''}</td>
+                  ${innings.map(i => {
+                    const rawVal = innRunsAway[String(i)];
+                    const hasVal = rawVal !== undefined && rawVal !== '';
+                    const played = hasVal || i < currInn || (i === currInn && !isFin) || (isFin && i <= currInn);
+                    const val = hasVal ? rawVal : (played ? 0 : '-');
+                    return `<td>${val}</td>`;
+                  }).join('')}
+                  <td class="rhe-col runs">${awayTot.runs}</td>
+                  <td class="rhe-col hits">${awayTot.h}</td>
+                  <td class="rhe-col errors">${awayTot.errors}</td>
+                </tr>
+                <tr>
+                  <td class="team-col">🏠 ${escapeHtml(homeName)} ${isFin && winInfo.winnerSide === 'home' ? '🏆' : ''}</td>
+                  ${innings.map(i => {
+                    const rawVal = innRunsHome[String(i)];
+                    const hasVal = rawVal !== undefined && rawVal !== '';
+                    const homeSkippedBottom9 = i >= 9 && i === currInn && isFin && !isBottom && !hasVal && winInfo.winnerSide === 'home';
+                    const played = hasVal || i < currInn || (i === currInn && isBottom && !isFin) || (isFin && i <= currInn && !homeSkippedBottom9);
+                    const val = hasVal ? rawVal : (homeSkippedBottom9 ? 'X' : (played ? 0 : '-'));
+                    return `<td>${val}</td>`;
+                  }).join('')}
+                  <td class="rhe-col runs">${homeTot.runs}</td>
+                  <td class="rhe-col hits">${homeTot.h}</td>
+                  <td class="rhe-col errors">${homeTot.errors}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TABLAS DE BATEO A ANCHO COMPLETO (VISITANTE ARRIBA, LOCAL ABAJO) -->
+        ${renderTeamBox(away, awayTot, false)}
+        ${renderTeamBox(home, homeTot, true)}
+      `;
+
+      // Renderizar también la hoja oficial B/N para descarga directa de PDF e impresión
+      const bwSheet = document.getElementById('bwBaseballOfficialPdfSheet');
+      if (bwSheet) {
+        const winnerLabel = homeTot.runs > awayTot.runs
+          ? `GANADOR: ${homeName.toUpperCase()} (${homeTot.runs}-${awayTot.runs})`
+          : (awayTot.runs > homeTot.runs ? `GANADOR: ${awayName.toUpperCase()} (${awayTot.runs}-${homeTot.runs})` : 'EMPATE');
+
+        bwSheet.innerHTML = `
+          <div class="bw-header">
+            <div>
+              <div class="bw-title">${escapeHtml(tourney ? tourney.name : 'TORNEO OFICIAL DE BASEBALL')} ${tourney && tourney.category ? '— ' + escapeHtml(tourney.category) : ''}</div>
+              <div class="bw-sub">BOX SCORE OFICIAL DE BASEBALL • FECHA: ${escapeHtml(game.date || '-')} • HORA: ${escapeHtml(game.time || '-')} ${game.note ? '• ' + escapeHtml(game.note) : ''} • ESTADO: ${escapeHtml((game.status || 'Finalizado').toUpperCase())}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="bw-scoreline">${escapeHtml(awayName)} ${awayTot.runs} - ${homeTot.runs} ${escapeHtml(homeName)}</div>
+              <div class="bw-sub">${escapeHtml(winnerLabel)}</div>
+            </div>
+          </div>
+
+          <div class="bw-meta-grid">
+            <div>
+              <table class="bw-table">
+                <thead>
+                  <tr>
+                    <th class="left">PIZARRA POR ENTRADAS</th>
+                    ${innings.map(i => `<th>${i}</th>`).join('')}
+                    <th>R</th>
+                    <th>H</th>
+                    <th>E</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="left"><strong>${escapeHtml(awayName)}</strong></td>
+                    ${innings.map(i => `<td>${innRunsAway[String(i)] !== undefined ? innRunsAway[String(i)] : (i <= currInn ? 0 : '-')}</td>`).join('')}
+                    <td><strong>${awayTot.runs}</strong></td>
+                    <td><strong>${awayTot.h}</strong></td>
+                    <td><strong>${awayTot.errors}</strong></td>
+                  </tr>
+                  <tr>
+                    <td class="left"><strong>${escapeHtml(homeName)}</strong></td>
+                    ${innings.map(i => {
+                      const rawV = innRunsHome[String(i)];
+                      const skipped = i >= 9 && i === currInn && isFin && !isBottom && rawV === undefined && winInfo.winnerSide === 'home';
+                      return `<td>${rawV !== undefined ? rawV : (skipped ? 'X' : (i <= currInn ? 0 : '-'))}</td>`;
+                    }).join('')}
+                    <td><strong>${homeTot.runs}</strong></td>
+                    <td><strong>${homeTot.h}</strong></td>
+                    <td><strong>${homeTot.errors}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <table class="bw-table">
+                <thead>
+                  <tr>
+                    <th>OFENSIVA ${escapeHtml(awayName)}</th>
+                    <th>OFENSIVA ${escapeHtml(homeName)}</th>
+                    <th>EXTRABASES VISITA</th>
+                    <th>EXTRABASES LOCAL</th>
+                    <th>MVP DEL PARTIDO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>${awayTot.runs} R | ${awayTot.h} H | AVG ${awayTot.avg}</strong></td>
+                    <td><strong>${homeTot.runs} R | ${homeTot.h} H | AVG ${homeTot.avg}</strong></td>
+                    <td>2B: ${awayTot.d2b} | 3B: ${awayTot.t3b} | HR: ${awayTot.hr}</td>
+                    <td>2B: ${homeTot.d2b} | 3B: ${homeTot.t3b} | HR: ${homeTot.hr}</td>
+                    <td>
+                      <strong>${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</strong>
+                      ${mvpStats ? `<br/>${mvpStats.h}-${mvpStats.ab} (${mvpStats.avg}) | ${mvpStats.r} R | ${mvpStats.rbi} RBI | ${mvpStats.hr} HR (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          ${buildBaseballBWTeamTableHTML(store, game, game.awayTeamId, awayName, awayTot)}
+          ${buildBaseballBWTeamTableHTML(store, game, game.homeTeamId, homeName, homeTot)}
+
+          <div style="display:flex; justify-content:space-between; margin-top:6px; padding-top:4px; border-top:1px solid #000; font-size:8px;">
+            <div><strong>LEYENDA BASEBALL:</strong> AB = Turnos | R = Carreras | H = Hits | 2B = Dobles | 3B = Triples | HR = Home Runs | RBI = Impulsadas | BB = Bolas | K = Ponches | AVG = Promedio</div>
+            <div>FIRMA ANOTADOR OFICIAL: ______________________ &nbsp;&nbsp; FIRMA UMPIRE PRINCIPAL: ______________________</div>
+          </div>
+        `;
+      }
+    }
+
+    function downloadBaseballBoxScorePDF() {
+      const store = loadStore();
+      const game = store.games.find(g => g.id === activeBbGameId);
+      if (!game) return;
+
+      renderBaseballSummaryScreen();
+
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const fileName = `BoxScore_Baseball_${away ? away.name : 'Visitante'}_vs_${home ? home.name : 'Local'}.pdf`.replace(/\s+/g, '_');
+
+      const wrapper = document.getElementById('bwBaseballPrintWrapper');
+      const element = document.getElementById('bwBaseballOfficialPdfSheet');
+
+      if (window.html2pdf && element) {
+        const prevPos = wrapper.style.position;
+        const prevLeft = wrapper.style.left;
+        wrapper.style.position = 'static';
+        wrapper.style.left = '0';
+
+        const currentH = element.scrollHeight || element.offsetHeight || 600;
+        const minWidthForSinglePage = Math.max(1080, Math.ceil(currentH * (287 / 192)));
+        element.style.width = minWidthForSinglePage + 'px';
+
+        const restoreWrapper = () => {
+          element.style.width = '';
+          wrapper.style.position = prevPos;
+          wrapper.style.left = prevLeft;
+        };
+
+        const opt = {
+          margin: 5,
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+
+        window.html2pdf().set(opt).from(element).save().then(() => {
+          restoreWrapper();
+        }).catch(() => {
+          restoreWrapper();
+          window.print();
+        });
+      } else {
+        window.print();
+      }
+    }
+
+    // Si viene con gameId en el store activo o URL, cargarlo
+    (function initBaseballPage() {
+      const params = new URLSearchParams(window.location.search);
+      const urlGameId = params.get('gameId');
+      const store = loadStore();
+      if (urlGameId && store.games.some(g => g.id === urlGameId)) {
+        enterBaseballScorer(urlGameId);
+      } else {
+        renderAllBbScreens();
+      }
+      updateFirebaseBadge();
+    })();
+
+    window.addEventListener('storeUpdated', () => {
+      renderAllBbScreens();
+    });
+  </script>
+</body>
+</html>
