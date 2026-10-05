@@ -457,16 +457,44 @@
     function renderTeamRACards(store, game, onCourtIds, container, isFinished) {
       const players = (onCourtIds || []).map(id => store.players.find(p => p.id === id)).filter(Boolean);
       if (!players.length) {
+        container.dataset.renderedKey = '';
         container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Sin jugadores en cancha.</div>`;
         return;
       }
 
+      const renderKey = `${game.id}|${isFinished ? '1' : '0'}|${players.map(p => `${p.id}:${p.number}:${p.name}`).join(',')}`;
+      if (container.dataset.renderedKey === renderKey) {
+        let allPresent = true;
+        for (const p of players) {
+          const card = container.querySelector(`.player-stat-card[data-player-id="${p.id}"]`);
+          if (!card) {
+            allPresent = false;
+            break;
+          }
+          const st = getPlayerGameStats(game, p.id);
+          card.classList.toggle('player-expelled', Boolean(st.isFouledOut));
+          const setRoleText = (role, val) => {
+            const el = card.querySelector(`[data-role="${role}"]`);
+            if (el && el.textContent !== String(val)) el.textContent = val;
+          };
+          setRoleText('reb', st.totalReb);
+          setRoleText('ast', st.ast);
+          setRoleText('stl', st.stl);
+          setRoleText('blk', st.blk);
+          setRoleText('tov', st.tov);
+          setRoleText('rebDef', st.rebDef);
+          setRoleText('rebOff', st.rebOff);
+        }
+        if (allPresent) return;
+      }
+
+      container.dataset.renderedKey = renderKey;
       const disAttr = isFinished ? 'disabled style="opacity:0.45;cursor:not-allowed;"' : '';
 
       container.innerHTML = players.map(p => {
         const st = getPlayerGameStats(game, p.id);
         return `
-          <div class="player-stat-card ${st.isFouledOut ? 'player-expelled' : ''}">
+          <div class="player-stat-card ${st.isFouledOut ? 'player-expelled' : ''}" data-player-id="${p.id}">
             <!-- Cabecera del Cuadrito con Lápiz ✏️ -->
             <div class="player-card-top">
               <div class="player-card-identity">
@@ -485,29 +513,29 @@
             <div class="player-mini-stats" style="grid-template-columns: repeat(5, 1fr);">
               <div class="mini-stat-box">
                 <span class="mini-stat-label">REB</span>
-                <span class="mini-stat-val" style="color:var(--accent-blue);">${st.totalReb}</span>
+                <span class="mini-stat-val" data-role="reb" style="color:var(--accent-blue);">${st.totalReb}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">AST</span>
-                <span class="mini-stat-val" style="color:var(--accent-green);">${st.ast}</span>
+                <span class="mini-stat-val" data-role="ast" style="color:var(--accent-green);">${st.ast}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">ROB</span>
-                <span class="mini-stat-val" style="color:var(--accent-orange);">${st.stl}</span>
+                <span class="mini-stat-val" data-role="stl" style="color:var(--accent-orange);">${st.stl}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">TAP</span>
-                <span class="mini-stat-val">${st.blk}</span>
+                <span class="mini-stat-val" data-role="blk">${st.blk}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">PER</span>
-                <span class="mini-stat-val" style="color:var(--accent-red);">${st.tov}</span>
+                <span class="mini-stat-val" data-role="tov" style="color:var(--accent-red);">${st.tov}</span>
               </div>
             </div>
 
             <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); padding:0 0.15rem;">
-              <span>Reb. Defensivos: <strong>${st.rebDef}</strong></span>
-              <span>Reb. Ofensivos: <strong>${st.rebOff}</strong></span>
+              <span>Reb. Defensivos: <strong data-role="rebDef">${st.rebDef}</strong></span>
+              <span>Reb. Ofensivos: <strong data-role="rebOff">${st.rebOff}</strong></span>
             </div>
 
             <!-- Botones de Acción R&A Organizados (3 arriba, 3 abajo) -->
@@ -582,7 +610,7 @@
       s.blk = Math.max(0, parseInt(document.getElementById('editRABlk').value, 10) || 0);
       s.tov = Math.max(0, parseInt(document.getElementById('editRATov').value, 10) || 0);
 
-      saveStore(store);
+      saveStore(store, { isManualEdit: true });
       closeModal('modalEditRAStats');
     });
 
@@ -591,7 +619,7 @@
       const game = store.games.find(g => g.id === activeRAGameId);
       if (!game || !game.logsRA) return;
       game.logsRA = game.logsRA.filter(l => l.id !== logId);
-      saveStore(store);
+      saveStore(store, { isManualEdit: true });
     }
 
     function openModal(id) {

@@ -1781,6 +1781,10 @@
     // =========================================================================
     // RELOJ INTERACTIVO CON SINCRONIZACIÓN EN VIVO PARA OBS
     // =========================================================================
+    let localOverlayTickMs = 0;
+    let lastObservedGameClockSec = null;
+    let lastObservedGameClockChangeMs = 0;
+
     function toggleOverlayClock() {
       const store = loadStore();
       if (currentMode === 'game') {
@@ -1793,9 +1797,9 @@
           game.clockSeconds = game.period > 4 ? 300 : 600;
         }
         game.clockRunning = !game.clockRunning;
-        game.clockLastTickAt = Date.now();
         if (game.clockRunning) {
           game.status = 'En Vivo';
+          game.clockOwnerTabId = CLIENT_TAB_ID;
         }
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
@@ -1806,8 +1810,9 @@
         }
         board.clockRunning = !board.clockRunning;
         board.clockUpdatedAt = Date.now();
-        board.clockLastTickAt = Date.now();
       }
+      localOverlayTickMs = Date.now();
+      lastObservedGameClockChangeMs = Date.now();
       saveStoreAndBroadcast(store);
       ensureClockTimerState();
     }
@@ -1818,13 +1823,13 @@
         const game = store.games.find(g => g.id === currentGameId);
         if (!game) return;
         game.clockSeconds = Math.max(0, (game.clockSeconds || 0) + deltaSeconds);
-        game.clockLastTickAt = Date.now();
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
         if (!board) return;
         board.clockSeconds = Math.max(0, (board.clockSeconds || 0) + deltaSeconds);
-        board.clockLastTickAt = Date.now();
       }
+      localOverlayTickMs = Date.now();
+      lastObservedGameClockChangeMs = Date.now();
       saveStoreAndBroadcast(store);
     }
 
@@ -1841,16 +1846,16 @@
         if (!game) return;
         game.clockSeconds = Math.max(0, totalSeconds);
         game.clockRunning = false;
-        game.clockLastTickAt = 0;
         if (game.overlayConfig) game.overlayConfig.isFinal = false;
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
         if (!board) return;
         board.clockSeconds = Math.max(0, totalSeconds);
         board.clockRunning = false;
-        board.clockLastTickAt = 0;
         board.isFinal = false;
       }
+      localOverlayTickMs = Date.now();
+      lastObservedGameClockChangeMs = Date.now();
       saveStoreAndBroadcast(store);
       ensureClockTimerState();
     }
@@ -1862,19 +1867,43 @@
       }
       if (isObsOverlayMode) return;
 
+      localOverlayTickMs = Date.now();
+      lastObservedGameClockChangeMs = Date.now();
+
       localClockTimer = setInterval(() => {
         const store = loadStore();
         const now = Date.now();
         if (currentMode === 'game') {
           const game = store.games.find(g => g.id === currentGameId);
-          if (!game || !game.clockRunning) return;
-          const lastTick = Number(game.clockLastTickAt || 0);
-          // Si puntos.html está abierto y corriendo el reloj, actualiza clockLastTickAt cada ~980ms.
-          // Si han pasado >= 1040ms sin que otra pestaña lo descuente, esta pizarra lo descuenta.
-          if (now - lastTick >= 1040) {
-            game.clockLastTickAt = now;
+          if (!game || !game.clockRunning) {
+            lastObservedGameClockSec = game ? game.clockSeconds : null;
+            lastObservedGameClockChangeMs = now;
+            return;
+          }
+
+          if (lastObservedGameClockSec !== game.clockSeconds) {
+            lastObservedGameClockSec = game.clockSeconds;
+            lastObservedGameClockChangeMs = now;
+          }
+
+          // Si otra pestaña (ej. puntos.html en el celular o PC) es dueña del reloj y sigue descontando segundos,
+          // esta pizarra NO escribe a Firebase para evitar cualquier colisión de red.
+          if (game.clockOwnerTabId && game.clockOwnerTabId !== CLIENT_TAB_ID) {
+            if (now - lastObservedGameClockChangeMs < 2200) {
+              return;
+            }
+            // Si pasaron > 2.2s sin que la otra pestaña descuente (ej. se cerró puntos.html), esta pizarra toma el relevo
+            game.clockOwnerTabId = CLIENT_TAB_ID;
+            localOverlayTickMs = now - 1000;
+          }
+
+          if (now - localOverlayTickMs >= 985) {
+            localOverlayTickMs = now;
+            game.clockOwnerTabId = CLIENT_TAB_ID;
             if ((game.clockSeconds || 0) > 0) {
               game.clockSeconds -= 1;
+              lastObservedGameClockSec = game.clockSeconds;
+              lastObservedGameClockChangeMs = now;
               ensureOnCourtPlayers(store, game);
               const allOnCourt = [...(game.onCourtHome || []), ...(game.onCourtAway || [])];
               allOnCourt.forEach(pid => {
@@ -1884,8 +1913,10 @@
               if (game.clockSeconds <= 0) {
                 game.clockSeconds = 0;
                 game.clockRunning = false;
+                saveStoreAndBroadcast(store);
+              } else {
+                saveStoreAndBroadcast(store, { isClockTick: true });
               }
-              saveStoreAndBroadcast(store);
             } else {
               game.clockRunning = false;
               saveStoreAndBroadcast(store);
@@ -1894,16 +1925,17 @@
         } else {
           const board = store.standaloneBoards.find(b => b.id === currentBoardId);
           if (!board || !board.clockRunning) return;
-          const lastTick = Number(board.clockLastTickAt || 0);
-          if (now - lastTick >= 990) {
-            board.clockLastTickAt = now;
+          if (now - localOverlayTickMs >= 985) {
+            localOverlayTickMs = now;
             if ((board.clockSeconds || 0) > 0) {
               board.clockSeconds -= 1;
               if (board.clockSeconds <= 0) {
                 board.clockSeconds = 0;
                 board.clockRunning = false;
+                saveStoreAndBroadcast(store);
+              } else {
+                saveStoreAndBroadcast(store, { isClockTick: true });
               }
-              saveStoreAndBroadcast(store);
             } else {
               board.clockRunning = false;
               saveStoreAndBroadcast(store);
@@ -2085,8 +2117,8 @@
       } catch (e) {}
     }
 
-    function saveStoreAndBroadcast(store) {
-      saveStore(store);
+    function saveStoreAndBroadcast(store, options = {}) {
+      saveStore(store, options);
       broadcastStateOverObsWs(store);
     }
 

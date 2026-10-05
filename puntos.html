@@ -1235,6 +1235,8 @@
     // RELOJ DE 10 MINUTOS (CUARTOS) Y 5 MINUTOS (TIEMPO EXTRA)
     // Contabiliza tiempo jugado y minutos dominando de cada equipo
     // =========================================================
+    let localClockLastTickMs = 0;
+
     function toggleGameClock() {
       const store = loadStore();
       const game = store.games.find(g => g.id === activeGameId);
@@ -1260,7 +1262,8 @@
         }
         game.status = 'En Vivo';
         game.clockRunning = true;
-        game.clockLastTickAt = Date.now();
+        game.clockOwnerTabId = CLIENT_TAB_ID;
+        localClockLastTickMs = Date.now();
         saveStore(store);
         startLocalClockInterval();
       }
@@ -1269,6 +1272,7 @@
 
     function startLocalClockInterval() {
       if (clockInterval) return;
+      localClockLastTickMs = Date.now();
       clockInterval = setInterval(() => {
         const store = loadStore();
         const game = store.games.find(g => g.id === activeGameId);
@@ -1278,11 +1282,11 @@
         }
 
         const now = Date.now();
-        const lastTick = Number(game.clockLastTickAt) || 0;
-        if (lastTick > 0 && (now - lastTick) < 880) {
+        if (now - localClockLastTickMs < 980) {
           return;
         }
-        game.clockLastTickAt = now;
+        localClockLastTickMs = now;
+        game.clockOwnerTabId = CLIENT_TAB_ID;
 
         if ((game.clockSeconds || 0) > 0) {
           game.clockSeconds -= 1;
@@ -1309,15 +1313,13 @@
           if (game.clockSeconds <= 0) {
             game.clockSeconds = 0;
             game.clockRunning = false;
-            game.clockLastTickAt = 0;
             stopLocalClockInterval();
             handleEndOfPeriod(store, game);
           } else {
-            saveStore(store);
+            saveStore(store, { isClockTick: true });
           }
         } else {
           game.clockRunning = false;
-          game.clockLastTickAt = 0;
           stopLocalClockInterval();
           saveStore(store);
         }
@@ -1330,7 +1332,6 @@
       const game = store.games.find(g => g.id === activeGameId);
       if (game) {
         game.clockRunning = false;
-        game.clockLastTickAt = 0;
         saveStore(store);
       }
     }
@@ -1614,12 +1615,17 @@
         logDetail
       );
 
+      if (updatedStats.isFouledOut) {
+        stopLocalClockInterval();
+        game.clockRunning = false;
+      }
+
       saveStore(store);
 
       if (updatedStats.isFouledOut) {
-        pauseGameClock();
-        alert(`🚫 ¡ATENCIÓN! El jugador #${player.number} ${player.name} ha alcanzado ${updatedStats.fouledOutReason} y debe salir del partido.\n\nSelecciona su reemplazo del banquillo.`);
-        openSubstitutionModal(side);
+        setTimeout(() => {
+          openSubstitutionModal(side);
+        }, 40);
       }
     }
 
@@ -1938,7 +1944,7 @@
       }
 
       updateGameLeadMetrics(store, game);
-      saveStore(store);
+      saveStore(store, { isManualEdit: true });
       closeModal('modalEditPlayerStats');
     });
 
@@ -1966,7 +1972,7 @@
       const game = store.games.find(g => g.id === activeGameId);
       if (!game || !game.logsPuntos) return;
       game.logsPuntos = game.logsPuntos.filter(l => l.id !== logId);
-      saveStore(store);
+      saveStore(store, { isManualEdit: true });
     }
 
     function scrollToHistory() {

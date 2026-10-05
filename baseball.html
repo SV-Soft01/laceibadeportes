@@ -2257,7 +2257,7 @@
       if (delta > 0) {
         checkBaseballWalkOffWin(store, game);
       }
-      saveStore(store);
+      saveStore(store, { isManualEdit: delta < 0 });
     }
 
     function adjustTeamErrors(side /* 'away' | 'home' */, delta) {
@@ -2269,7 +2269,7 @@
       } else {
         game.errorsAway = Math.max(0, Number(game.errorsAway || 0) + delta);
       }
-      saveStore(store);
+      saveStore(store, { isManualEdit: delta < 0 });
     }
 
     function recordBatterPlay(playType) {
@@ -2633,7 +2633,7 @@
 
       checkBaseballWalkOffWin(store, game);
 
-      saveStore(store);
+      saveStore(store, { isManualEdit: true });
       closeModal('modalEditBbPlayer');
     });
 
