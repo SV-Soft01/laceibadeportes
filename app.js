@@ -21,7 +21,18 @@ let firebaseStatus = 'connecting';
 let firebaseErrorMsg = '';
 let isApplyingRemoteUpdate = false;
 
+const CLIENT_TAB_ID = `tab_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+let lastLocalMutationAt = 0;
+let lastCrossTabSyncAt = 0;
+let firebasePushTimer = null;
+let firebaseWriteInFlight = false;
+let firebasePendingPush = false;
+let hasCompletedInitialFirebaseLoad = false;
+
 const INITIAL_STORE = {
+  _rev: 0,
+  _updatedAt: 0,
+  _sourceTabId: '',
   activeTournamentId: '',
   activeGameId: '',
   activeStandaloneBoardId: '',
@@ -38,7 +49,11 @@ const obsBroadcastChannel = typeof BroadcastChannel !== 'undefined' ? new Broadc
 if (obsBroadcastChannel) {
   obsBroadcastChannel.onmessage = (ev) => {
     if (ev.data && ev.data.type === 'STORE_SYNC' && ev.data.store) {
-      memoryStore = normalizeStore(ev.data.store);
+      const incoming = ev.data.store;
+      if (incoming._sourceTabId && incoming._sourceTabId === CLIENT_TAB_ID) return;
+      if (memoryStore && memoryStore._rev && incoming._rev && incoming._rev < memoryStore._rev) return;
+      lastCrossTabSyncAt = Date.now();
+      memoryStore = normalizeStore(incoming);
       window.dispatchEvent(new Event('storeUpdated'));
     }
   };
@@ -100,6 +115,7 @@ function normalizeStandaloneBoard(b) {
   copy.period = Number(copy.period || 1);
   copy.clockSeconds = typeof copy.clockSeconds === 'number' ? copy.clockSeconds : 600;
   copy.clockRunning = Boolean(copy.clockRunning);
+  copy.clockLastTickAt = Number(copy.clockLastTickAt || 0);
   copy.isFinal = Boolean(copy.isFinal);
   copy.clockUpdatedAt = Number(copy.clockUpdatedAt || Date.now());
   copy.activeBanner = copy.activeBanner && typeof copy.activeBanner === 'object' ? copy.activeBanner : null;
@@ -158,6 +174,7 @@ function normalizeGame(g) {
   copy.period = Number(copy.period || 1);
   copy.clockSeconds = typeof copy.clockSeconds === 'number' ? copy.clockSeconds : 600;
   copy.clockRunning = Boolean(copy.clockRunning);
+  copy.clockLastTickAt = Number(copy.clockLastTickAt || 0);
   copy.coachHome = copy.coachHome || '';
   copy.coachAway = copy.coachAway || '';
   copy.leadTimeHome = Number(copy.leadTimeHome || 0); // Segundos dominando Local
@@ -229,6 +246,9 @@ function normalizeStore(data) {
   const rawBoards = Array.isArray(base.standaloneBoards) ? base.standaloneBoards : (base.standaloneBoards ? Object.values(base.standaloneBoards) : []);
   const rawBbBoards = Array.isArray(base.standaloneBaseballBoards) ? base.standaloneBaseballBoards : (base.standaloneBaseballBoards ? Object.values(base.standaloneBaseballBoards) : []);
   return {
+    _rev: Number(base._rev || 0),
+    _updatedAt: Number(base._updatedAt || 0),
+    _sourceTabId: String(base._sourceTabId || ''),
     activeTournamentId: base.activeTournamentId || '',
     activeGameId: base.activeGameId || '',
     activeStandaloneBoardId: base.activeStandaloneBoardId || '',
@@ -257,8 +277,64 @@ function loadStore() {
   return memoryStore;
 }
 
+function flushFirebasePush() {
+  if (firebasePushTimer) {
+    clearTimeout(firebasePushTimer);
+    firebasePushTimer = null;
+  }
+  if (!firebaseRef || !firebaseSetFn || isApplyingRemoteUpdate || !memoryStore) return;
+  if (firebaseWriteInFlight) {
+    firebasePendingPush = true;
+    return;
+  }
+
+  firebaseWriteInFlight = true;
+  firebasePendingPush = false;
+  const payloadToSend = memoryStore;
+
+  firebaseSetFn(firebaseRef, payloadToSend)
+    .then(() => {
+      firebaseWriteInFlight = false;
+      setFirebaseStatus('connected', '');
+      if (firebasePendingPush) {
+        scheduleFirebasePush(80);
+      }
+    })
+    .catch((err) => {
+      firebaseWriteInFlight = false;
+      if (err && (err.code === 'PERMISSION_DENIED' || String(err.message).includes('permission_denied') || String(err.message).includes('PERMISSION_DENIED'))) {
+        setFirebaseStatus('permission_denied', 'Permiso denegado en reglas de Firebase');
+      } else {
+        setFirebaseStatus('offline', err.message || 'Error de conexión con Firebase');
+      }
+    });
+}
+
+function scheduleFirebasePush(delayMs = 90) {
+  if (!firebaseRef || !firebaseSetFn || isApplyingRemoteUpdate) return;
+  if (firebaseWriteInFlight) {
+    firebasePendingPush = true;
+    return;
+  }
+  if (firebasePushTimer) {
+    clearTimeout(firebasePushTimer);
+  }
+  firebasePushTimer = setTimeout(flushFirebasePush, delayMs);
+}
+
 function saveStore(store) {
-  memoryStore = normalizeStore(store);
+  const prevRev = Number((memoryStore && memoryStore._rev) || 0);
+  const incomingRev = Number((store && store._rev) || 0);
+  const nextRev = Math.max(prevRev, incomingRev, Date.now()) + 1;
+
+  const normalized = normalizeStore(store);
+  normalized._rev = nextRev;
+  normalized._updatedAt = Date.now();
+  normalized._sourceTabId = CLIENT_TAB_ID;
+
+  memoryStore = normalized;
+  lastLocalMutationAt = Date.now();
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryStore));
   } catch (e) {
@@ -266,23 +342,13 @@ function saveStore(store) {
   }
   if (obsBroadcastChannel && !isApplyingRemoteUpdate) {
     try {
-      obsBroadcastChannel.postMessage({ type: 'STORE_SYNC', store: memoryStore });
+      obsBroadcastChannel.postMessage({ type: 'STORE_SYNC', store: memoryStore, sourceTabId: CLIENT_TAB_ID });
     } catch (e) {}
   }
   window.dispatchEvent(new Event('storeUpdated'));
 
-  if (firebaseRef && firebaseSetFn && !isApplyingRemoteUpdate) {
-    firebaseSetFn(firebaseRef, memoryStore)
-      .then(() => {
-        setFirebaseStatus('connected', '');
-      })
-      .catch((err) => {
-        if (err && (err.code === 'PERMISSION_DENIED' || String(err.message).includes('permission_denied') || String(err.message).includes('PERMISSION_DENIED'))) {
-          setFirebaseStatus('permission_denied', 'Permiso denegado en reglas de Firebase');
-        } else {
-          setFirebaseStatus('offline', err.message || 'Error de conexión con Firebase');
-        }
-      });
+  if (!isApplyingRemoteUpdate) {
+    scheduleFirebasePush(75);
   }
 }
 
@@ -328,12 +394,34 @@ async function initFirebaseSync() {
         const remoteVal = snapshot.val();
         setFirebaseStatus('connected', '');
         if (remoteVal) {
+          const remoteRev = Number(remoteVal._rev || 0);
+          const localRev = Number((memoryStore && memoryStore._rev) || 0);
+
+          if (hasCompletedInitialFirebaseLoad) {
+            // 1. Nunca sobrescribir esta pestaña con el eco retardado de su propia escritura
+            if (remoteVal._sourceTabId && remoteVal._sourceTabId === CLIENT_TAB_ID) {
+              return;
+            }
+            // 2. Nunca permitir que un snapshot más viejo que nuestra memoria local revierta puntos o el reloj
+            if (remoteRev > 0 && localRev > 0 && remoteRev <= localRev) {
+              return;
+            }
+            // 3. Si acabamos de anotar o mover el reloj localmente hace menos de 1.8s, ignorar ecos en tránsito
+            if (firebaseWriteInFlight || firebasePendingPush || (Date.now() - lastLocalMutationAt < 1800) || (Date.now() - lastCrossTabSyncAt < 1200)) {
+              if (remoteRev <= localRev) return;
+            }
+          }
+
+          hasCompletedInitialFirebaseLoad = true;
           isApplyingRemoteUpdate = true;
           memoryStore = normalizeStore(remoteVal);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryStore));
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryStore));
+          } catch (e) {}
           window.dispatchEvent(new Event('storeUpdated'));
           isApplyingRemoteUpdate = false;
         } else {
+          hasCompletedInitialFirebaseLoad = true;
           const current = loadStore();
           if (current.tournaments.length > 0 || current.teams.length > 0) {
             firebaseSetFn(firebaseRef, current).catch(() => {});
@@ -1029,7 +1117,11 @@ function getRotatingBaseballQueueForTeam(store, game, teamId) {
 window.addEventListener('storage', (e) => {
   if (e.key === STORAGE_KEY && e.newValue) {
     try {
-      memoryStore = normalizeStore(JSON.parse(e.newValue));
+      const incoming = JSON.parse(e.newValue);
+      if (incoming && incoming._sourceTabId && incoming._sourceTabId === CLIENT_TAB_ID) return;
+      if (memoryStore && memoryStore._rev && incoming && incoming._rev && incoming._rev < memoryStore._rev) return;
+      lastCrossTabSyncAt = Date.now();
+      memoryStore = normalizeStore(incoming);
       window.dispatchEvent(new Event('storeUpdated'));
     } catch (err) {}
   }

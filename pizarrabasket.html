@@ -175,29 +175,29 @@
       height: 55px;
       position: relative;
       overflow: hidden;
-      transition: background-color 0.25s ease;
+      contain: layout paint;
     }
 
     .tv-score-num {
       display: inline-block;
-      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
       z-index: 1;
+      will-change: transform;
     }
 
     .tv-score-cell.score-anim-active .tv-score-num {
-      animation: tvScoreNumBounce 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: tvScoreNumBounce 0.42s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .tv-score-cell.score-anim-3pt {
-      animation: tvScoreCellFlash3pt 1.6s ease;
+      animation: tvScoreCellFlash3pt 0.95s ease;
     }
 
     .tv-score-cell.score-anim-2pt {
-      animation: tvScoreCellFlash2pt 1.3s ease;
+      animation: tvScoreCellFlash2pt 0.85s ease;
     }
 
     .tv-score-cell.score-anim-1pt {
-      animation: tvScoreCellFlash1pt 1.2s ease;
+      animation: tvScoreCellFlash1pt 0.8s ease;
     }
 
     .tv-score-delta-badge {
@@ -214,17 +214,18 @@
       opacity: 0;
       pointer-events: none;
       z-index: 3;
-      transform: translateY(8px) scale(0.7);
+      will-change: transform, opacity;
+      transform: translateY(6px) scale(0.75);
     }
 
     .tv-score-delta-badge.delta-show {
-      animation: tvScoreDeltaPop 1.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: tvScoreDeltaPop 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
     .tv-score-delta-badge.delta-3 {
       background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
       border: 1.5px solid #fde047;
-      box-shadow: 0 2px 8px rgba(234, 88, 12, 0.75);
+      box-shadow: 0 2px 6px rgba(234, 88, 12, 0.65);
       font-size: 14px;
       padding: 2px 6px;
     }
@@ -232,47 +233,45 @@
     .tv-score-delta-badge.delta-2 {
       background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
       border: 1px solid #93c5fd;
-      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.55);
+      box-shadow: 0 2px 5px rgba(37, 99, 235, 0.5);
     }
 
     .tv-score-delta-badge.delta-1 {
       background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
       border: 1px solid #86efac;
-      box-shadow: 0 2px 6px rgba(22, 163, 74, 0.55);
+      box-shadow: 0 2px 5px rgba(22, 163, 74, 0.5);
     }
 
     @keyframes tvScoreNumBounce {
       0% { transform: scale(1); }
-      30% { transform: scale(1.24); }
-      65% { transform: scale(0.95); }
+      35% { transform: scale(1.18); }
       100% { transform: scale(1); }
     }
 
     @keyframes tvScoreCellFlash3pt {
       0% { background-color: #ffffff; }
-      18% { background-color: #fef08a; box-shadow: inset 0 0 14px rgba(249, 115, 22, 0.65); }
-      75% { background-color: #fef9c3; }
+      22% { background-color: #fef08a; }
       100% { background-color: #ffffff; }
     }
 
     @keyframes tvScoreCellFlash2pt {
       0% { background-color: #ffffff; }
-      20% { background-color: #dbeafe; }
+      22% { background-color: #dbeafe; }
       100% { background-color: #ffffff; }
     }
 
     @keyframes tvScoreCellFlash1pt {
       0% { background-color: #ffffff; }
-      20% { background-color: #dcfce7; }
+      22% { background-color: #dcfce7; }
       100% { background-color: #ffffff; }
     }
 
     @keyframes tvScoreDeltaPop {
-      0% { opacity: 0; transform: translateY(10px) scale(0.6); }
-      16% { opacity: 1; transform: translateY(0) scale(1.12); }
-      28% { opacity: 1; transform: translateY(0) scale(1); }
-      80% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-7px) scale(0.85); }
+      0% { opacity: 0; transform: translateY(8px) scale(0.7); }
+      18% { opacity: 1; transform: translateY(0) scale(1.06); }
+      30% { opacity: 1; transform: translateY(0) scale(1); }
+      78% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-5px) scale(0.9); }
     }
 
     /* Columna 3 Fila Superior: Reloj Interactivo (10:00) */
@@ -1203,15 +1202,23 @@
           const diff = Number(newScore) - Number(prevAttr);
           cellEl.setAttribute('data-last-score', strScore);
           numEl.textContent = strScore;
-          if (diff >= 1 && diff <= 4) {
+          if (diff >= 1 && diff <= 3) {
+            if (cellEl._scoreAnimTimer) {
+              clearTimeout(cellEl._scoreAnimTimer);
+            }
+            const ptClass = diff === 3 ? 'score-anim-3pt' : (diff === 2 ? 'score-anim-2pt' : 'score-anim-1pt');
+            const badgeClass = diff === 3 ? 'delta-3' : (diff === 2 ? 'delta-2' : 'delta-1');
+            badgeEl.textContent = `+${diff}`;
             cellEl.classList.remove('score-anim-active', 'score-anim-1pt', 'score-anim-2pt', 'score-anim-3pt');
             badgeEl.classList.remove('delta-show', 'delta-1', 'delta-2', 'delta-3');
-            void cellEl.offsetWidth;
-            const ptClass = diff >= 3 ? 'score-anim-3pt' : (diff === 2 ? 'score-anim-2pt' : 'score-anim-1pt');
-            const badgeClass = diff >= 3 ? 'delta-3' : (diff === 2 ? 'delta-2' : 'delta-1');
-            badgeEl.textContent = `+${diff}`;
-            cellEl.classList.add('score-anim-active', ptClass);
-            badgeEl.classList.add('delta-show', badgeClass);
+            requestAnimationFrame(() => {
+              cellEl.classList.add('score-anim-active', ptClass);
+              badgeEl.classList.add('delta-show', badgeClass);
+            });
+            cellEl._scoreAnimTimer = setTimeout(() => {
+              cellEl.classList.remove('score-anim-active', 'score-anim-1pt', 'score-anim-2pt', 'score-anim-3pt');
+              badgeEl.classList.remove('delta-show', 'delta-1', 'delta-2', 'delta-3');
+            }, 1050);
           }
         }
       };
@@ -1750,7 +1757,7 @@
         game.overlayConfig.isFinal = !currentFinal;
         if (game.overlayConfig.isFinal) {
           game.clockRunning = false;
-          isClockMasterInThisTab = false;
+          game.clockLastTickAt = 0;
         }
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
@@ -1758,7 +1765,7 @@
         board.isFinal = !board.isFinal;
         if (board.isFinal) {
           board.clockRunning = false;
-          isClockMasterInThisTab = false;
+          board.clockLastTickAt = 0;
         }
       }
       saveStoreAndBroadcast(store);
@@ -1774,21 +1781,32 @@
     // =========================================================================
     // RELOJ INTERACTIVO CON SINCRONIZACIÓN EN VIVO PARA OBS
     // =========================================================================
-    let isClockMasterInThisTab = false;
-
     function toggleOverlayClock() {
       const store = loadStore();
       if (currentMode === 'game') {
         const game = store.games.find(g => g.id === currentGameId);
         if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        if (game.overlayConfig.isFinal) game.overlayConfig.isFinal = false;
+        if (game.status === 'Finalizado') game.status = 'En Vivo';
+        if (!game.clockRunning && (game.clockSeconds || 0) <= 0) {
+          game.clockSeconds = game.period > 4 ? 300 : 600;
+        }
         game.clockRunning = !game.clockRunning;
-        isClockMasterInThisTab = game.clockRunning;
+        game.clockLastTickAt = Date.now();
+        if (game.clockRunning) {
+          game.status = 'En Vivo';
+        }
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
         if (!board) return;
+        if (board.isFinal) board.isFinal = false;
+        if (!board.clockRunning && (board.clockSeconds || 0) <= 0) {
+          board.clockSeconds = board.period > 4 ? 300 : 600;
+        }
         board.clockRunning = !board.clockRunning;
         board.clockUpdatedAt = Date.now();
-        isClockMasterInThisTab = board.clockRunning;
+        board.clockLastTickAt = Date.now();
       }
       saveStoreAndBroadcast(store);
       ensureClockTimerState();
@@ -1800,10 +1818,12 @@
         const game = store.games.find(g => g.id === currentGameId);
         if (!game) return;
         game.clockSeconds = Math.max(0, (game.clockSeconds || 0) + deltaSeconds);
+        game.clockLastTickAt = Date.now();
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
         if (!board) return;
         board.clockSeconds = Math.max(0, (board.clockSeconds || 0) + deltaSeconds);
+        board.clockLastTickAt = Date.now();
       }
       saveStoreAndBroadcast(store);
     }
@@ -1816,17 +1836,20 @@
 
     function resetOverlayClock(totalSeconds) {
       const store = loadStore();
-      isClockMasterInThisTab = false;
       if (currentMode === 'game') {
         const game = store.games.find(g => g.id === currentGameId);
         if (!game) return;
         game.clockSeconds = Math.max(0, totalSeconds);
         game.clockRunning = false;
+        game.clockLastTickAt = 0;
+        if (game.overlayConfig) game.overlayConfig.isFinal = false;
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
         if (!board) return;
         board.clockSeconds = Math.max(0, totalSeconds);
         board.clockRunning = false;
+        board.clockLastTickAt = 0;
+        board.isFinal = false;
       }
       saveStoreAndBroadcast(store);
       ensureClockTimerState();
@@ -1840,40 +1863,54 @@
       if (isObsOverlayMode) return;
 
       localClockTimer = setInterval(() => {
-        if (!isClockMasterInThisTab) return;
         const store = loadStore();
+        const now = Date.now();
         if (currentMode === 'game') {
           const game = store.games.find(g => g.id === currentGameId);
-          if (!game || !game.clockRunning) {
-            isClockMasterInThisTab = false;
-            return;
-          }
-          if ((game.clockSeconds || 0) > 0) {
-            game.clockSeconds -= 1;
-            if (game.clockSeconds <= 0) {
-              game.clockSeconds = 0;
+          if (!game || !game.clockRunning) return;
+          const lastTick = Number(game.clockLastTickAt || 0);
+          // Si puntos.html está abierto y corriendo el reloj, actualiza clockLastTickAt cada ~980ms.
+          // Si han pasado >= 1040ms sin que otra pestaña lo descuente, esta pizarra lo descuenta.
+          if (now - lastTick >= 1040) {
+            game.clockLastTickAt = now;
+            if ((game.clockSeconds || 0) > 0) {
+              game.clockSeconds -= 1;
+              ensureOnCourtPlayers(store, game);
+              const allOnCourt = [...(game.onCourtHome || []), ...(game.onCourtAway || [])];
+              allOnCourt.forEach(pid => {
+                if (!game.stats[pid]) game.stats[pid] = getEmptyPlayerStats();
+                game.stats[pid].secondsPlayed = (game.stats[pid].secondsPlayed || 0) + 1;
+              });
+              if (game.clockSeconds <= 0) {
+                game.clockSeconds = 0;
+                game.clockRunning = false;
+              }
+              saveStoreAndBroadcast(store);
+            } else {
               game.clockRunning = false;
-              isClockMasterInThisTab = false;
+              saveStoreAndBroadcast(store);
             }
-            saveStoreAndBroadcast(store);
           }
         } else {
           const board = store.standaloneBoards.find(b => b.id === currentBoardId);
-          if (!board || !board.clockRunning) {
-            isClockMasterInThisTab = false;
-            return;
-          }
-          if ((board.clockSeconds || 0) > 0) {
-            board.clockSeconds -= 1;
-            if (board.clockSeconds <= 0) {
-              board.clockSeconds = 0;
+          if (!board || !board.clockRunning) return;
+          const lastTick = Number(board.clockLastTickAt || 0);
+          if (now - lastTick >= 990) {
+            board.clockLastTickAt = now;
+            if ((board.clockSeconds || 0) > 0) {
+              board.clockSeconds -= 1;
+              if (board.clockSeconds <= 0) {
+                board.clockSeconds = 0;
+                board.clockRunning = false;
+              }
+              saveStoreAndBroadcast(store);
+            } else {
               board.clockRunning = false;
-              isClockMasterInThisTab = false;
+              saveStoreAndBroadcast(store);
             }
-            saveStoreAndBroadcast(store);
           }
         }
-      }, 1000);
+      }, 200);
     }
 
     // =========================================================================

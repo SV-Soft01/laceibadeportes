@@ -77,6 +77,130 @@
       align-items: center;
       gap: 0.35rem;
     }
+
+    /* =========================================================================
+       MODO COMPACTO Y OPTIMIZACIÓN AUTOMÁTICA EN PANTALLAS PEQUEÑAS
+       En PC grande (>1024px) se ve normal; en pantallas más pequeñas (<=1024px)
+       o al activar "📐 Modo Compacto" se recoge el encabezado para anotar cómodo
+       ========================================================================= */
+    .scorer-top-header {
+      margin-bottom: 1rem;
+    }
+
+    .scorer-header-main-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .scorer-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .scorer-title-inline-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .scorer-actions-toolbar {
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn-toggle-extra-actions {
+      display: none;
+    }
+
+    /* Cuando se activa el Modo Compacto manual (en cualquier pantalla) */
+    body.compact-scorer-active .navbar {
+      display: none !important;
+    }
+    body.compact-scorer-active .container {
+      padding-top: 0.45rem;
+    }
+    body.compact-scorer-active .scorer-subtitle-note,
+    body.compact-scorer-active .coach-bar,
+    body.compact-scorer-active #liveLeadInfo,
+    body.compact-scorer-active #homeTimeoutsLabel,
+    body.compact-scorer-active #awayTimeoutsLabel,
+    body.compact-scorer-active .court-card-subtitle {
+      display: none !important;
+    }
+    body.compact-scorer-active .scorer-top-header {
+      margin-bottom: 0.45rem;
+    }
+    body.compact-scorer-active .scoreboard {
+      padding: 0.55rem 0.75rem;
+      margin-bottom: 0.65rem;
+      gap: 0.45rem;
+    }
+    body.compact-scorer-active .team-score-lg {
+      font-size: 2.2rem;
+    }
+    body.compact-scorer-active .clock-display {
+      font-size: 1.9rem;
+      padding: 0.15rem 0.65rem;
+    }
+
+    /* En pantallas más pequeñas (tabletas, laptops pequeños, celulares <= 1024px) */
+    @media (max-width: 1024px) {
+      .scorer-top-header {
+        margin-bottom: 0.45rem;
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.4rem 0.6rem;
+      }
+      .scorer-subtitle-note,
+      .court-card-subtitle,
+      #liveLeadInfo,
+      #homeTimeoutsLabel,
+      #awayTimeoutsLabel {
+        display: none !important;
+      }
+      .scorer-title-group {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 0.4rem;
+      }
+      #scorerGameTitle {
+        font-size: 1rem;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .btn-toggle-extra-actions {
+        display: inline-flex;
+      }
+      .scorer-actions-toolbar {
+        display: none;
+        width: 100%;
+        padding-top: 0.4rem;
+        margin-top: 0.35rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .scorer-actions-toolbar.mobile-expanded {
+        display: flex;
+      }
+      .coach-bar {
+        display: none;
+      }
+      .player-stat-card {
+        padding: 0.5rem;
+        gap: 0.35rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -147,34 +271,47 @@
          PANTALLA 2: MESA DE ANOTACIÓN DEL JUEGO SELECCIONADO
          ========================================================= -->
     <section id="viewScorerTable" class="hidden no-print">
-      <!-- Barra superior de acciones del juego -->
-      <div class="page-header" style="margin-bottom:1rem;">
-        <div>
-          <button class="btn btn-sm btn-outline" onclick="backToGameSelector()" style="margin-bottom:0.35rem;">
-            ← Cambiar de Juego / Ver Lista de Juegos
-          </button>
-          <h1 class="page-title" id="scorerGameTitle">Partido en Juego</h1>
-          <p class="page-subtitle">Toca ✏️ en el cuadrito de cualquier jugador para corregir puntos, minutos, +/- o faltas.</p>
-        </div>
-        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-          <button class="btn btn-sm btn-primary" onclick="openObsOverlayFromScorer()" title="Abrir y editar la Pizarra de este juego para OBS">
-            🎥 Abrir Pizarra
-          </button>
-          <button class="btn btn-sm btn-purple" onclick="openSelectStartersModal()">
-            ⭐ Elegir 5 Titulares
-          </button>
-          <button class="btn btn-sm btn-blue" onclick="openGameSummarySheet()">
-            📊 Ver Resumen del Juego / PDF
-          </button>
-          <button class="btn btn-sm btn-outline" onclick="scrollToHistory()">
-            📜 Historial (<span id="historyCountTop">0</span>)
-          </button>
-          <button class="btn btn-sm btn-outline" onclick="openEditAnyPlayerModal()">
-            ✏️ Editar Jugador
-          </button>
-          <button id="btnFinishGameTop" class="btn btn-sm btn-red" onclick="finalizeGameAndShowSummary()">
-            🏁 Finalizar Partido
-          </button>
+      <!-- Barra superior de acciones del juego (Compacta automáticamente en pantallas pequeñas) -->
+      <div class="scorer-top-header">
+        <div class="scorer-header-main-row">
+          <div class="scorer-title-group">
+            <div class="scorer-title-inline-bar">
+              <button class="btn btn-sm btn-outline" onclick="backToGameSelector()">
+                ← Juegos
+              </button>
+              <h1 class="page-title" id="scorerGameTitle" style="margin:0;">Partido en Juego</h1>
+            </div>
+            <div style="display:flex; gap:0.35rem; align-items:center;">
+              <button type="button" id="btnCompactScorerMode" class="btn btn-sm btn-outline" onclick="toggleCompactScorerMode()" title="Ocultar barra superior y compactar encabezado para tener más espacio de anotación">
+                📐 Modo Compacto
+              </button>
+              <button type="button" id="btnToggleMobileToolbar" class="btn btn-sm btn-blue btn-toggle-extra-actions" onclick="toggleMobileScorerToolbar()">
+                🛠️ Opciones ▾
+              </button>
+            </div>
+            <p class="page-subtitle scorer-subtitle-note">Toca ✏️ en el cuadrito de cualquier jugador para corregir puntos, minutos, +/- o faltas.</p>
+          </div>
+
+          <div id="scorerExtraActionsToolbar" class="scorer-actions-toolbar">
+            <button class="btn btn-sm btn-primary" onclick="openObsOverlayFromScorer()" title="Abrir y editar la Pizarra de este juego para OBS">
+              🎥 Abrir Pizarra
+            </button>
+            <button class="btn btn-sm btn-purple" onclick="openSelectStartersModal()">
+              ⭐ Elegir 5 Titulares
+            </button>
+            <button class="btn btn-sm btn-blue" onclick="openGameSummarySheet()">
+              📊 Ver Resumen / PDF
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="scrollToHistory()">
+              📜 Historial (<span id="historyCountTop">0</span>)
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="openEditAnyPlayerModal()">
+              ✏️ Editar Jugador
+            </button>
+            <button id="btnFinishGameTop" class="btn btn-sm btn-red" onclick="finalizeGameAndShowSummary()">
+              🏁 Finalizar Partido
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1114,7 +1251,7 @@
         return;
       }
 
-      if (clockInterval) {
+      if (game.clockRunning) {
         pauseGameClock();
       } else {
         if ((game.clockSeconds || 0) <= 0) {
@@ -1123,6 +1260,7 @@
         }
         game.status = 'En Vivo';
         game.clockRunning = true;
+        game.clockLastTickAt = Date.now();
         saveStore(store);
         startLocalClockInterval();
       }
@@ -1130,14 +1268,21 @@
     }
 
     function startLocalClockInterval() {
-      stopLocalClockInterval();
+      if (clockInterval) return;
       clockInterval = setInterval(() => {
         const store = loadStore();
         const game = store.games.find(g => g.id === activeGameId);
-        if (!game || game.status === 'Finalizado') {
+        if (!game || game.status === 'Finalizado' || !game.clockRunning) {
           stopLocalClockInterval();
           return;
         }
+
+        const now = Date.now();
+        const lastTick = Number(game.clockLastTickAt) || 0;
+        if (lastTick > 0 && (now - lastTick) < 880) {
+          return;
+        }
+        game.clockLastTickAt = now;
 
         if ((game.clockSeconds || 0) > 0) {
           game.clockSeconds -= 1;
@@ -1164,15 +1309,19 @@
           if (game.clockSeconds <= 0) {
             game.clockSeconds = 0;
             game.clockRunning = false;
+            game.clockLastTickAt = 0;
             stopLocalClockInterval();
             handleEndOfPeriod(store, game);
           } else {
             saveStore(store);
           }
         } else {
+          game.clockRunning = false;
+          game.clockLastTickAt = 0;
           stopLocalClockInterval();
+          saveStore(store);
         }
-      }, 1000);
+      }, 200);
     }
 
     function pauseGameClock() {
@@ -1181,6 +1330,7 @@
       const game = store.games.find(g => g.id === activeGameId);
       if (game) {
         game.clockRunning = false;
+        game.clockLastTickAt = 0;
         saveStore(store);
       }
     }
@@ -1857,6 +2007,13 @@
       document.getElementById('homeScoreDisplay').textContent = homeTotals.pts;
       document.getElementById('awayScoreDisplay').textContent = awayTotals.pts;
 
+      // Sincronizar intervalo local si el reloj fue iniciado o pausado desde la Pizarra OBS
+      if (game.clockRunning && !isFinished && !clockInterval) {
+        startLocalClockInterval();
+      } else if ((!game.clockRunning || isFinished) && clockInterval) {
+        stopLocalClockInterval();
+      }
+
       // Reloj y Cuarto
       const pLabel = getPeriodLabel(game.period);
       document.getElementById('periodBadgeDisplay').textContent = pLabel;
@@ -1864,13 +2021,14 @@
       stBadge.textContent = game.status || 'En Vivo';
       stBadge.className = `badge ${isFinished ? 'badge-finished' : 'badge-live'}`;
 
+      const isClockRunning = Boolean(game.clockRunning) && !isFinished;
       const clockEl = document.getElementById('clockDisplay');
       clockEl.textContent = formatSecondsMMSS(game.clockSeconds);
-      clockEl.classList.toggle('paused', !clockInterval);
+      clockEl.classList.toggle('paused', !isClockRunning);
 
       const btnClock = document.getElementById('btnToggleClock');
       btnClock.disabled = isFinished;
-      if (clockInterval) {
+      if (isClockRunning) {
         btnClock.textContent = '⏸️ Pausar Reloj';
         btnClock.className = 'btn btn-sm btn-red';
       } else {
@@ -1963,6 +2121,7 @@
 
     function renderOnCourtTable(store, game, side, onCourtIds, container, isFinished) {
       if (!onCourtIds || onCourtIds.length === 0) {
+        container.dataset.renderedKey = '';
         container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No hay jugadores en cancha. Usa el botón "🔄 Realizar Cambios" para elegir los 5 titulares.</div>`;
         return;
       }
@@ -1971,6 +2130,70 @@
         .map(id => store.players.find(p => p.id === id))
         .filter(Boolean);
 
+      const renderKey = `${side}|${isFinished ? '1' : '0'}|${playersOnCourt.map(p => `${p.id}:${p.number}:${p.name}`).join(',')}`;
+
+      // Si los mismos 5 jugadores siguen en cancha, actualizamos SOLO los textos y números in-place
+      // sin recrear el DOM de los botones (+1, +2, +3, PF, etc.) para que ningún click se pierda jamás
+      // aunque el reloj esté corriendo cada segundo.
+      if (container.dataset.renderedKey === renderKey) {
+        let allCardsPresent = true;
+        for (const p of playersOnCourt) {
+          const card = container.querySelector(`.player-stat-card[data-player-id="${p.id}"]`);
+          if (!card) {
+            allCardsPresent = false;
+            break;
+          }
+          const st = getPlayerGameStats(game, p.id);
+          const pmSign = st.plusMinus > 0 ? `+${st.plusMinus}` : `${st.plusMinus}`;
+          const pmColor = st.plusMinus > 0 ? '#4ade80' : (st.plusMinus < 0 ? '#f87171' : 'var(--text-muted)');
+
+          card.classList.toggle('player-expelled', Boolean(st.isFouledOut));
+
+          const expelledEl = card.querySelector('[data-role="expelled-banner"]');
+          if (expelledEl) {
+            if (st.isFouledOut) {
+              expelledEl.style.display = 'block';
+              expelledEl.textContent = `🚫 ${st.fouledOutReason}`;
+            } else {
+              expelledEl.style.display = 'none';
+            }
+          }
+
+          const ptsEl = card.querySelector('[data-role="pts"]');
+          if (ptsEl && ptsEl.textContent !== String(st.totalPts)) ptsEl.textContent = st.totalPts;
+
+          const minEl = card.querySelector('[data-role="min"]');
+          if (minEl && minEl.textContent !== st.formattedTime) minEl.textContent = st.formattedTime;
+
+          const pmEl = card.querySelector('[data-role="pm"]');
+          if (pmEl) {
+            if (pmEl.textContent !== pmSign) pmEl.textContent = pmSign;
+            pmEl.style.color = pmColor;
+          }
+
+          const foulsEl = card.querySelector('[data-role="fouls"]');
+          if (foulsEl) {
+            const fText = `${st.totalFouls}/5`;
+            if (foulsEl.textContent !== fText) foulsEl.textContent = fText;
+            foulsEl.style.color = st.isFouledOut ? 'var(--accent-red)' : 'var(--text-main)';
+          }
+
+          const splitsEl = card.querySelector('[data-role="splits"]');
+          if (splitsEl) {
+            const sText = `1P:${st.ftMade}/${st.ftAtt} • 2P:${st.pts2}/${st.pts2 + st.miss2} • 3P:${st.t3Made}/${st.t3Att}`;
+            if (splitsEl.textContent !== sText) splitsEl.textContent = sText;
+          }
+
+          const foulSplitsEl = card.querySelector('[data-role="foul-splits"]');
+          if (foulSplitsEl) {
+            const fsText = `PF:${st.pf} OF:${st.of} TF:${st.tf}`;
+            if (foulSplitsEl.textContent !== fsText) foulSplitsEl.textContent = fsText;
+          }
+        }
+        if (allCardsPresent) return;
+      }
+
+      container.dataset.renderedKey = renderKey;
       const disAttr = isFinished ? 'disabled style="opacity:0.45;cursor:not-allowed;"' : '';
 
       container.innerHTML = playersOnCourt.map(p => {
@@ -1979,7 +2202,7 @@
         const pmColor = st.plusMinus > 0 ? '#4ade80' : (st.plusMinus < 0 ? '#f87171' : 'var(--text-muted)');
 
         return `
-          <div class="player-stat-card ${st.isFouledOut ? 'player-expelled' : ''}">
+          <div class="player-stat-card ${st.isFouledOut ? 'player-expelled' : ''}" data-player-id="${p.id}">
             <div class="player-card-top">
               <div class="player-card-identity">
                 <span class="jersey-badge">#${escapeHtml(String(p.number))}</span>
@@ -1998,30 +2221,30 @@
               </div>
             </div>
 
-            ${st.isFouledOut ? `<div class="badge" style="background:var(--accent-red);color:#fff;text-align:center;">🚫 ${st.fouledOutReason}</div>` : ''}
+            <div data-role="expelled-banner" class="badge" style="background:var(--accent-red);color:#fff;text-align:center;display:${st.isFouledOut ? 'block' : 'none'};">🚫 ${st.fouledOutReason || ''}</div>
 
             <div class="player-mini-stats">
               <div class="mini-stat-box">
                 <span class="mini-stat-label">PTS</span>
-                <span class="mini-stat-val" style="color:var(--accent-orange);">${st.totalPts}</span>
+                <span class="mini-stat-val" data-role="pts" style="color:var(--accent-orange);">${st.totalPts}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">MIN</span>
-                <span class="mini-stat-val" style="font-family:monospace;">${st.formattedTime}</span>
+                <span class="mini-stat-val" data-role="min" style="font-family:monospace;">${st.formattedTime}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">+/-</span>
-                <span class="mini-stat-val" style="color:${pmColor};">${pmSign}</span>
+                <span class="mini-stat-val" data-role="pm" style="color:${pmColor};">${pmSign}</span>
               </div>
               <div class="mini-stat-box">
                 <span class="mini-stat-label">FALTAS</span>
-                <span class="mini-stat-val" style="color:${st.isFouledOut ? 'var(--accent-red)' : 'var(--text-main)'};">${st.totalFouls}/5</span>
+                <span class="mini-stat-val" data-role="fouls" style="color:${st.isFouledOut ? 'var(--accent-red)' : 'var(--text-main)'};">${st.totalFouls}/5</span>
               </div>
             </div>
 
             <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); padding:0 0.15rem;">
-              <span>1P:${st.ftMade}/${st.ftAtt} • 2P:${st.pts2}/${st.pts2 + st.miss2} • 3P:${st.t3Made}/${st.t3Att}</span>
-              <span>PF:${st.pf} OF:${st.of} TF:${st.tf}</span>
+              <span data-role="splits">1P:${st.ftMade}/${st.ftAtt} • 2P:${st.pts2}/${st.pts2 + st.miss2} • 3P:${st.t3Made}/${st.t3Att}</span>
+              <span data-role="foul-splits">PF:${st.pf} OF:${st.of} TF:${st.tf}</span>
             </div>
 
             <div class="player-shots-row">
@@ -2048,6 +2271,40 @@
         `;
       }).join('');
     }
+
+    function toggleMobileScorerToolbar() {
+      const grp = document.getElementById('scorerTopActionsGroup');
+      if (grp) {
+        grp.classList.toggle('expanded-mobile');
+      }
+    }
+
+    function toggleCompactScorerMode() {
+      const isCompact = document.body.classList.toggle('scorer-compact-mode');
+      const btn = document.getElementById('btnCompactScorerMode');
+      if (btn) {
+        btn.textContent = isCompact ? '📐 Vista Normal' : '📐 Modo Compacto';
+        btn.style.borderColor = isCompact ? 'var(--accent-green)' : 'var(--accent-orange)';
+        btn.style.color = isCompact ? '#4ade80' : '#fdba74';
+      }
+      try {
+        localStorage.setItem('hoops_scorer_compact_mode', isCompact ? '1' : '0');
+      } catch (e) {}
+    }
+
+    (function restoreCompactScorerMode() {
+      try {
+        if (localStorage.getItem('hoops_scorer_compact_mode') === '1') {
+          document.body.classList.add('scorer-compact-mode');
+          const btn = document.getElementById('btnCompactScorerMode');
+          if (btn) {
+            btn.textContent = '📐 Vista Normal';
+            btn.style.borderColor = 'var(--accent-green)';
+            btn.style.color = '#4ade80';
+          }
+        }
+      } catch (e) {}
+    })();
 
     // Desplegar por 5 segundos en la Pizarra OBS las mejores estadísticas de un jugador
     function deployPlayerStatsToOverlay(playerId, side, btnEl) {
