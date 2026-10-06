@@ -2559,6 +2559,24 @@
       if (game.status === 'Finalizado') {
         game.status = 'En Vivo';
       } else {
+        const awayTot = getBaseballTeamTotals(store, game, game.awayTeamId);
+        const homeTot = getBaseballTeamTotals(store, game, game.homeTeamId);
+        if (awayTot.runs === homeTot.runs) {
+          const nextExtraInn = Math.max((Number(game.regulationInnings || 9)) + 1, (Number(game.inning || 1)) + 1);
+          if (confirm(`⚠️ En el Baseball NO existen los empates (${awayTot.runs} - ${homeTot.runs}).\n\n¿Deseas avanzar a Extra Inning (▲ Entrada ${nextExtraInn}) para desempatar el partido?`)) {
+            game.inning = nextExtraInn;
+            game.half = 'top';
+            game.outs = 0;
+            game.balls = 0;
+            game.strikes = 0;
+            game.bases = { first: '', second: '', third: '' };
+            const nextId = game.nextBatterAwayId;
+            if (nextId) game.currentBatterId = nextId;
+            ensureCurrentBatterValid(store, game);
+            saveStore(store);
+          }
+          return;
+        }
         if (!confirm('¿Deseas finalizar oficialmente este partido de Baseball? La Pizarra OBS mostrará FINAL y el juego pasará al apartado de Últimos Juegos.')) {
           return;
         }
@@ -2985,7 +3003,7 @@
       if (bwSheet) {
         const winnerLabel = homeTot.runs > awayTot.runs
           ? `GANADOR: ${homeName.toUpperCase()} (${homeTot.runs}-${awayTot.runs})`
-          : (awayTot.runs > homeTot.runs ? `GANADOR: ${awayName.toUpperCase()} (${awayTot.runs}-${homeTot.runs})` : 'EMPATE');
+          : (awayTot.runs > homeTot.runs ? `GANADOR: ${awayName.toUpperCase()} (${awayTot.runs}-${homeTot.runs})` : 'EN DEFINICIÓN');
 
         bwSheet.innerHTML = `
           <div class="bw-header">

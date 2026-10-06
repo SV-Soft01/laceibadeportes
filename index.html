@@ -1289,8 +1289,26 @@
       if (!g) return;
 
       const newStatus = document.getElementById('editGameStatus').value;
-      if (newStatus === 'Finalizado' && g.status !== 'Finalizado') {
-        g.finishedAt = Date.now();
+      if (newStatus === 'Finalizado') {
+        const gSport = getGameSport(store, g);
+        if (gSport === 'baseball') {
+          const awayBb = getBaseballTeamTotals(store, g, awayTeamId);
+          const homeBb = getBaseballTeamTotals(store, g, homeTeamId);
+          if (awayBb.runs === homeBb.runs) {
+            alert('⚠️ En el Baseball NO existen los empates. El partido debe tener un ganador antes de marcarse como Finalizado.');
+            return;
+          }
+        } else {
+          const homeTotals = getTeamGameTotals(store, g, homeTeamId);
+          const awayTotals = getTeamGameTotals(store, g, awayTeamId);
+          if (homeTotals.pts === awayTotals.pts) {
+            alert('⚠️ En el Basketball NO existen los empates. El partido debe tener un ganador antes de marcarse como Finalizado.');
+            return;
+          }
+        }
+        if (g.status !== 'Finalizado') {
+          g.finishedAt = Date.now();
+        }
       }
       g.homeTeamId = homeTeamId;
       g.awayTeamId = awayTeamId;

@@ -1421,13 +1421,13 @@ function getBaseballWinnerSummary(store, game) {
     };
   }
   return {
-    winnerSide: 'tie',
-    winnerName: 'Empate',
-    winnerShort: 'EMP',
+    winnerSide: 'none',
+    winnerName: '',
+    winnerShort: '',
     loserName: '',
     winnerRuns: awayTot.runs,
     loserRuns: homeTot.runs,
-    summaryText: `🏁 FINAL EMPATADO (${awayTot.runs}-${homeTot.runs})`
+    summaryText: `⚾ JUEGO EN DEFINICIÓN (${awayTot.runs}-${homeTot.runs})`
   };
 }
 

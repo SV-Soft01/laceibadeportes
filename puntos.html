@@ -1421,12 +1421,27 @@
       const game = store.games.find(g => g.id === activeGameId);
       if (!game) return;
 
+      const home = store.teams.find(t => t.id === game.homeTeamId);
+      const away = store.teams.find(t => t.id === game.awayTeamId);
+      const currHome = getTeamGameTotals(store, game, game.homeTeamId);
+      const currAway = getTeamGameTotals(store, game, game.awayTeamId);
+
+      if (currHome.pts === currAway.pts) {
+        const nextOtPeriod = Math.max(5, (Number(game.period) || 4) + 1);
+        const nextOtLabel = getPeriodLabel(nextOtPeriod);
+        if (confirm(`⚠️ En el Baloncesto NO existen los empates (${currHome.pts} - ${currAway.pts}).\n\n¿Deseas iniciar Tiempo Extra (${nextOtLabel} de 05:00 min) para desempatar el partido?`)) {
+          recordPeriodCloseSnapshot(store, game);
+          game.period = nextOtPeriod;
+          game.clockSeconds = 300;
+          saveStore(store);
+        }
+        return;
+      }
+
       if (!confirm('¿Confirmas que deseas marcar el partido como FINALIZADO? La Pizarra OBS dirá FINAL, se cerrarán las anotaciones, el juego pasará al apartado de Últimos Juegos y se generará la Hoja de Resumen para descargar en PDF.')) {
         return;
       }
 
-      const home = store.teams.find(t => t.id === game.homeTeamId);
-      const away = store.teams.find(t => t.id === game.awayTeamId);
       const { homeTotals, awayTotals, periodLabel } = recordPeriodCloseSnapshot(store, game);
 
       game.status = 'Finalizado';
@@ -2523,7 +2538,7 @@
         <div class="summary-metric-box">
           <div class="label">⏱️ Tiempo Dominando (${escapeHtml(awayName)})</div>
           <div class="val" style="color:var(--accent-blue);">${formatSecondsMMSS(game.leadTimeAway || 0)} min</div>
-          <div class="sub">Empatados: ${formatSecondsMMSS(game.tiedTime || 0)} min</div>
+          <div class="sub">Liderando en el marcador</div>
         </div>
         <div class="summary-metric-box">
           <div class="label">📈 Mayor Ventaja ${escapeHtml(homeName)}</div>
@@ -2536,12 +2551,12 @@
           <div class="sub">${escapeHtml(game.biggestLeadAwayScore || 'Sin ventaja')}</div>
         </div>
         <div class="summary-metric-box">
-          <div class="label">🔄 Cambios de Líder / Empates</div>
-          <div class="val" style="color:#4ade80;">${game.leadChanges || 0} / ${game.timesTied || 0}</div>
+          <div class="label">🔄 Cambios de Líder</div>
+          <div class="val" style="color:#4ade80;">${game.leadChanges || 0}</div>
           <div class="sub">Alternancias en el marcador</div>
         </div>
         <div class="summary-metric-box">
-          <div class="label">⭐ MVP (${winningTeamId ? 'Equipo Ganador' : 'Partido Empatado'})</div>
+          <div class="label">⭐ MVP (${winningTeamId ? 'Equipo Ganador' : 'Destacado'})</div>
           <div class="val" style="font-size:1rem;">${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</div>
           <div class="sub">${mvpStats ? `${mvpStats.totalPts} PTS • ${mvpStats.totalReb} REB • ${mvpStats.ast} AST • VAL ${mvpStats.efficiency} (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}</div>
         </div>
@@ -2753,7 +2768,7 @@
 
       const winnerLabel = homeTotals.pts > awayTotals.pts
         ? `GANADOR: ${homeName.toUpperCase()}`
-        : (awayTotals.pts > homeTotals.pts ? `GANADOR: ${awayName.toUpperCase()}` : 'EMPATE');
+        : (awayTotals.pts > homeTotals.pts ? `GANADOR: ${awayName.toUpperCase()}` : 'EN DEFINICIÓN');
 
       sheet.innerHTML = `
         <div class="bw-header">
@@ -2799,17 +2814,17 @@
                   <th>DOMINIO ${escapeHtml(awayName)}</th>
                   <th>MAYOR VENTAJA LOCAL</th>
                   <th>MAYOR VENTAJA VISITA</th>
-                  <th>CAMBIOS LÍDER / EMPATES</th>
+                  <th>CAMBIOS DE LÍDER</th>
                   <th>MVP (EQUIPO GANADOR)</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><strong>${formatSecondsMMSS(game.leadTimeHome || 0)} min</strong></td>
-                  <td><strong>${formatSecondsMMSS(game.leadTimeAway || 0)} min</strong> (Emp: ${formatSecondsMMSS(game.tiedTime || 0)})</td>
+                  <td><strong>${formatSecondsMMSS(game.leadTimeAway || 0)} min</strong></td>
                   <td><strong>+${game.biggestLeadHome || 0} PTS</strong> (${escapeHtml(game.biggestLeadHomeScore || '-')})</td>
                   <td><strong>+${game.biggestLeadAway || 0} PTS</strong> (${escapeHtml(game.biggestLeadAwayScore || '-')})</td>
-                  <td><strong>${game.leadChanges || 0} / ${game.timesTied || 0}</strong></td>
+                  <td><strong>${game.leadChanges || 0}</strong></td>
                   <td>
                     <strong>${mvpPlayer ? `#${mvpPlayer.number} ${escapeHtml(mvpPlayer.name)}` : '-'}</strong>
                     ${mvpStats ? `<br/>${mvpStats.totalPts} PTS | ${mvpStats.totalReb} REB | ${mvpStats.ast} AST (${mvpTeam ? escapeHtml(mvpTeam.name) : ''})` : ''}
