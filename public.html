@@ -3158,6 +3158,35 @@
       }
     }
 
+    // Control de Teclado y Cierre de Modales
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
+
     window.addEventListener('storeUpdated', () => {
       renderPublicAll();
     });

@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Banner Matchup / Presentación OBS - Basketball</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* =========================================================================
+       MODO OBS TRANSPARENTE (?obs=1) -> FONDO 100% TRANSPARENTE
+       ========================================================================= */
+    body.obs-matchup-only {
+      background: transparent !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      min-height: auto !important;
+    }
+
+    body.obs-matchup-only .navbar,
+    body.obs-matchup-only .control-panel-wrapper {
+      display: none !important;
+    }
+
+    body.obs-matchup-only #obsTransparentStage {
+      display: flex !important;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      background: transparent !important;
+    }
+
+    #obsTransparentStage {
+      display: none;
+    }
+
+    /* =========================================================================
+       DISEÑO BROADCAST MATCHUP (ESTILO NBA 2K / ESPN: WAS vs MIL)
+       ========================================================================= */
+    .matchup-tv-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: stretch;
+      justify-content: center;
+      user-select: none;
+      font-family: 'Segoe UI', 'Roboto Condensed', 'Bahnschrift', 'Oswald', Arial, sans-serif;
+      filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85));
+      width: 980px;
+      height: 148px;
+      background: linear-gradient(180deg, #10141e 0%, #080a0f 100%);
+      border: 2px solid #232a3b;
+      border-radius: 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 10px 30px rgba(0, 0, 0, 0.9);
+      overflow: visible;
+    }
+
+    /* Barra superior de corte metálico */
+    .matchup-tv-wrapper::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: 30px;
+      right: 30px;
+      height: 6px;
+      background: linear-gradient(90deg, transparent 0%, #3b82f6 20%, #f59e0b 50%, #3b82f6 80%, transparent 100%);
+      border-radius: 4px 4px 0 0;
+      opacity: 0.85;
+    }
+
+    /* Tarjeta de Equipo (Izquierda y Derecha) */
+    .matchup-team-card {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: visible;
+      padding: 10px 18px;
+      gap: 16px;
+      box-sizing: border-box;
+    }
+
+    .matchup-team-left {
+      background: linear-gradient(90deg, var(--matchup-home-bg, #1a2238) 0%, rgba(13, 17, 27, 0.95) 100%);
+      border-radius: 10px 0 0 10px;
+      border-right: 2px solid rgba(0, 0, 0, 0.8);
+    }
+
+    .matchup-team-right {
+      background: linear-gradient(270deg, var(--matchup-away-bg, #26241b) 0%, rgba(13, 17, 27, 0.95) 100%);
+      border-radius: 0 10px 10px 0;
+      border-left: 2px solid rgba(0, 0, 0, 0.8);
+      flex-direction: row-reverse;
+    }
+
+    /* Badges 3D de los Logos de los Equipos (Sobresalen con relieve circular/escudo) */
+    .matchup-logo-badge {
+      width: 126px;
+      height: 126px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #2a344d 0%, #0d121e 80%, #05070c 100%);
+      border: 4px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 
+        0 10px 24px rgba(0, 0, 0, 0.75),
+        inset 0 3px 6px rgba(255, 255, 255, 0.35),
+        inset 0 -6px 12px rgba(0, 0, 0, 0.85),
+        0 0 18px var(--matchup-badge-glow, rgba(59, 130, 246, 0.45));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 5;
+      overflow: hidden;
+      margin-top: -6px;
+      transition: transform 0.2s ease;
+    }
+
+    .matchup-logo-badge img {
+      width: 88%;
+      height: 88%;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.65));
+      display: block;
+    }
+
+    .matchup-logo-badge svg {
+      width: 90%;
+      height: 90%;
+      display: block;
+    }
+
+    /* Columna de detalles del equipo (Récord G-P, Abreviatura y Marcador) */
+    .matchup-team-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      line-height: 1;
+    }
+
+    .matchup-team-left .matchup-team-details {
+      align-items: flex-start;
+    }
+
+    .matchup-team-right .matchup-team-details {
+      align-items: flex-end;
+    }
+
+    /* Píldora de Récord: Ganadas y Perdidas (0 - 0) */
+    .matchup-record-pill {
+      background: #090c13;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #e2e8f0;
+      font-size: 13.5px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      padding: 3px 12px;
+      border-radius: 20px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+      margin-bottom: 5px;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .matchup-team-abbr {
+      font-size: 46px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #ffffff;
+      line-height: 0.95;
+      text-shadow: 0 3px 8px rgba(0, 0, 0, 0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 190px;
+    }
+
+    /* Casilla de Puntaje en el juego */
+    .matchup-score-box {
+      font-size: 40px;
+      font-weight: 900;
+      color: #fde047;
+      line-height: 1;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 2px 8px rgba(253, 224, 71, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .matchup-score-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* PLACA CENTRAL: LOGO "LA CEIBA DEPORTES" + TORNEO / SEDE */
+    .matchup-center-plate {
+      width: 250px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      box-sizing: border-box;
+      background: radial-gradient(circle at center, #1b2334 0%, #0a0e17 85%);
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.75);
+    }
+
+    .matchup-center-card {
+      width: 100%;
+      height: 124px;
+      background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      border: 2px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 
+        0 6px 14px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 8px;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    /* Esquinas decorativas estilo TV broadcast */
+    .matchup-center-card::before,
+    .matchup-center-card::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-color: #64748b;
+      border-style: solid;
+    }
+    .matchup-center-card::before {
+      top: 3px;
+      left: 3px;
+      border-width: 2px 0 0 2px;
+    }
+    .matchup-center-card::after {
+      bottom: 3px;
+      right: 3px;
+      border-width: 0 2px 2px 0;
+    }
+
+    .matchup-center-logo-slot {
+      width: 66px;
+      height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 3px;
+    }
+
+    .matchup-center-logo-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+    }
+
+    .matchup-center-logo-slot svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+    }
+
+    .matchup-center-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      line-height: 1.1;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 215px;
+    }
+
+    .matchup-center-venue {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #475569;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      line-height: 1.1;
+      margin-top: 2px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 215px;
+    }
+
+    /* Animación de actualización de marcador */
+    .matchup-score-anim {
+      animation: matchupScorePop 0.45s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+
+    @keyframes matchupScorePop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.22); color: #4ade80; }
+      100% { transform: scale(1); }
+    }
+
+    /* =========================================================================
+       ESTILOS DEL PANEL DE CONTROL
+       ========================================================================= */
+    .preview-stage-box {
+      background: #000000;
+      background-image:
+        radial-gradient(circle at center, rgba(30, 41, 59, 0.35) 0%, rgba(0, 0, 0, 0.98) 100%),
+        repeating-linear-gradient(45deg, #070a12 0, #070a12 10px, #05070c 10px, #05070c 20px);
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+    }
+
+    .obs-url-box {
+      background: #070b14;
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .obs-url-input {
+      flex: 1;
+      min-width: 240px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #38bdf8;
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+    }
+
+    .team-editor-card {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================================
+       MODO OBS TRANSPARENTE (?obs=1)
+       ========================================================================= -->
+  <div id="obsTransparentStage">
+    <div id="obsMatchupMount"></div>
+  </div>
+
+  <!-- Barra de navegación (se oculta automáticamente en OBS) -->
+  <nav class="navbar no-print">
+    <a href="index.html" class="brand">
+      🏀 Basket & Baseball Stats <span class="badge-sport">Banner Matchup</span>
+    </a>
+    <div class="nav-links">
+      <span id="firebaseBadge" class="db-status">⏳ Firebase...</span>
+      <a href="index.html" class="nav-link">⚙️ Admin / Torneos</a>
+      <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
+      <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
+      <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="matchupbasket.html" class="nav-link active">🎬 Matchup Basket</a>
+      <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
+      <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
+      <a href="public.html" class="nav-link">📺 Vista Pública</a>
+    </div>
+  </nav>
+
+  <!-- =========================================================================
+       PANEL DE CONTROL DEL BANNER MATCHUP
+       ========================================================================= -->
+  <main class="container control-panel-wrapper">
+    <div class="page-header" style="margin-bottom:1rem;">
+      <div>
+        <h1 class="page-title">🎬 Banner TV de Presentación / Matchup (OBS)</h1>
+        <p class="page-subtitle">
+          Banner televisivo con los <strong>logos de los equipos</strong>, tu logo <strong>LA CEIBA DEPORTES</strong> en el centro, el récord de <strong>Ganadas y Perdidas (G - P)</strong> y el <strong>Puntaje en vivo</strong> del juego.
+        </p>
+      </div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <a href="pizarrabasket.html" class="btn btn-outline btn-sm">
+          🖥️ Ir a Pizarra Scorebug Basket
+        </a>
+      </div>
+    </div>
+
+    <!-- BARRA DE CONTEXTO: JUEGO CONECTADO O INDEPENDIENTE -->
+    <div class="card" style="padding:1rem 1.25rem; margin-bottom:1.25rem;">
+      <div id="selectorModeGameRow" class="hidden" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; flex:1;">
+          <span class="badge badge-live">🎯 CONECTADO AL JUEGO</span>
+          <strong id="linkedGameTitleLabel" style="font-size:1rem; color:var(--text-main);">Cargando juego...</strong>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <a id="btnGoToPuntos" href="puntos.html" class="btn btn-sm btn-primary">
+            🎯 Volver a Mesa de Puntos
+          </a>
+          <a href="matchupbasket.html" class="btn btn-sm btn-outline">
+            🕹️ Modo Independiente
+          </a>
+        </div>
+      </div>
+
+      <div id="selectorModeManualRow" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; flex:1;">
+          <label style="font-size:0.85rem; font-weight:800; color:var(--accent-blue);">🕹️ BANNER INDEPENDIENTE:</label>
+          <select id="selectManualBoard" style="width:auto; min-width:270px; font-weight:700;" onchange="onChangeManualBoard(this.value)"></select>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="createNewManualBoard()">
+            ➕ Nuevo Banner
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA PREVIA EN VIVO + ENLACE OBS -->
+    <div class="card" style="margin-bottom:1.25rem;">
+      <div class="card-header" style="margin-bottom:0.85rem;">
+        <div>
+          <h2 class="card-title">👁️ Vista Previa en Vivo (Idéntico en OBS)</h2>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            Se actualiza en tiempo real al instante. Puedes incrustar este banner en OBS Studio como Fuente de Navegador para la previa del juego, intermedio o descansos.
+          </p>
+        </div>
+        <span class="badge badge-live" id="liveSyncIndicator">🟢 Enlace en Vivo</span>
+      </div>
+
+      <!-- Escenario con el banner exacto -->
+      <div class="preview-stage-box">
+        <div id="previewMatchupMount"></div>
+      </div>
+
+      <!-- Enlace listo para OBS Browser Source -->
+      <div class="obs-url-box">
+        <div style="min-width:210px;">
+          <div style="font-size:0.82rem; font-weight:800; color:#60a5fa;">🔗 ENLACE PARA OBS STUDIO (Fuente de Navegador):</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">En OBS: Fuentes → <strong>+</strong> → <strong>Navegador</strong> → Pega este enlace (Ancho: <strong>1020</strong>, Alto: <strong>180</strong>)</div>
+        </div>
+        <input type="text" id="obsBrowserUrlInput" class="obs-url-input" readonly onclick="this.select()" />
+        <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="copyObsOverlayUrl()">
+            📋 Copiar Enlace OBS
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="openObsUrlPreviewTab()">
+            ↗️ Probar Vista OBS
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLES: EQUIPO 1, PLACA CENTRAL (LOGO CEIBA / TORNEO), EQUIPO 2 -->
+    <div class="grid-3" style="margin-bottom:1.25rem;">
+
+      <!-- TARJETA EQUIPO 1 (LOCAL / IZQUIERDA) -->
+      <div class="team-editor-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+          <strong style="color:var(--accent-orange); font-size:0.95rem;">🏠 EQUIPO 1 (Izquierda)</strong>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.5rem;">
+          <label class="form-label">Siglas / Nombre (Ej: WAS)</label>
+          <input type="text" id="ctrlHomeNameInput" placeholder="WAS" oninput="updateMatchupField('homeName', this.value)" />
+        </div>
+
+        <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom:0.5rem;">
+          <div>
+            <label class="form-label">🏆 Récord (G - P)</label>
+            <input type="text" id="ctrlHomeRecordInput" placeholder="0 - 0" oninput="updateMatchupField('homeRecord', this.value)" />
+          </div>
+          <div>
+            <label class="form-label">Color Fondo</label>
+            <input type="color" id="ctrlHomeColorInput" value="#1a2238" style="height:40px; padding:2px; cursor:pointer;" oninput="updateMatchupField('homeColor', this.value)" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.6rem;">
+          <label class="form-label">Puntaje en el Juego</label>
+          <div style="display:flex; gap:0.35rem; align-items:center;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="stepMatchupScore('home', -1)">-1</button>
+            <input type="number" id="ctrlHomeScoreInput" min="0" style="text-align:center; font-weight:900; font-size:1.1rem; width:70px; padding:0.3rem;" onchange="setMatchupScoreDirect('home', this.value)" />
+            <button type="button" class="btn btn-sm btn-green" onclick="stepMatchupScore('home', 1)">+1</button>
+            <button type="button" class="btn btn-sm btn-blue" onclick="stepMatchupScore('home', 2)">+2</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="stepMatchupScore('home', 3)">+3</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+          <label class="logo-upload-btn" style="flex:1;">
+            📁 Subir Logo Equipo
+            <input type="file" accept="image/*" style="display:none;" onchange="handleTeamLogoUpload(event, 'home')" />
+          </label>
+          <button type="button" class="btn btn-sm btn-outline" onclick="clearTeamLogo('home')">🗑️</button>
+        </div>
+      </div>
+
+      <!-- TARJETA PLACA CENTRAL: LOGO "LA CEIBA DEPORTES" + TORNEO + SEDE -->
+      <div class="team-editor-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+          <strong style="color:#60a5fa; font-size:0.95rem;">⭐ PLACA CENTRAL (Tu Logo)</strong>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.5rem;">
+          <label class="form-label">🏆 Título Central (Ej: JORNADA INAUGURAL)</label>
+          <input type="text" id="ctrlMatchupTitleInput" placeholder="JORNADA INAUGURAL" oninput="updateMatchupField('matchupTitle', this.value)" />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.65rem;">
+          <label class="form-label">📍 Sede / Cancha (Ej: FISERV FORUM)</label>
+          <input type="text" id="ctrlMatchupVenueInput" placeholder="FISERV FORUM" oninput="updateMatchupField('matchupVenue', this.value)" />
+        </div>
+
+        <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:0.65rem; margin-bottom:0.65rem; text-align:center;">
+          <div style="font-size:0.75rem; font-weight:800; color:var(--text-muted); margin-bottom:0.4rem;">LOGO CENTRAL ACTIVO:</div>
+          <div id="centerLogoPreviewSlot" style="width:55px; height:55px; margin:0 auto 0.4rem auto; display:flex; align-items:center; justify-content:center;"></div>
+          <div style="display:flex; gap:0.35rem; justify-content:center;">
+            <label class="btn btn-sm btn-primary" style="cursor:pointer; font-size:0.75rem;">
+              📁 Cambiar Logo Central
+              <input type="file" accept="image/*" style="display:none;" onchange="handleCenterLogoUpload(event)" />
+            </label>
+            <button type="button" class="btn btn-sm btn-outline" style="font-size:0.75rem;" onclick="resetCenterLogoToCeiba()" title="Restaurar Logo La Ceiba Deportes">
+              🔄 La Ceiba
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TARJETA EQUIPO 2 (VISITANTE / DERECHA) -->
+      <div class="team-editor-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+          <strong style="color:var(--accent-blue); font-size:0.95rem;">✈️ EQUIPO 2 (Derecha)</strong>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.5rem;">
+          <label class="form-label">Siglas / Nombre (Ej: MIL)</label>
+          <input type="text" id="ctrlAwayNameInput" placeholder="MIL" oninput="updateMatchupField('awayName', this.value)" />
+        </div>
+
+        <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-bottom:0.5rem;">
+          <div>
+            <label class="form-label">🏆 Récord (G - P)</label>
+            <input type="text" id="ctrlAwayRecordInput" placeholder="0 - 0" oninput="updateMatchupField('awayRecord', this.value)" />
+          </div>
+          <div>
+            <label class="form-label">Color Fondo</label>
+            <input type="color" id="ctrlAwayColorInput" value="#26241b" style="height:40px; padding:2px; cursor:pointer;" oninput="updateMatchupField('awayColor', this.value)" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.6rem;">
+          <label class="form-label">Puntaje en el Juego</label>
+          <div style="display:flex; gap:0.35rem; align-items:center;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="stepMatchupScore('away', -1)">-1</button>
+            <input type="number" id="ctrlAwayScoreInput" min="0" style="text-align:center; font-weight:900; font-size:1.1rem; width:70px; padding:0.3rem;" onchange="setMatchupScoreDirect('away', this.value)" />
+            <button type="button" class="btn btn-sm btn-green" onclick="stepMatchupScore('away', 1)">+1</button>
+            <button type="button" class="btn btn-sm btn-blue" onclick="stepMatchupScore('away', 2)">+2</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="stepMatchupScore('away', 3)">+3</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+          <label class="logo-upload-btn" style="flex:1;">
+            📁 Subir Logo Equipo
+            <input type="file" accept="image/*" style="display:none;" onchange="handleTeamLogoUpload(event, 'away')" />
+          </label>
+          <button type="button" class="btn btn-sm btn-outline" onclick="clearTeamLogo('away')">🗑️</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const DEVICE_MATCHUP_STORAGE_KEY = 'basket_device_matchup_id_v1';
+    const params = new URLSearchParams(window.location.search);
+    const isObsOverlayMode = params.get('obs') === '1';
+
+    const hasExplicitGameUrl = params.get('mode') === 'game' && Boolean(params.get('gameId'));
+    let currentMode = hasExplicitGameUrl ? 'game' : 'manual';
+    let currentGameId = hasExplicitGameUrl ? params.get('gameId') : '';
+    let currentBoardId = params.get('boardId') || localStorage.getItem(DEVICE_MATCHUP_STORAGE_KEY) || '';
+
+    if (isObsOverlayMode) {
+      document.body.classList.add('obs-matchup-only');
+    }
+
+    // =========================================================================
+    // LOGO "LA CEIBA DEPORTES" (VECTORIAL IDÉNTICO A LA FOTO DE ALTA CALIDAD)
+    // =========================================================================
+    const SVG_LOGO_LA_CEIBA = `
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="ceibaBgGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#0a2a5e"/>
+            <stop offset="65%" stop-color="#051228"/>
+            <stop offset="100%" stop-color="#020611"/>
+          </radialGradient>
+          <radialGradient id="ceibaBallGrad" cx="42%" cy="38%" r="58%">
+            <stop offset="0%" stop-color="#f97316"/>
+            <stop offset="60%" stop-color="#ea580c"/>
+            <stop offset="100%" stop-color="#9a3412"/>
+          </radialGradient>
+          <filter id="ceibaGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <path id="curveTopCeiba" d="M 28 100 A 72 72 0 0 1 172 100" fill="none" />
+          <path id="curveBottomCeiba" d="M 32 105 A 68 68 0 0 0 168 105" fill="none" />
+        </defs>
+
+        <!-- Anillo exterior azul eléctrico con brillo neón -->
+        <circle cx="100" cy="100" r="95" fill="none" stroke="#00c8ff" stroke-width="4.5" filter="url(#ceibaGlow)" opacity="0.95"/>
+        <circle cx="100" cy="100" r="92" fill="url(#ceibaBgGrad)" stroke="#1e3a8a" stroke-width="2"/>
+
+        <!-- Relámpagos de fondo eléctricos -->
+        <path d="M 18 80 L 38 95 L 30 102 L 50 120" stroke="#38bdf8" stroke-width="1.8" fill="none" opacity="0.75"/>
+        <path d="M 182 80 L 162 95 L 170 102 L 150 120" stroke="#38bdf8" stroke-width="1.8" fill="none" opacity="0.75"/>
+
+        <!-- Balón de baloncesto central -->
+        <circle cx="100" cy="100" r="44" fill="url(#ceibaBallGrad)" stroke="#0ea5e9" stroke-width="3" filter="url(#ceibaGlow)"/>
+
+        <!-- Líneas y costuras del balón -->
+        <path d="M 56 100 L 144 100" stroke="#1c1917" stroke-width="2.8" fill="none"/>
+        <path d="M 100 56 L 100 144" stroke="#1c1917" stroke-width="2.8" fill="none"/>
+        <path d="M 68 68 Q 100 100 68 132" stroke="#1c1917" stroke-width="2.6" fill="none"/>
+        <path d="M 132 68 Q 100 100 132 132" stroke="#1c1917" stroke-width="2.6" fill="none"/>
+
+        <!-- Texto superior: LA CEIBA (en arco blanco/crema) -->
+        <text font-family="'Arial Black', Impact, sans-serif" font-size="21" font-weight="900" fill="#f8fafc" letter-spacing="3.2">
+          <textPath href="#curveTopCeiba" startOffset="50%" text-anchor="middle">
+            LA CEIBA
+          </textPath>
+        </text>
+
+        <!-- Texto inferior: DEPORTES (en arco amarillo dorado) -->
+        <text font-family="'Arial Black', Impact, sans-serif" font-size="20" font-weight="900" fill="#fbbf24" letter-spacing="3.5">
+          <textPath href="#curveBottomCeiba" startOffset="50%" text-anchor="middle">
+            DEPORTES
+          </textPath>
+        </text>
+      </svg>
+    `;
+
+    const DEFAULT_SVG_HOME = `
+      <svg viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="55" cy="55" r="48" fill="#0c2340" stroke="#ffffff" stroke-width="4"/>
+        <path d="M 16 68 A 42 42 0 0 1 94 68" fill="none" stroke="#e31837" stroke-width="8"/>
+        <polygon points="55,16 60,30 74,30 63,39 67,53 55,44 43,53 47,39 36,30 50,30" fill="#c4ced4" stroke="#ffffff" stroke-width="1.5"/>
+        <rect x="50" y="52" width="10" height="34" fill="#ffffff"/>
+      </svg>
+    `;
+
+    const DEFAULT_SVG_AWAY = `
+      <svg viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 20 12 L 90 12 A 38 38 0 0 1 90 98 L 10 98 Z" fill="#002d62" stroke="#bec0c2" stroke-width="4"/>
+        <circle cx="72" cy="55" r="28" fill="#fdbb30" stroke="#002d62" stroke-width="3"/>
+        <path d="M 52 42 Q 72 55 92 42 M 52 68 Q 72 55 92 68 M 46 55 L 98 55 M 72 27 L 72 83" fill="none" stroke="#002d62" stroke-width="3"/>
+        <rect x="18" y="32" width="34" height="6" fill="#fdbb30"/>
+        <rect x="16" y="46" width="36" height="6" fill="#fdbb30"/>
+        <rect x="14" y="60" width="38" height="6" fill="#fdbb30"/>
+      </svg>
+    `;
+
+    function updateFirebaseBadge() {
+      const info = getFirebaseStatus();
+      const el = document.getElementById('firebaseBadge');
+      if (!el) return;
+      if (info.status === 'connected') {
+        el.className = 'db-status connected';
+        el.textContent = '🟢 Firebase Conectado';
+      } else if (info.status === 'permission_denied') {
+        el.className = 'db-status error';
+        el.textContent = '🔒 Reglas Firebase Bloqueadas';
+      } else {
+        el.className = 'db-status';
+        el.textContent = '⏳ Modo Local / Conectando';
+      }
+    }
+    window.addEventListener('firebaseStatusChanged', updateFirebaseBadge);
+
+    function ensureInitialSelection(store) {
+      if (!store.standaloneBoards) store.standaloneBoards = [];
+      if (currentMode === 'manual') {
+        let b = store.standaloneBoards.find(x => x.id === currentBoardId);
+        if (!b) {
+          b = store.standaloneBoards[0];
+          if (b) {
+            currentBoardId = b.id;
+          } else {
+            const newB = {
+              id: uid('board'),
+              tournamentName: 'TORNEO DE BALONCESTO',
+              matchupTitle: 'JORNADA INAUGURAL',
+              matchupVenue: 'FISERV FORUM',
+              homeName: 'WAS',
+              awayName: 'MIL',
+              homeColor: '#1a2238',
+              awayColor: '#26241b',
+              homeRecord: '0 - 0',
+              awayRecord: '0 - 0',
+              homeScore: 0,
+              awayScore: 0,
+              homeLogo: '',
+              awayLogo: '',
+              centerLogo: ''
+            };
+            store.standaloneBoards.unshift(newB);
+            currentBoardId = newB.id;
+            saveStore(store);
+          }
+        }
+      }
+    }
+
+    function computeTeamTournamentRecord(store, tournamentId, teamId) {
+      if (!tournamentId || !teamId) return '0 - 0';
+      const finishedGames = store.games.filter(g => g.tournamentId === tournamentId && g.status === 'Finalizado');
+      let wins = 0;
+      let losses = 0;
+      finishedGames.forEach(g => {
+        if (g.homeTeamId === teamId) {
+          const hTotals = getTeamGameTotals(store, g, g.homeTeamId);
+          const aTotals = getTeamGameTotals(store, g, g.awayTeamId);
+          if (hTotals.pts > aTotals.pts) wins += 1;
+          else if (hTotals.pts < aTotals.pts) losses += 1;
+        } else if (g.awayTeamId === teamId) {
+          const hTotals = getTeamGameTotals(store, g, g.homeTeamId);
+          const aTotals = getTeamGameTotals(store, g, g.awayTeamId);
+          if (aTotals.pts > hTotals.pts) wins += 1;
+          else if (aTotals.pts < hTotals.pts) losses += 1;
+        }
+      });
+      return `${wins} - ${losses}`;
+    }
+
+    function getMatchupViewModel(store) {
+      ensureInitialSelection(store);
+
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) {
+          return {
+            homeName: 'WAS',
+            awayName: 'MIL',
+            homeColor: '#1a2238',
+            awayColor: '#26241b',
+            homeRecord: '0 - 0',
+            awayRecord: '0 - 0',
+            homeScore: 0,
+            awayScore: 0,
+            homeLogo: '',
+            awayLogo: '',
+            centerLogo: '',
+            matchupTitle: 'JORNADA INAUGURAL',
+            matchupVenue: 'FISERV FORUM'
+          };
+        }
+
+        const tourney = store.tournaments.find(t => t.id === game.tournamentId);
+        const homeTeam = store.teams.find(t => t.id === game.homeTeamId);
+        const awayTeam = store.teams.find(t => t.id === game.awayTeamId);
+        const homeTotals = getTeamGameTotals(store, game, game.homeTeamId);
+        const awayTotals = getTeamGameTotals(store, game, game.awayTeamId);
+        const cfg = game.overlayConfig || {};
+
+        const autoHomeRec = computeTeamTournamentRecord(store, game.tournamentId, game.homeTeamId);
+        const autoAwayRec = computeTeamTournamentRecord(store, game.tournamentId, game.awayTeamId);
+
+        const computedHomeScore = Math.max(0, homeTotals.pts + Number(cfg.scoreOffsetHome || 0));
+        const computedAwayScore = Math.max(0, awayTotals.pts + Number(cfg.scoreOffsetAway || 0));
+
+        return {
+          homeName: cfg.homeName !== undefined ? cfg.homeName : (homeTeam ? (homeTeam.shortName || homeTeam.name) : 'WAS'),
+          awayName: cfg.awayName !== undefined ? cfg.awayName : (awayTeam ? (awayTeam.shortName || awayTeam.name) : 'MIL'),
+          homeColor: cfg.homeColor || (homeTeam && homeTeam.color) || '#1a2238',
+          awayColor: cfg.awayColor || (awayTeam && awayTeam.color) || '#26241b',
+          homeRecord: cfg.homeRecord !== undefined ? cfg.homeRecord : autoHomeRec,
+          awayRecord: cfg.awayRecord !== undefined ? cfg.awayRecord : autoAwayRec,
+          homeScore: computedHomeScore,
+          awayScore: computedAwayScore,
+          homeLogo: cfg.homeLogo || (homeTeam && homeTeam.logo) || '',
+          awayLogo: cfg.awayLogo || (awayTeam && awayTeam.logo) || '',
+          centerLogo: cfg.centerLogo || (store.centerLogo || ''),
+          matchupTitle: cfg.matchupTitle !== undefined ? cfg.matchupTitle : ((tourney && tourney.name) || 'JORNADA INAUGURAL'),
+          matchupVenue: cfg.matchupVenue !== undefined ? cfg.matchupVenue : (game.note || 'FISERV FORUM')
+        };
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId) || store.standaloneBoards[0];
+        return {
+          homeName: board.homeName || 'WAS',
+          awayName: board.awayName || 'MIL',
+          homeColor: board.homeColor || '#1a2238',
+          awayColor: board.awayColor || '#26241b',
+          homeRecord: board.homeRecord !== undefined ? board.homeRecord : '0 - 0',
+          awayRecord: board.awayRecord !== undefined ? board.awayRecord : '0 - 0',
+          homeScore: Number(board.homeScore || 0),
+          awayScore: Number(board.awayScore || 0),
+          homeLogo: board.homeLogo || '',
+          awayLogo: board.awayLogo || '',
+          centerLogo: board.centerLogo || (store.centerLogo || ''),
+          matchupTitle: board.matchupTitle !== undefined ? board.matchupTitle : (board.tournamentName || 'JORNADA INAUGURAL'),
+          matchupVenue: board.matchupVenue !== undefined ? board.matchupVenue : 'FISERV FORUM'
+        };
+      }
+    }
+
+    function updateMatchupMount(mountEl, vm) {
+      if (!mountEl) return;
+
+      if (!mountEl.querySelector('.matchup-tv-wrapper')) {
+        mountEl.innerHTML = `
+          <div class="matchup-tv-wrapper">
+            <!-- Equipo Izquierda (Local) -->
+            <div class="matchup-team-card matchup-team-left js-home-card">
+              <div class="matchup-logo-badge js-home-logo-badge"></div>
+              <div class="matchup-team-details">
+                <div class="matchup-record-pill js-home-record">0 - 0</div>
+                <div class="matchup-team-abbr js-home-abbr">WAS</div>
+                <div class="matchup-score-box">
+                  <span class="matchup-score-label">PTS</span>
+                  <span class="js-home-score-num">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Placa Central: Logo La Ceiba Deportes + Torneo / Sede -->
+            <div class="matchup-center-plate">
+              <div class="matchup-center-card">
+                <div class="matchup-center-logo-slot js-center-logo-slot"></div>
+                <div class="matchup-center-title js-matchup-title">JORNADA INAUGURAL</div>
+                <div class="matchup-center-venue js-matchup-venue">FISERV FORUM</div>
+              </div>
+            </div>
+
+            <!-- Equipo Derecha (Visitante) -->
+            <div class="matchup-team-card matchup-team-right js-away-card">
+              <div class="matchup-team-details">
+                <div class="matchup-record-pill js-away-record">0 - 0</div>
+                <div class="matchup-team-abbr js-away-abbr">MIL</div>
+                <div class="matchup-score-box">
+                  <span class="js-away-score-num">0</span>
+                  <span class="matchup-score-label">PTS</span>
+                </div>
+              </div>
+              <div class="matchup-logo-badge js-away-logo-badge"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 1. Equipo Izquierda
+      const homeCard = mountEl.querySelector('.js-home-card');
+      const homeBadge = mountEl.querySelector('.js-home-logo-badge');
+      const homeRecord = mountEl.querySelector('.js-home-record');
+      const homeAbbr = mountEl.querySelector('.js-home-abbr');
+      const homeScoreNum = mountEl.querySelector('.js-home-score-num');
+
+      homeCard.style.setProperty('--matchup-home-bg', vm.homeColor || '#1a2238');
+      homeBadge.style.setProperty('--matchup-badge-glow', `${vm.homeColor || '#3b82f6'}88`);
+      if (homeRecord.textContent !== vm.homeRecord) homeRecord.textContent = vm.homeRecord;
+      if (homeAbbr.textContent !== vm.homeName) homeAbbr.textContent = vm.homeName;
+      if (homeScoreNum.textContent !== String(vm.homeScore)) {
+        homeScoreNum.textContent = String(vm.homeScore);
+        homeScoreNum.classList.add('matchup-score-anim');
+        setTimeout(() => homeScoreNum.classList.remove('matchup-score-anim'), 500);
+      }
+
+      const homeLogoKey = vm.homeLogo || 'DEFAULT_HOME';
+      if (homeBadge.getAttribute('data-logo-key') !== homeLogoKey) {
+        homeBadge.setAttribute('data-logo-key', homeLogoKey);
+        homeBadge.innerHTML = vm.homeLogo ? `<img src="${vm.homeLogo}" alt="Logo Local" />` : DEFAULT_SVG_HOME;
+      }
+
+      // 2. Placa Central
+      const centerLogoSlot = mountEl.querySelector('.js-center-logo-slot');
+      const titleEl = mountEl.querySelector('.js-matchup-title');
+      const venueEl = mountEl.querySelector('.js-matchup-venue');
+
+      if (titleEl.textContent !== vm.matchupTitle) titleEl.textContent = vm.matchupTitle;
+      if (venueEl.textContent !== vm.matchupVenue) venueEl.textContent = vm.matchupVenue;
+
+      const centerLogoKey = vm.centerLogo || 'DEFAULT_CEIBA';
+      if (centerLogoSlot.getAttribute('data-logo-key') !== centerLogoKey) {
+        centerLogoSlot.setAttribute('data-logo-key', centerLogoKey);
+        centerLogoSlot.innerHTML = vm.centerLogo ? `<img src="${vm.centerLogo}" alt="Logo Central" />` : SVG_LOGO_LA_CEIBA;
+      }
+
+      // 3. Equipo Derecha
+      const awayCard = mountEl.querySelector('.js-away-card');
+      const awayBadge = mountEl.querySelector('.js-away-logo-badge');
+      const awayRecord = mountEl.querySelector('.js-away-record');
+      const awayAbbr = mountEl.querySelector('.js-away-abbr');
+      const awayScoreNum = mountEl.querySelector('.js-away-score-num');
+
+      awayCard.style.setProperty('--matchup-away-bg', vm.awayColor || '#26241b');
+      awayBadge.style.setProperty('--matchup-badge-glow', `${vm.awayColor || '#f59e0b'}88`);
+      if (awayRecord.textContent !== vm.awayRecord) awayRecord.textContent = vm.awayRecord;
+      if (awayAbbr.textContent !== vm.awayName) awayAbbr.textContent = vm.awayName;
+      if (awayScoreNum.textContent !== String(vm.awayScore)) {
+        awayScoreNum.textContent = String(vm.awayScore);
+        awayScoreNum.classList.add('matchup-score-anim');
+        setTimeout(() => awayScoreNum.classList.remove('matchup-score-anim'), 500);
+      }
+
+      const awayLogoKey = vm.awayLogo || 'DEFAULT_AWAY';
+      if (awayBadge.getAttribute('data-logo-key') !== awayLogoKey) {
+        awayBadge.setAttribute('data-logo-key', awayLogoKey);
+        awayBadge.innerHTML = vm.awayLogo ? `<img src="${vm.awayLogo}" alt="Logo Visitante" />` : DEFAULT_SVG_AWAY;
+      }
+    }
+
+    function renderAll() {
+      const store = loadStore();
+      const vm = getMatchupViewModel(store);
+
+      if (isObsOverlayMode) {
+        updateMatchupMount(document.getElementById('obsMatchupMount'), vm);
+        return;
+      }
+
+      updateObsGeneratedUrl();
+      updateMatchupMount(document.getElementById('previewMatchupMount'), vm);
+
+      document.getElementById('selectorModeGameRow').classList.toggle('hidden', currentMode !== 'game');
+      document.getElementById('selectorModeManualRow').classList.toggle('hidden', currentMode !== 'manual');
+
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        const hTeam = game ? store.teams.find(t => t.id === game.homeTeamId) : null;
+        const aTeam = game ? store.teams.find(t => t.id === game.awayTeamId) : null;
+        document.getElementById('linkedGameTitleLabel').textContent = game
+          ? `${hTeam ? hTeam.name : 'Local'} vs ${aTeam ? aTeam.name : 'Visitante'} • Marcador: ${vm.homeScore} - ${vm.awayScore}`
+          : 'Juego conectado';
+      } else {
+        const boardSel = document.getElementById('selectManualBoard');
+        boardSel.innerHTML = store.standaloneBoards.map((b, idx) =>
+          `<option value="${b.id}" ${b.id === currentBoardId ? 'selected' : ''}>Banner #${idx + 1}: ${escapeHtml(b.homeName)} vs ${escapeHtml(b.awayName)}</option>`
+        ).join('');
+      }
+
+      const activeEl = document.activeElement;
+      const setIfNotActive = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && activeEl !== el) el.value = val !== undefined ? val : '';
+      };
+
+      setIfNotActive('ctrlHomeNameInput', vm.homeName);
+      setIfNotActive('ctrlAwayNameInput', vm.awayName);
+      setIfNotActive('ctrlHomeColorInput', vm.homeColor);
+      setIfNotActive('ctrlAwayColorInput', vm.awayColor);
+      setIfNotActive('ctrlHomeRecordInput', vm.homeRecord);
+      setIfNotActive('ctrlAwayRecordInput', vm.awayRecord);
+      setIfNotActive('ctrlHomeScoreInput', vm.homeScore);
+      setIfNotActive('ctrlAwayScoreInput', vm.awayScore);
+      setIfNotActive('ctrlMatchupTitleInput', vm.matchupTitle);
+      setIfNotActive('ctrlMatchupVenueInput', vm.matchupVenue);
+
+      // Mini preview de logo central
+      const cSlot = document.getElementById('centerLogoPreviewSlot');
+      if (cSlot) {
+        cSlot.innerHTML = vm.centerLogo ? `<img src="${vm.centerLogo}" style="width:100%;height:100%;object-fit:contain;" />` : SVG_LOGO_LA_CEIBA;
+      }
+    }
+
+    function updateObsGeneratedUrl() {
+      const baseUrl = window.location.href.split('?')[0];
+      const query = currentMode === 'game'
+        ? `?obs=1&mode=game&gameId=${encodeURIComponent(currentGameId)}`
+        : `?obs=1&mode=manual&boardId=${encodeURIComponent(currentBoardId)}`;
+      const fullUrl = baseUrl + query;
+      const inputEl = document.getElementById('obsBrowserUrlInput');
+      if (inputEl) inputEl.value = fullUrl;
+    }
+
+    function copyObsOverlayUrl() {
+      const inputEl = document.getElementById('obsBrowserUrlInput');
+      if (!inputEl || !inputEl.value) return;
+      inputEl.select();
+      navigator.clipboard.writeText(inputEl.value).then(() => {
+        alert('✅ ¡Enlace del Banner Matchup copiado!\n\nEn OBS: Fuentes → (+) → Navegador → Pega este enlace.\nDimensiones sugeridas: Ancho 1020, Alto 180.');
+      }).catch(() => {
+        document.execCommand('copy');
+        alert('✅ ¡Enlace copiado al portapapeles!');
+      });
+    }
+
+    function openObsUrlPreviewTab() {
+      const inputEl = document.getElementById('obsBrowserUrlInput');
+      if (inputEl && inputEl.value) window.open(inputEl.value, '_blank');
+    }
+
+    function updateMatchupField(field, value) {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig[field] = value;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board[field] = value;
+      }
+      saveStore(store);
+    }
+
+    function stepMatchupScore(side, delta) {
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        const key = side === 'home' ? 'scoreOffsetHome' : 'scoreOffsetAway';
+        const totals = getTeamGameTotals(store, game, side === 'home' ? game.homeTeamId : game.awayTeamId);
+        const currentOffset = Number(game.overlayConfig[key] || 0);
+        const nextTotal = Math.max(0, totals.pts + currentOffset + delta);
+        game.overlayConfig[key] = nextTotal - totals.pts;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        const key = side === 'home' ? 'homeScore' : 'awayScore';
+        board[key] = Math.max(0, (board[key] || 0) + delta);
+      }
+      saveStore(store);
+    }
+
+    function setMatchupScoreDirect(side, val) {
+      const num = Math.max(0, parseInt(val, 10) || 0);
+      const store = loadStore();
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        const key = side === 'home' ? 'scoreOffsetHome' : 'scoreOffsetAway';
+        const totals = getTeamGameTotals(store, game, side === 'home' ? game.homeTeamId : game.awayTeamId);
+        game.overlayConfig[key] = num - totals.pts;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        const key = side === 'home' ? 'homeScore' : 'awayScore';
+        board[key] = num;
+      }
+      saveStore(store);
+    }
+
+    function handleTeamLogoUpload(event, side) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 280;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/png', 0.92);
+
+          const store = loadStore();
+          const field = side === 'home' ? 'homeLogo' : 'awayLogo';
+          if (currentMode === 'game') {
+            const game = store.games.find(g => g.id === currentGameId);
+            if (game) {
+              if (!game.overlayConfig) game.overlayConfig = {};
+              game.overlayConfig[field] = dataUrl;
+              const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+              const team = store.teams.find(t => t.id === teamId);
+              if (team) team.logo = dataUrl;
+            }
+          } else {
+            const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+            if (board) board[field] = dataUrl;
+          }
+          saveStore(store);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function handleCenterLogoUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 280;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/png', 0.92);
+
+          const store = loadStore();
+          store.centerLogo = dataUrl;
+          if (currentMode === 'game') {
+            const game = store.games.find(g => g.id === currentGameId);
+            if (game) {
+              if (!game.overlayConfig) game.overlayConfig = {};
+              game.overlayConfig.centerLogo = dataUrl;
+            }
+          } else {
+            const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+            if (board) board.centerLogo = dataUrl;
+          }
+          saveStore(store);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function resetCenterLogoToCeiba() {
+      const store = loadStore();
+      store.centerLogo = '';
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (game && game.overlayConfig) game.overlayConfig.centerLogo = '';
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (board) board.centerLogo = '';
+      }
+      saveStore(store);
+    }
+
+    function clearTeamLogo(side) {
+      const store = loadStore();
+      const field = side === 'home' ? 'homeLogo' : 'awayLogo';
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (game) {
+          if (!game.overlayConfig) game.overlayConfig = {};
+          game.overlayConfig[field] = '';
+          const teamId = side === 'home' ? game.homeTeamId : game.awayTeamId;
+          const team = store.teams.find(t => t.id === teamId);
+          if (team) team.logo = '';
+        }
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (board) board[field] = '';
+      }
+      saveStore(store);
+    }
+
+    function onChangeManualBoard(boardId) {
+      currentBoardId = boardId;
+      try { localStorage.setItem(DEVICE_MATCHUP_STORAGE_KEY, currentBoardId); } catch (e) {}
+      renderAll();
+    }
+
+    function createNewManualBoard() {
+      const store = loadStore();
+      const newB = {
+        id: uid('board'),
+        tournamentName: 'TORNEO DE BALONCESTO',
+        matchupTitle: 'JORNADA INAUGURAL',
+        matchupVenue: 'FISERV FORUM',
+        homeName: 'WAS',
+        awayName: 'MIL',
+        homeColor: '#1a2238',
+        awayColor: '#26241b',
+        homeRecord: '0 - 0',
+        awayRecord: '0 - 0',
+        homeScore: 0,
+        awayScore: 0,
+        homeLogo: '',
+        awayLogo: '',
+        centerLogo: ''
+      };
+      store.standaloneBoards.unshift(newB);
+      currentBoardId = newB.id;
+      try { localStorage.setItem(DEVICE_MATCHUP_STORAGE_KEY, currentBoardId); } catch (e) {}
+      saveStore(store);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Control de Teclado y Protección contra Clics Duplicados en Matchup
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
+
+    window.addEventListener('storeUpdated', renderAll);
+    renderAll();
+    updateFirebaseBadge();
+  </script>
+</body>
+</html>

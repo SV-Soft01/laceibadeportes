@@ -42,7 +42,8 @@ const INITIAL_STORE = {
   players: [],
   games: [],
   standaloneBoards: [],
-  standaloneBaseballBoards: []
+  standaloneBaseballBoards: [],
+  centerLogo: ''
 };
 
 const obsBroadcastChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('basket_obs_sync_v1') : null;
@@ -122,6 +123,12 @@ function normalizeStandaloneBoard(b) {
   copy.isFinal = Boolean(copy.isFinal);
   copy.clockUpdatedAt = Number(copy.clockUpdatedAt || Date.now());
   copy.activeBanner = copy.activeBanner && typeof copy.activeBanner === 'object' ? copy.activeBanner : null;
+  copy.activeFoulBanner = copy.activeFoulBanner && typeof copy.activeFoulBanner === 'object' ? copy.activeFoulBanner : null;
+  copy.homeRecord = copy.homeRecord !== undefined ? copy.homeRecord : '0 - 0';
+  copy.awayRecord = copy.awayRecord !== undefined ? copy.awayRecord : '0 - 0';
+  copy.matchupTitle = copy.matchupTitle !== undefined ? copy.matchupTitle : 'JORNADA INAUGURAL';
+  copy.matchupVenue = copy.matchupVenue !== undefined ? copy.matchupVenue : 'FISERV FORUM';
+  copy.centerLogo = copy.centerLogo || '';
   copy.createdAt = Number(copy.createdAt || Date.now());
   return copy;
 }
@@ -173,6 +180,7 @@ function normalizeStandaloneBaseballBoard(b) {
 }
 
 let lastKnownGamesSnapshot = {};
+let lastKnownStandaloneBoardsSnapshot = {};
 
 const BASKET_ADDITIVE_STAT_KEYS = [
   'pts1', 'miss1', 'pts2', 'miss2', 'pts3', 'miss3',
@@ -222,14 +230,29 @@ function buildGameSnapshotForDiff(g) {
 }
 
 function updateKnownSnapshotsFromStore(store) {
-  if (!store || !Array.isArray(store.games)) return;
-  const nextMap = {};
-  store.games.forEach(g => {
-    if (g && g.id) {
-      nextMap[g.id] = buildGameSnapshotForDiff(g);
-    }
-  });
-  lastKnownGamesSnapshot = nextMap;
+  if (!store) return;
+  if (Array.isArray(store.games)) {
+    const nextMap = {};
+    store.games.forEach(g => {
+      if (g && g.id) {
+        nextMap[g.id] = buildGameSnapshotForDiff(g);
+      }
+    });
+    lastKnownGamesSnapshot = nextMap;
+  }
+  if (Array.isArray(store.standaloneBoards)) {
+    const nextBoardMap = {};
+    store.standaloneBoards.forEach(b => {
+      if (b && b.id) {
+        nextBoardMap[b.id] = {
+          period: Number(b.period || 1),
+          clockRunning: Boolean(b.clockRunning),
+          clockSeconds: Number(b.clockSeconds || 0)
+        };
+      }
+    });
+    lastKnownStandaloneBoardsSnapshot = nextBoardMap;
+  }
 }
 
 function didGameHaveManualReduction(prevSnap, nextGame) {
@@ -502,20 +525,63 @@ function mergeGamePair(localGame, remoteGame) {
     merged.clockRunning = localGame.clockRunning;
     merged.clockSeconds = localGame.clockSeconds;
     merged.clockOwnerTabId = localGame.clockOwnerTabId;
+    merged.clockLastTickAt = localGame.clockLastTickAt;
     needsRepush = true;
   } else if (rClockRev > lClockRev) {
     merged.period = remoteGame.period;
     merged.clockRunning = remoteGame.clockRunning;
     merged.clockSeconds = remoteGame.clockSeconds;
     merged.clockOwnerTabId = remoteGame.clockOwnerTabId;
+    merged.clockLastTickAt = remoteGame.clockLastTickAt;
   } else {
-    // Mismo estado de reloj y período: si está corriendo, el tiempo solo baja (Math.min)
-    merged.period = remoteGame.period;
-    merged.clockRunning = remoteGame.clockRunning;
-    if (merged.clockRunning && localGame.period === remoteGame.period) {
-      merged.clockSeconds = Math.min(Number(localGame.clockSeconds || 0), Number(remoteGame.clockSeconds || 0));
-    } else {
+    // Mismo estado de revisión de reloj (_clockStateRev igual en ambos lados)
+    const lPeriod = Number(localGame.period || 1);
+    const rPeriod = Number(remoteGame.period || 1);
+
+    if (lPeriod > rPeriod) {
+      merged.period = lPeriod;
+      merged.clockRunning = localGame.clockRunning;
+      merged.clockSeconds = localGame.clockSeconds;
+      merged.clockOwnerTabId = localGame.clockOwnerTabId;
+      merged.clockLastTickAt = localGame.clockLastTickAt;
+      needsRepush = true;
+    } else if (rPeriod > lPeriod) {
+      merged.period = rPeriod;
+      merged.clockRunning = remoteGame.clockRunning;
       merged.clockSeconds = remoteGame.clockSeconds;
+      merged.clockOwnerTabId = remoteGame.clockOwnerTabId;
+      merged.clockLastTickAt = remoteGame.clockLastTickAt;
+    } else {
+      // Mismo período y misma revisión: transcurso normal del partido
+      merged.period = lPeriod;
+      merged.clockRunning = Boolean(localGame.clockRunning || remoteGame.clockRunning);
+
+      const lSec = typeof localGame.clockSeconds === 'number' ? localGame.clockSeconds : 600;
+      const rSec = typeof remoteGame.clockSeconds === 'number' ? remoteGame.clockSeconds : 600;
+      const lTick = Number(localGame.clockLastTickAt || 0);
+      const rTick = Number(remoteGame.clockLastTickAt || 0);
+
+      // Si la pestaña local es la dueña activa del segundero (ej. puntos.html ejecutando el segundero),
+      // su cuenta descendente local es la fuente de verdad y nunca retrocede por ecos de red.
+      if (localGame.clockOwnerTabId === CLIENT_TAB_ID) {
+        merged.clockSeconds = lSec;
+        merged.clockOwnerTabId = localGame.clockOwnerTabId;
+        merged.clockLastTickAt = Math.max(lTick, rTick);
+      } else if (remoteGame.clockOwnerTabId === CLIENT_TAB_ID) {
+        merged.clockSeconds = lSec;
+        merged.clockOwnerTabId = CLIENT_TAB_ID;
+        merged.clockLastTickAt = Math.max(lTick, rTick);
+      } else {
+        // En una pestaña receptora (ej. pizarrabasket.html en OBS):
+        // Durante la cuenta regresiva, el reloj NUNCA puede saltar hacia atrás a un número mayor
+        // (ej. de 24 a 26 o 25) debido a paquetes de Firebase desfasados.
+        // Siempre se toma el segundo menor (más avanzado en la cuenta regresiva).
+        merged.clockSeconds = Math.min(lSec, rSec);
+        merged.clockLastTickAt = Math.max(lTick, rTick);
+        merged.clockOwnerTabId = lTick >= rTick
+          ? (localGame.clockOwnerTabId || remoteGame.clockOwnerTabId)
+          : (remoteGame.clockOwnerTabId || localGame.clockOwnerTabId);
+      }
     }
   }
 
@@ -809,6 +875,8 @@ function scheduleFirebasePush(delayMs = 50) {
 function saveStore(store, options = {}) {
   const isClockTick = Boolean(options && options.isClockTick);
   const isManualEdit = Boolean(options && options.isManualEdit);
+  const isManualClockEdit = Boolean(options && options.isManualClockEdit);
+  const isClockPeriodChange = Boolean(options && options.isClockPeriodChange);
 
   const prevRev = Number((memoryStore && memoryStore._rev) || 0);
   const incomingRev = Number((store && store._rev) || 0);
@@ -831,11 +899,12 @@ function saveStore(store, options = {}) {
       }
 
       if (prevSnap) {
-        const clockDiff = Math.abs(Number(g.clockSeconds || 0) - Number(prevSnap.clockSeconds || 0));
+        // El estado del reloj solo cambia si se pausó/inició, cambió el período o se editó manualmente
         if (
           Boolean(g.clockRunning) !== Boolean(prevSnap.clockRunning) ||
           Number(g.period || 1) !== Number(prevSnap.period || 1) ||
-          clockDiff > 2
+          isManualClockEdit ||
+          isClockPeriodChange
         ) {
           g._clockStateRev = Number(g._clockStateRev || 0) + 1;
         }
@@ -847,7 +916,17 @@ function saveStore(store, options = {}) {
     if (Array.isArray(normalized.standaloneBoards)) {
       normalized.standaloneBoards.forEach(b => {
         b._boardRev = Number(b._boardRev || 0) + 1;
-        b._clockRev = Number(b._clockRev || 0) + 1;
+        const prevBSnap = lastKnownStandaloneBoardsSnapshot[b.id];
+        if (
+          isManualClockEdit ||
+          isClockPeriodChange ||
+          (prevBSnap && (
+            Boolean(b.clockRunning) !== Boolean(prevBSnap.clockRunning) ||
+            Number(b.period || 1) !== Number(prevBSnap.period || 1)
+          ))
+        ) {
+          b._clockRev = Number(b._clockRev || 0) + 1;
+        }
       });
     }
     if (Array.isArray(normalized.standaloneBaseballBoards)) {

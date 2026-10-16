@@ -505,6 +505,7 @@
       <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
       <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
       <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="matchupbasket.html" class="nav-link">🎬 Matchup Basket</a>
       <a href="baseball.html" class="nav-link active">⚾ Anotar Baseball</a>
       <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
       <a href="public.html" class="nav-link">📺 Vista Pública</a>
@@ -3141,6 +3142,45 @@
         window.print();
       }
     }
+
+    // =========================================================
+    // CONTROL DE TECLADO Y PROTECCIÓN CONTRA CLICS DUPLICADOS
+    // =========================================================
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+
+      // Evitar que la barra espaciadora active botones enfocados o cause scroll accidental
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        return;
+      }
+
+      // Tecla Escape: Cerrar modales abiertos
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque para evitar activaciones no deseadas por teclado
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
 
     // Si viene con gameId en el store activo o URL, cargarlo
     (function initBaseballPage() {

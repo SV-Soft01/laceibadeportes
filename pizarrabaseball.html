@@ -871,6 +871,7 @@
       <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
       <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
       <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="matchupbasket.html" class="nav-link">🎬 Matchup Basket</a>
       <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
       <a href="pizarrabaseball.html" class="nav-link active">🖥️ Pizarra Baseball</a>
       <a href="public.html" class="nav-link">📺 Vista Pública</a>
@@ -2557,6 +2558,39 @@
         window.open(input.value, '_blank', 'width=1060,height=280');
       }
     }
+
+    // Control de Teclado y Protección contra Clics Duplicados en Pizarra Baseball
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
 
     window.addEventListener('storeUpdated', renderBbOverlayEverything);
     renderBbOverlayEverything();

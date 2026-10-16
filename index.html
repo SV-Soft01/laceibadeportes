@@ -21,6 +21,7 @@
       <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
       <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
       <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="matchupbasket.html" class="nav-link">🎬 Matchup Basket</a>
       <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
       <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
       <a href="public.html" class="nav-link">📺 Vista Pública</a>
@@ -863,6 +864,7 @@
                   <button class="btn btn-sm btn-primary" onclick="goToGamePage('${g.id}', 'puntos.html')">🎯 Puntos</button>
                   <button class="btn btn-sm btn-blue" onclick="goToGamePage('${g.id}', 'ra.html')">📊 R&A</button>
                   <button class="btn btn-sm btn-outline" onclick="goToGamePage('${g.id}', 'pizarrabasket.html?mode=game&gameId=${g.id}')">🎥 Pizarra OBS</button>
+                  <button class="btn btn-sm btn-outline" style="border-color:#38bdf8; color:#38bdf8;" onclick="goToGamePage('${g.id}', 'matchupbasket.html?mode=game&gameId=${g.id}')">🎬 Matchup OBS</button>
                   <button class="btn btn-sm btn-outline" onclick="goToGamePage('${g.id}', 'public.html')">📺 Público</button>
                   <button class="btn btn-sm btn-outline" title="Editar Juego" onclick="openEditGameModal('${g.id}')">✏️</button>
                   <button class="btn btn-sm btn-red" title="Eliminar Juego" onclick="deleteGame('${g.id}')">🗑️</button>
@@ -1354,6 +1356,35 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    // Control de Teclado y Cierre de Modales
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
 
     window.addEventListener('storeUpdated', renderAll);
     renderAll();

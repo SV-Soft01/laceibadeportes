@@ -216,6 +216,7 @@
       <a href="puntos.html" class="nav-link active">🎯 Puntos (Basket)</a>
       <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
       <a href="pizarrabasket.html" class="nav-link">🖥️ Pizarra Basket</a>
+      <a href="matchupbasket.html" class="nav-link">🎬 Matchup Basket</a>
       <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
       <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
       <a href="public.html" class="nav-link">📺 Vista Pública</a>
@@ -295,6 +296,9 @@
           <div id="scorerExtraActionsToolbar" class="scorer-actions-toolbar">
             <button class="btn btn-sm btn-primary" onclick="openObsOverlayFromScorer()" title="Abrir y editar la Pizarra de este juego para OBS">
               🎥 Abrir Pizarra
+            </button>
+            <button class="btn btn-sm btn-outline" style="border-color:#38bdf8; color:#38bdf8;" onclick="openMatchupOverlayFromScorer()" title="Abrir y editar el Banner Matchup de este juego para OBS">
+              🎬 Banner Matchup
             </button>
             <button class="btn btn-sm btn-purple" onclick="openSelectStartersModal()">
               ⭐ Elegir 5 Titulares
@@ -984,6 +988,9 @@
             <a href="pizarrabasket.html?mode=game&gameId=${encodeURIComponent(g.id)}" target="_blank" class="btn btn-outline" style="border-color:var(--accent-orange); color:var(--accent-orange);" title="Abrir la Pizarra conectada a este juego para OBS">
               🎥 Abrir Pizarra
             </a>
+            <a href="matchupbasket.html?mode=game&gameId=${encodeURIComponent(g.id)}" target="_blank" class="btn btn-outline" style="border-color:#38bdf8; color:#38bdf8;" title="Abrir el Banner Matchup de este juego para OBS">
+              🎬 Matchup
+            </a>
           </div>
         </div>
       `;
@@ -992,6 +999,11 @@
     function openObsOverlayFromScorer() {
       if (!activeGameId) return;
       window.open(`pizarrabasket.html?mode=game&gameId=${encodeURIComponent(activeGameId)}`, '_blank');
+    }
+
+    function openMatchupOverlayFromScorer() {
+      if (!activeGameId) return;
+      window.open(`matchupbasket.html?mode=game&gameId=${encodeURIComponent(activeGameId)}`, '_blank');
     }
 
     function renderSelectGameScreen() {
@@ -1236,8 +1248,13 @@
     // Contabiliza tiempo jugado y minutos dominando de cada equipo
     // =========================================================
     let localClockLastTickMs = 0;
+    let lastClockToggleTime = 0;
 
     function toggleGameClock() {
+      const now = Date.now();
+      if (now - lastClockToggleTime < 350) return;
+      lastClockToggleTime = now;
+
       const store = loadStore();
       const game = store.games.find(g => g.id === activeGameId);
       if (!game) return;
@@ -1263,6 +1280,7 @@
         game.status = 'En Vivo';
         game.clockRunning = true;
         game.clockOwnerTabId = CLIENT_TAB_ID;
+        game.clockLastTickAt = Date.now();
         localClockLastTickMs = Date.now();
         saveStore(store);
         startLocalClockInterval();
@@ -1285,8 +1303,15 @@
         if (now - localClockLastTickMs < 980) {
           return;
         }
+
+        // Si otra pestaña ya está descontando activamente el reloj (< 2.5s), evitar doble conteo
+        if (game.clockOwnerTabId && game.clockOwnerTabId !== CLIENT_TAB_ID && (now - (game.clockLastTickAt || 0) < 2500)) {
+          return;
+        }
+
         localClockLastTickMs = now;
         game.clockOwnerTabId = CLIENT_TAB_ID;
+        game.clockLastTickAt = now;
 
         if ((game.clockSeconds || 0) > 0) {
           game.clockSeconds -= 1;
@@ -1332,6 +1357,7 @@
       const game = store.games.find(g => g.id === activeGameId);
       if (game) {
         game.clockRunning = false;
+        game.clockLastTickAt = Date.now();
         saveStore(store);
       }
     }
@@ -1379,13 +1405,17 @@
       if (game.period < 4) {
         game.period += 1;
         game.clockSeconds = 600;
-        saveStore(store);
+        game.clockRunning = false;
+        game.clockLastTickAt = Date.now();
+        saveStore(store, { isClockPeriodChange: true });
         alert(`🏁 Fin de ${periodLabel}.\nMarcador: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}.\n\nIniciando ${getPeriodLabel(game.period)} (10:00 min).`);
       } else {
         if (homeTotals.pts === awayTotals.pts) {
           game.period += 1;
           game.clockSeconds = 300;
-          saveStore(store);
+          game.clockRunning = false;
+          game.clockLastTickAt = Date.now();
+          saveStore(store, { isClockPeriodChange: true });
           alert(`🔥 ¡EMPATE ${homeTotals.pts} - ${awayTotals.pts} al finalizar ${periodLabel}!\n\nSe pasa a Tiempo Extra (${getPeriodLabel(game.period)}) de 05:00 minutos.`);
         } else {
           // Termina el partido -> se cierra anotación, se envía a Últimos Juegos, la pizarra dice FINAL y se abre la hoja de resumen oficial
@@ -1393,7 +1423,7 @@
           game.finishedAt = Date.now();
           if (!game.overlayConfig) game.overlayConfig = {};
           game.overlayConfig.isFinal = true;
-          saveStore(store);
+          saveStore(store, { isClockPeriodChange: true, isManualClockEdit: true });
           alert(`🏆 ¡Partido Finalizado (${periodLabel})!\nMarcador Final: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}\n\nLa Pizarra OBS ahora muestra FINAL, el juego se movió al apartado de Últimos Juegos y se abrirá la Hoja de Resumen Oficial.`);
           openGameSummarySheet();
         }
@@ -1433,7 +1463,7 @@
           recordPeriodCloseSnapshot(store, game);
           game.period = nextOtPeriod;
           game.clockSeconds = 300;
-          saveStore(store);
+          saveStore(store, { isClockPeriodChange: true });
         }
         return;
       }
@@ -1458,7 +1488,7 @@
         `Resultado Final: ${home ? home.name : 'Local'} ${homeTotals.pts} - ${awayTotals.pts} ${away ? away.name : 'Visitante'}`
       );
 
-      saveStore(store);
+      saveStore(store, { isClockPeriodChange: true, isManualClockEdit: true });
       openGameSummarySheet();
     }
 
@@ -1470,7 +1500,7 @@
 
       game.status = 'En Vivo';
       if (game.overlayConfig) game.overlayConfig.isFinal = false;
-      saveStore(store);
+      saveStore(store, { isClockPeriodChange: true });
     }
 
     function openEditClockModal() {
@@ -1498,7 +1528,8 @@
 
       game.clockSeconds = Math.max(0, min * 60 + sec);
       game.period = period;
-      saveStore(store);
+      game.clockLastTickAt = Date.now();
+      saveStore(store, { isManualClockEdit: true });
       closeModal('modalEditClock');
     });
 
@@ -1634,6 +1665,25 @@
         stopLocalClockInterval();
         game.clockRunning = false;
       }
+
+      if (!game.overlayConfig) game.overlayConfig = {};
+      const isExpelled = Boolean(updatedStats.isFouledOut);
+      const foulDisplayType = foulType === 'tf' ? 'Falta Técnica' : (foulType === 'of' ? 'Falta Ofensiva' : 'Falta Personal');
+      game.overlayConfig.activeFoulBanner = {
+        id: uid('foul'),
+        playerName: `#${player.number} ${player.name}`,
+        teamName: team ? (team.shortName || team.name) : '',
+        teamColor: team ? (team.color || '#f97316') : '#f97316',
+        foulType,
+        foulTypeName: foulDisplayType,
+        totalFouls: updatedStats.totalFouls,
+        tfCount: updatedStats.tf,
+        countText: `${updatedStats.totalFouls}/5 Faltas${updatedStats.tf > 0 ? ` (${updatedStats.tf} TF)` : ''}`,
+        isExpelled,
+        expelledReason: updatedStats.fouledOutReason || (isExpelled ? 'Expulsión' : ''),
+        triggeredAt: Date.now(),
+        durationMs: isExpelled ? 8000 : 5500
+      };
 
       saveStore(store);
 
@@ -3019,6 +3069,49 @@
       }, { passive: false });
       window.addEventListener('touchend', endDrag);
     }
+
+    // =========================================================
+    // CONTROL DE TECLADO Y PROTECCIÓN CONTRA CLICS DUPLICADOS
+    // =========================================================
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+
+      // Barra Espaciadora: Iniciar / Pausar Reloj
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault(); // Evitar scroll de la página y activación accidental de botones enfocados
+        if (e.repeat) return; // Evitar que mantener pulsada la tecla dispare repetidamente
+        if (currentScreen === 'scorer') {
+          toggleGameClock();
+        }
+        return;
+      }
+
+      // Tecla Escape: Cerrar modales abiertos
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque para evitar que la barra espaciadora active el botón enfocado
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
 
     window.addEventListener('storeUpdated', () => {
       renderAllScreens();

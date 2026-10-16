@@ -411,6 +411,132 @@
     }
 
     /* =========================================================================
+       CINTILLO PEQUEÑO DE FALTAS Y EXPULSIÓN DEBAJO DE LA PIZARRA
+       ========================================================================= */
+    .tv-foul-cintillo-clip {
+      width: 526px;
+      overflow: hidden;
+      margin-top: 4px;
+      position: relative;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .tv-foul-cintillo {
+      background: linear-gradient(90deg, #0e121b 0%, #161c28 55%, #0b0d13 100%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-left: 5px solid #f59e0b;
+      height: 38px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px 0 9px;
+      transform: translateY(-115%);
+      opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.75);
+      border-radius: 0 0 6px 6px;
+    }
+
+    .tv-foul-cintillo.cintillo-show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .tv-foul-cintillo.cintillo-expelled {
+      border-left-color: #ef4444 !important;
+      background: linear-gradient(90deg, #3d0c15 0%, #1c0e14 55%, #0a060a 100%);
+      animation: foulExpelledPulse 1.1s infinite alternate;
+    }
+
+    @keyframes foulExpelledPulse {
+      0% { border-color: rgba(239, 68, 68, 0.6); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+      100% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 22px rgba(239, 68, 68, 0.85); }
+    }
+
+    .tv-foul-icon-box {
+      font-size: 17px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .tv-foul-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tv-foul-player {
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+
+    .tv-foul-type-badge {
+      background: #f59e0b;
+      color: #0b0c10;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .tv-foul-type-badge.badge-of {
+      background: #f97316;
+      color: #ffffff;
+    }
+
+    .tv-foul-type-badge.badge-tf {
+      background: #06b6d4;
+      color: #042f2e;
+    }
+
+    .tv-foul-count {
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    .tv-foul-expelled-badge {
+      display: none;
+      background: #dc2626;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #fecaca;
+      box-shadow: 0 0 10px rgba(220, 38, 38, 0.7);
+      flex-shrink: 0;
+    }
+
+    .tv-foul-cintillo.cintillo-expelled .tv-foul-expelled-badge {
+      display: inline-block;
+    }
+
+    /* =========================================================================
        ESTILOS DEL PANEL DE CONTROL Y PREVISUALIZACIÓN
        ========================================================================= */
     .preview-stage-box {
@@ -508,6 +634,7 @@
       <a href="puntos.html" class="nav-link">🎯 Puntos (Basket)</a>
       <a href="ra.html" class="nav-link">📊 R&A (Basket)</a>
       <a href="pizarrabasket.html" class="nav-link active">🖥️ Pizarra Basket</a>
+      <a href="matchupbasket.html" class="nav-link">🎬 Matchup Basket</a>
       <a href="baseball.html" class="nav-link">⚾ Anotar Baseball</a>
       <a href="pizarrabaseball.html" class="nav-link">🖥️ Pizarra Baseball</a>
       <a href="public.html" class="nav-link">📺 Vista Pública</a>
@@ -639,6 +766,66 @@
           ⚡ DESPLEGAR MEJORES ESTADÍSTICAS DE UN JUGADOR DEL PARTIDO (También puedes hacerlo desde Puntos.html):
         </div>
         <div id="gamePlayersQuickBannerList" style="display:flex; gap:0.45rem; flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         CINTILLO DE FALTAS Y EXPULSIÓN (DEBAJO DE LA PIZARRA EN OBS)
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem; border-color:rgba(239, 68, 68, 0.4);">
+      <div class="card-header" style="margin-bottom:0.75rem;">
+        <div>
+          <h3 class="card-title">🚨 Cintillo de Faltas y Expulsión (Debajo de la Pizarra)</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            Cuando se marca una falta en <strong>Puntos (Basket)</strong>, este cintillo aparece automáticamente debajo de la pizarra indicando el jugador, tipo de falta (Personal, Ofensiva o Técnica) y cuántas lleva en el juego. Si son 5 faltas o 2 técnicas, muestra <strong>🚫 EXPULSIÓN</strong> en rojo. También puedes probarlo manualmente aquí:
+          </p>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px;">
+          <label class="form-label" style="margin-bottom:0.25rem;">👤 Jugador para Prueba</label>
+          <input type="text" id="testFoulPlayerInput" value="#23 CARLOS MENDOZA" placeholder="Ej: #23 CARLOS MENDOZA" />
+        </div>
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:flex-end;">
+          <button type="button" class="btn btn-sm btn-outline" style="height:41px;" onclick="triggerTestFoulBanner('pf', 3, false, '')">
+            🟡 Probar Personal (3/5)
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" style="height:41px; border-color:#f97316; color:#f97316;" onclick="triggerTestFoulBanner('of', 2, false, '')">
+            🟠 Probar Ofensiva (OF)
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" style="height:41px; border-color:#06b6d4; color:#38bdf8;" onclick="triggerTestFoulBanner('tf', 1, false, '')">
+            🔵 Probar Técnica (1 TF)
+          </button>
+          <button type="button" class="btn btn-sm btn-red" style="height:41px;" onclick="triggerTestFoulBanner('pf', 5, true, '5 Faltas Acumuladas')">
+            🚫 Probar Expulsión (5 Faltas)
+          </button>
+          <button type="button" class="btn btn-sm btn-red" style="height:41px;" onclick="triggerTestFoulBanner('tf', 2, true, '2 Faltas Técnicas')">
+            🚫 Probar Expulsión (2 Técnicas)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         BANNER DE PRESENTACIÓN / MATCHUP CON LOGOS Y RÉCORD G-P
+         ========================================================================= -->
+    <div class="card" style="margin-bottom:1.25rem; border-color:rgba(59, 130, 246, 0.45); background:linear-gradient(180deg, rgba(15,23,42,0.6) 0%, rgba(11,15,25,0.9) 100%);">
+      <div class="card-header" style="margin-bottom:0.75rem;">
+        <div>
+          <h3 class="card-title">🎬 Banner TV de Presentación / Matchup (Logos, Récord G-P y Marcador)</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            Overlay con los <strong>logos grandes de los equipos</strong>, tu logo <strong>LA CEIBA DEPORTES</strong> en el centro, el récord <strong>(G - P)</strong> y el puntaje en vivo.
+          </p>
+        </div>
+        <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="openMatchupPageFromPizarra()">
+            🎬 Abrir Banner Matchup
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="copyMatchupUrlFromPizarra()">
+            📋 Copiar Enlace OBS Matchup
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1086,7 +1273,8 @@
           clockSeconds: typeof game.clockSeconds === 'number' ? game.clockSeconds : 600,
           clockRunning: Boolean(game.clockRunning),
           isFinal: gameIsFinal,
-          activeBanner: getActiveBannerIfValid(cfg.activeBanner)
+          activeBanner: getActiveBannerIfValid(cfg.activeBanner),
+          activeFoulBanner: getActiveBannerIfValid(cfg.activeFoulBanner)
         };
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId) || store.standaloneBoards[0];
@@ -1111,7 +1299,8 @@
           clockSeconds: typeof board.clockSeconds === 'number' ? board.clockSeconds : 600,
           clockRunning: Boolean(board.clockRunning),
           isFinal: Boolean(board.isFinal),
-          activeBanner: getActiveBannerIfValid(board.activeBanner)
+          activeBanner: getActiveBannerIfValid(board.activeBanner),
+          activeFoulBanner: getActiveBannerIfValid(board.activeFoulBanner)
         };
       }
     }
@@ -1184,6 +1373,19 @@
                   <span class="tv-strip-player-name js-strip-player"></span>
                   <div class="tv-strip-stats js-strip-stats"></div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Cintillo Pequeño de Faltas Debajo de la Pizarra -->
+            <div class="tv-foul-cintillo-clip">
+              <div class="tv-foul-cintillo js-foul-cintillo">
+                <div class="tv-foul-icon-box js-foul-icon-box">⚠️</div>
+                <div class="tv-foul-info">
+                  <span class="tv-foul-player js-foul-player"></span>
+                  <span class="tv-foul-type-badge js-foul-type-badge"></span>
+                  <span class="tv-foul-count js-foul-count"></span>
+                </div>
+                <div class="tv-foul-expelled-badge js-foul-expelled-badge">🚫 EXPULSIÓN</div>
               </div>
             </div>
           </div>
@@ -1345,8 +1547,47 @@
       } else {
         sideStrip.classList.remove('strip-open');
       }
+
+      // 6. Cintillo de Faltas y Expulsión debajo de la Pizarra
+      const foulCintillo = mountEl.querySelector('.js-foul-cintillo');
+      const foulIconBox = mountEl.querySelector('.js-foul-icon-box');
+      const foulPlayerEl = mountEl.querySelector('.js-foul-player');
+      const foulBadgeEl = mountEl.querySelector('.js-foul-type-badge');
+      const foulCountEl = mountEl.querySelector('.js-foul-count');
+      const foulExpelledEl = mountEl.querySelector('.js-foul-expelled-badge');
+
+      if (foulCintillo) {
+        const fb = vm.activeFoulBanner;
+        if (fb) {
+          foulCintillo.style.borderLeftColor = fb.teamColor || '#f59e0b';
+          if (foulPlayerEl.textContent !== fb.playerName) foulPlayerEl.textContent = fb.playerName;
+
+          foulBadgeEl.textContent = fb.foulTypeName || 'FALTA PERSONAL';
+          foulBadgeEl.className = `tv-foul-type-badge ${fb.foulType === 'tf' ? 'badge-tf' : (fb.foulType === 'of' ? 'badge-of' : '')}`;
+
+          if (foulCountEl.textContent !== (fb.countText || '')) foulCountEl.textContent = fb.countText || '';
+
+          if (fb.isExpelled) {
+            foulCintillo.classList.add('cintillo-expelled');
+            foulIconBox.textContent = '🚫';
+            const expText = fb.expelledReason ? `🚫 EXPULSIÓN (${fb.expelledReason})` : '🚫 EXPULSIÓN (5 Faltas)';
+            if (foulExpelledEl.textContent !== expText) foulExpelledEl.textContent = expText;
+          } else {
+            foulCintillo.classList.remove('cintillo-expelled');
+            foulIconBox.textContent = '⚠️';
+          }
+
+          if (!foulCintillo.classList.contains('cintillo-show')) {
+            void foulCintillo.offsetWidth;
+            foulCintillo.classList.add('cintillo-show');
+          }
+        } else {
+          foulCintillo.classList.remove('cintillo-show', 'cintillo-expelled');
+        }
+      }
     }
 
+    let foulHideTimer = null;
     function scheduleBannerAutoHideIfNeeded(vm) {
       if (bannerHideTimer) {
         clearTimeout(bannerHideTimer);
@@ -1356,6 +1597,16 @@
         bannerHideTimer = setTimeout(() => {
           renderAll();
         }, vm.activeBanner.remainingMs + 40);
+      }
+
+      if (foulHideTimer) {
+        clearTimeout(foulHideTimer);
+        foulHideTimer = null;
+      }
+      if (vm.activeFoulBanner && vm.activeFoulBanner.remainingMs) {
+        foulHideTimer = setTimeout(() => {
+          renderAll();
+        }, vm.activeFoulBanner.remainingMs + 40);
       }
     }
 
@@ -1623,6 +1874,70 @@
     }
 
     // =========================================================================
+    // LANZAR CINTILLO DE FALTA MANUAL / PRUEBA Y ENLACE MATCHUP
+    // =========================================================================
+    function triggerTestFoulBanner(foulType, count, isExpelled, expelledReason) {
+      const pName = (document.getElementById('testFoulPlayerInput') && document.getElementById('testFoulPlayerInput').value.trim()) || '#23 CARLOS MENDOZA';
+      const store = loadStore();
+      const vm = getOverlayViewModel(store);
+
+      const foulNames = {
+        pf: 'FALTA PERSONAL',
+        of: 'FALTA OFENSIVA',
+        tf: 'FALTA TÉCNICA'
+      };
+
+      const payload = {
+        id: uid('foul'),
+        playerName: pName,
+        teamName: vm.homeName || 'WSH',
+        teamColor: vm.homeColor || '#f97316',
+        foulType,
+        foulTypeName: foulNames[foulType] || 'FALTA PERSONAL',
+        totalFouls: count,
+        tfCount: foulType === 'tf' ? count : 0,
+        countText: `${count}/5 Faltas`,
+        isExpelled: Boolean(isExpelled),
+        expelledReason: expelledReason || (isExpelled ? 'EXPULSIÓN' : ''),
+        triggeredAt: Date.now(),
+        durationMs: isExpelled ? 8000 : 5500
+      };
+
+      if (currentMode === 'game') {
+        const game = store.games.find(g => g.id === currentGameId);
+        if (!game) return;
+        if (!game.overlayConfig) game.overlayConfig = {};
+        game.overlayConfig.activeFoulBanner = payload;
+      } else {
+        const board = store.standaloneBoards.find(b => b.id === currentBoardId);
+        if (!board) return;
+        board.activeFoulBanner = payload;
+      }
+
+      saveStoreAndBroadcast(store);
+    }
+
+    function openMatchupPageFromPizarra() {
+      const query = currentMode === 'game'
+        ? `?mode=game&gameId=${encodeURIComponent(currentGameId)}`
+        : `?mode=manual&boardId=${encodeURIComponent(currentBoardId)}`;
+      window.open('matchupbasket.html' + query, '_blank');
+    }
+
+    function copyMatchupUrlFromPizarra() {
+      const baseUrl = window.location.href.split('?')[0].replace('pizarrabasket.html', 'matchupbasket.html');
+      const query = currentMode === 'game'
+        ? `?obs=1&mode=game&gameId=${encodeURIComponent(currentGameId)}`
+        : `?obs=1&mode=manual&boardId=${encodeURIComponent(currentBoardId)}`;
+      const fullUrl = baseUrl + query;
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        alert('✅ ¡Enlace del Banner Matchup copiado!\n\nEn OBS: Fuentes → (+) → Navegador (Ancho: 1020, Alto: 180).');
+      }).catch(() => {
+        prompt('Copia este enlace para OBS Browser Source:', fullUrl);
+      });
+    }
+
+    // =========================================================================
     // ACCIONES DE EDICIÓN EN TIEMPO REAL (NOMBRES, COLORES, LOGOS, PUNTOS, RELOJ)
     // =========================================================================
     function onChangeManualBoard(boardId) {
@@ -1744,7 +2059,7 @@
         board.period = periodNum;
         board.isFinal = false;
       }
-      saveStoreAndBroadcast(store);
+      saveStoreAndBroadcast(store, { isClockPeriodChange: true });
     }
 
     function toggleOverlayFinal() {
@@ -1768,7 +2083,7 @@
           board.clockLastTickAt = 0;
         }
       }
-      saveStoreAndBroadcast(store);
+      saveStoreAndBroadcast(store, { isClockPeriodChange: true, isManualClockEdit: true });
     }
 
     function cycleOverlayPeriod() {
@@ -1784,8 +2099,13 @@
     let localOverlayTickMs = 0;
     let lastObservedGameClockSec = null;
     let lastObservedGameClockChangeMs = 0;
+    let lastOverlayClockToggleTime = 0;
 
     function toggleOverlayClock() {
+      const now = Date.now();
+      if (now - lastOverlayClockToggleTime < 350) return;
+      lastOverlayClockToggleTime = now;
+
       const store = loadStore();
       if (currentMode === 'game') {
         const game = store.games.find(g => g.id === currentGameId);
@@ -1797,6 +2117,7 @@
           game.clockSeconds = game.period > 4 ? 300 : 600;
         }
         game.clockRunning = !game.clockRunning;
+        game.clockLastTickAt = Date.now();
         if (game.clockRunning) {
           game.status = 'En Vivo';
           game.clockOwnerTabId = CLIENT_TAB_ID;
@@ -1813,7 +2134,7 @@
       }
       localOverlayTickMs = Date.now();
       lastObservedGameClockChangeMs = Date.now();
-      saveStoreAndBroadcast(store);
+      saveStoreAndBroadcast(store, { isManualClockEdit: true });
       ensureClockTimerState();
     }
 
@@ -1823,14 +2144,16 @@
         const game = store.games.find(g => g.id === currentGameId);
         if (!game) return;
         game.clockSeconds = Math.max(0, (game.clockSeconds || 0) + deltaSeconds);
+        game.clockLastTickAt = Date.now();
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
         if (!board) return;
         board.clockSeconds = Math.max(0, (board.clockSeconds || 0) + deltaSeconds);
+        board.clockUpdatedAt = Date.now();
       }
       localOverlayTickMs = Date.now();
       lastObservedGameClockChangeMs = Date.now();
-      saveStoreAndBroadcast(store);
+      saveStoreAndBroadcast(store, { isManualClockEdit: true });
     }
 
     function applyManualClockInput() {
@@ -1846,6 +2169,7 @@
         if (!game) return;
         game.clockSeconds = Math.max(0, totalSeconds);
         game.clockRunning = false;
+        game.clockLastTickAt = Date.now();
         if (game.overlayConfig) game.overlayConfig.isFinal = false;
       } else {
         const board = store.standaloneBoards.find(b => b.id === currentBoardId);
@@ -1853,10 +2177,11 @@
         board.clockSeconds = Math.max(0, totalSeconds);
         board.clockRunning = false;
         board.isFinal = false;
+        board.clockUpdatedAt = Date.now();
       }
       localOverlayTickMs = Date.now();
       lastObservedGameClockChangeMs = Date.now();
-      saveStoreAndBroadcast(store);
+      saveStoreAndBroadcast(store, { isManualClockEdit: true });
       ensureClockTimerState();
     }
 
@@ -1886,13 +2211,14 @@
             lastObservedGameClockChangeMs = now;
           }
 
-          // Si otra pestaña (ej. puntos.html en el celular o PC) es dueña del reloj y sigue descontando segundos,
-          // esta pizarra NO escribe a Firebase para evitar cualquier colisión de red.
-          if (game.clockOwnerTabId && game.clockOwnerTabId !== CLIENT_TAB_ID) {
-            if (now - lastObservedGameClockChangeMs < 2200) {
+          // Si otra pestaña (ej. puntos.html en la mesa de anotación) es dueña del reloj y sigue activa,
+          // o si alguien acaba de descontar hace menos de 5s, esta pizarra NO descuenta ni escribe.
+          const isOtherTabTicking = (game.clockOwnerTabId && game.clockOwnerTabId !== CLIENT_TAB_ID) || (!game.clockOwnerTabId && (now - (game.clockLastTickAt || 0) < 5000));
+          if (isOtherTabTicking) {
+            if (now - (game.clockLastTickAt || 0) < 5000) {
               return;
             }
-            // Si pasaron > 2.2s sin que la otra pestaña descuente (ej. se cerró puntos.html), esta pizarra toma el relevo
+            // Si pasaron > 5s sin que la mesa de anotación descuente (ej. se cerró puntos.html), esta pizarra toma el relevo
             game.clockOwnerTabId = CLIENT_TAB_ID;
             localOverlayTickMs = now - 1000;
           }
@@ -1900,6 +2226,7 @@
           if (now - localOverlayTickMs >= 985) {
             localOverlayTickMs = now;
             game.clockOwnerTabId = CLIENT_TAB_ID;
+            game.clockLastTickAt = now;
             if ((game.clockSeconds || 0) > 0) {
               game.clockSeconds -= 1;
               lastObservedGameClockSec = game.clockSeconds;
@@ -2129,6 +2456,45 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    // Control de Teclado y Protección contra Clics Duplicados en Pizarra
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+
+      // Barra Espaciadora: Iniciar / Pausar Reloj
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        if (e.repeat) return;
+        toggleOverlayClock();
+        return;
+      }
+
+      // Tecla Escape: Cerrar modales o diálogos
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        const openModalEl = document.querySelector('.modal-backdrop.open');
+        if (openModalEl) {
+          openModalEl.classList.remove('open');
+        }
+        return;
+      }
+    });
+
+    // Desenfocar automáticamente cualquier botón al hacer click/toque
+    document.addEventListener('mouseup', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    });
+    document.addEventListener('touchend', (e) => {
+      if (e.target && typeof e.target.closest === 'function') {
+        const btn = e.target.closest('button');
+        if (btn) btn.blur();
+      }
+    }, { passive: true });
 
     window.addEventListener('storeUpdated', renderAll);
     renderAll();
