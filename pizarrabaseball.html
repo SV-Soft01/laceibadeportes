@@ -603,6 +603,131 @@
       box-shadow: 0 0 12px rgba(234, 179, 8, 0.35);
     }
 
+    /* Botones de Secuencia Oficial de Jugadas (1B, 2B, 3B, HR, BB, K, OUT) - Formato Compacto y Rápido */
+    .bb-action-plays-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.35rem;
+    }
+    @media (max-width: 980px) {
+      .bb-action-plays-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    @media (max-width: 580px) {
+      .bb-action-plays-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .btn-bb-hit, .btn-bb-double, .btn-bb-triple, .btn-bb-hr, .btn-bb-walk, .btn-bb-k, .btn-bb-out {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem 0.25rem;
+      border-radius: 8px;
+      font-weight: 900;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      line-height: 1.1;
+      text-align: center;
+      border: 1px solid transparent;
+      user-select: none;
+      min-height: 46px;
+    }
+
+    .bb-play-sub {
+      font-size: 0.64rem;
+      font-weight: 700;
+      opacity: 0.88;
+      margin-top: 2px;
+      line-height: 1;
+    }
+
+    .btn-bb-hit {
+      background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+      color: #ffffff;
+      border-color: #22c55e;
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+    }
+    .btn-bb-hit:hover {
+      background: #16a34a;
+      transform: translateY(-1px);
+    }
+
+    .btn-bb-double {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      color: #ffffff;
+      border-color: #3b82f6;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+    }
+    .btn-bb-double:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+    }
+
+    .btn-bb-triple {
+      background: linear-gradient(135deg, #7e22ce 0%, #6b21a8 100%);
+      color: #ffffff;
+      border-color: #a855f7;
+      box-shadow: 0 2px 8px rgba(168, 85, 247, 0.25);
+    }
+    .btn-bb-triple:hover {
+      background: #9333ea;
+      transform: translateY(-1px);
+    }
+
+    .btn-bb-hr {
+      background: linear-gradient(135deg, #dc2626 0%, #b45309 50%, #dc2626 100%);
+      color: #fef08a;
+      border-color: #facc15;
+      box-shadow: 0 4px 14px rgba(234, 179, 8, 0.35);
+      animation: hrPulseBtn 2s infinite ease-in-out;
+    }
+    .btn-bb-hr:hover {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+    @keyframes hrPulseBtn {
+      0%, 100% { box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3); }
+      50% { box-shadow: 0 0 16px rgba(250, 204, 21, 0.65); }
+    }
+
+    .btn-bb-walk {
+      background: linear-gradient(135deg, #a16207 0%, #854d0e 100%);
+      color: #ffffff;
+      border-color: #facc15;
+      box-shadow: 0 2px 8px rgba(234, 179, 8, 0.22);
+    }
+    .btn-bb-walk:hover {
+      background: #ca8a04;
+      transform: translateY(-1px);
+    }
+
+    .btn-bb-k {
+      background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+      color: #fde047;
+      border-color: #ef4444;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
+    }
+    .btn-bb-k:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+    }
+
+    .btn-bb-out {
+      background: rgba(15, 23, 42, 0.85);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+    .btn-bb-out:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
     /* =========================================================================
        DISEÑO TV BROADCAST: PIZARRA OFICIAL POR ENTRADAS (LINE SCORE 1-9+ | R | H | E)
        Ideal para mostrar en OBS en medio de cada inning o cambio de entrada
@@ -1066,85 +1191,156 @@
     </div>
 
     <!-- =========================================================================
-         CONTROLES DE ENTRADA (▲/▼/FINAL), OUTS, BOLAS, STRIKES Y BASES (1B, 2B, 3B)
+         CONSOLA COMPACTA DE ANOTACIÓN: CONTEO, BASES Y JUGADAS RÁPIDAS
          ========================================================================= -->
-    <div class="grid-2" style="margin-bottom:1.25rem;">
+
+    <!-- BARRA RÁPIDA: ANOTACIÓN DE JUGADA A JUGADA (1 CLIC) -->
+    <div class="card" style="margin-bottom:0.65rem; padding:0.75rem 0.85rem; border-color:rgba(250,204,21,0.45); background:linear-gradient(180deg, #131b2e 0%, #0d1322 100%);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.45rem;">
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <h3 class="card-title" style="color:#fde047; font-size:0.95rem; margin-bottom:0;">
+            ⚡ Anotar Jugada por Jugada (1 Clic)
+          </h3>
+          <span style="font-size:0.75rem; color:var(--text-muted);">
+            Suma carreras obligadas, hits y outs moviendo las bases en secuencia
+          </span>
+        </div>
+        <div id="bbBattingTeamBadge" style="font-size:0.8rem; font-weight:900; padding:0.25rem 0.75rem; border-radius:999px; background:rgba(234,179,8,0.2); border:1px solid #facc15; color:#fef08a;">
+          🏏 Al Bate: Visitante (Alta ▲)
+        </div>
+      </div>
+      <div class="bb-action-plays-grid">
+        <button type="button" class="btn-bb-hit" onclick="recordOverlayPlay('1B')" title="Hit Sencillo: Bateador a 1B. Si hay bases llenas anota 1 carrera forzada; si no, los corredores avanzan">
+          🟢 1B (HIT)<span class="bb-play-sub">Sencillo</span>
+        </button>
+        <button type="button" class="btn-bb-double" onclick="recordOverlayPlay('2B')" title="Doble: Bateador a 2B. El de 2B va a 3B sin forzar carrera; si hay bases llenas bajan 2 carreras forzadas (+2 R)">
+          🔵 2B (DOBLE)<span class="bb-play-sub">A 2da Base</span>
+        </button>
+        <button type="button" class="btn-bb-triple" onclick="recordOverlayPlay('3B')" title="Triple: Bateador a 3B, fuerza a home a todos los corredores en base">
+          🟣 3B (TRIPLE)<span class="bb-play-sub">A 3ra Base</span>
+        </button>
+        <button type="button" class="btn-bb-hr" onclick="recordOverlayPlay('HR')" title="Home Run: Bateador y todos los corredores anotan carreras + Animación en Pizarra">
+          💥 HOME RUN<span class="bb-play-sub">Cuadrangular</span>
+        </button>
+        <button type="button" class="btn-bb-walk" onclick="recordOverlayPlay('BB')" title="Base por Bolas: Bateador a 1B. Si hay bases llenas anota 1 carrera forzada">
+          🚶 BB (PASE)<span class="bb-play-sub">Base x Bolas</span>
+        </button>
+        <button type="button" class="btn-bb-k" onclick="recordOverlayPlay('K')" title="Ponche: +1 Out al bateador + Animación K (al 3er out cambia de entrada)">
+          삼 K (PONCHE)<span class="bb-play-sub">+1 Out</span>
+        </button>
+        <button type="button" class="btn-bb-out" onclick="recordOverlayPlay('OUT')" title="Out al bateador: +1 Out en turno (al 3er out cambia de entrada)">
+          🔴 OUT BATE<span class="bb-play-sub">+1 Out</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- FILA DUAL: INNING + CONTEO (IZQ) Y BASES + MOVIMIENTO (DER) -->
+    <div class="grid-2" style="margin-bottom:0.75rem; gap:0.65rem;">
 
       <!-- TARJETA 1: ENTRADA, OUTS Y CONTEO (BOLAS Y STRIKES) -->
-      <div class="card" style="margin-bottom:0;">
-        <div class="card-header">
-          <h3 class="card-title">⚾ Control de Entrada (Inning), Outs, Bolas y Strikes</h3>
+      <div class="card" style="margin-bottom:0; padding:0.75rem 0.85rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <h3 class="card-title" style="font-size:0.95rem; margin-bottom:0;">⚾ Entrada y Conteo (B-S-O)</h3>
+          <div id="bbCurrentBattingInfoPill" style="background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.35); border-radius:6px; padding:0.2rem 0.55rem; font-size:0.75rem; font-weight:800; color:#fde047;">
+            <span>Inning 1°</span>
+          </div>
         </div>
 
-        <div class="form-row" style="margin-bottom:0.8rem;">
-          <div>
-            <label class="form-label">Entrada (Inning)</label>
-            <div style="display:flex; gap:0.4rem; align-items:center;">
-              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayInning(-1)">−</button>
-              <input type="number" id="ctrlInningInput" min="1" max="25" value="1" style="text-align:center; font-weight:900; font-size:1.1rem;" onchange="onChangeOverlayInning(this.value)" />
-              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayInning(1)">+</button>
+        <!-- Entrada (Inning) y Mitad -->
+        <div class="form-row" style="margin-bottom:0.5rem; gap:0.4rem;">
+          <div style="flex:1;">
+            <div style="display:flex; gap:0.25rem; align-items:center;">
+              <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted); min-width:48px;">Inning:</span>
+              <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.55rem;" onclick="stepOverlayInning(-1)">−</button>
+              <input type="number" id="ctrlInningInput" min="1" max="25" value="1" style="text-align:center; font-weight:900; font-size:1.05rem; width:55px; padding:0.2rem;" onchange="onChangeOverlayInning(this.value)" />
+              <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.55rem;" onclick="stepOverlayInning(1)">+</button>
             </div>
           </div>
-          <div>
-            <label class="form-label">Mitad de Entrada / Estado</label>
-            <div style="display:flex; gap:0.35rem;">
-              <button type="button" id="btnHalfTop" class="btn btn-sm btn-primary" style="flex:1;" onclick="setOverlayHalf('top')">▲ Alta</button>
-              <button type="button" id="btnHalfBottom" class="btn btn-sm btn-outline" style="flex:1;" onclick="setOverlayHalf('bottom')">▼ Baja</button>
-              <button type="button" id="btnOverlayFinal" class="btn btn-sm btn-red" style="flex:1;" onclick="toggleOverlayFinal()">🏁 FINAL</button>
-            </div>
+          <div style="flex:1.2; display:flex; gap:0.25rem;">
+            <button type="button" id="btnHalfTop" class="btn btn-sm btn-primary" style="flex:1; padding:0.25rem 0.4rem; font-size:0.8rem;" onclick="setOverlayHalf('top')">▲ Alta</button>
+            <button type="button" id="btnHalfBottom" class="btn btn-sm btn-outline" style="flex:1; padding:0.25rem 0.4rem; font-size:0.8rem;" onclick="setOverlayHalf('bottom')">▼ Baja</button>
+            <button type="button" id="btnOverlayFinal" class="btn btn-sm btn-red" style="padding:0.25rem 0.55rem; font-size:0.8rem;" onclick="toggleOverlayFinal()">🏁 FINAL</button>
           </div>
         </div>
 
         <!-- Bolas, Strikes y Outs -->
-        <div class="grid-3" style="gap:0.6rem;">
-          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.65rem; text-align:center;">
-            <div style="font-size:0.75rem; font-weight:800; color:#4ade80; margin-bottom:0.35rem;">🟢 BOLAS (0-3)</div>
-            <div style="display:flex; justify-content:center; align-items:center; gap:0.4rem;">
-              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayBSO('balls', -1)">−</button>
-              <strong id="ctrlBallsDisplay" style="font-size:1.25rem; min-width:24px;">0</strong>
-              <button type="button" class="btn btn-sm btn-green" onclick="stepOverlayBSO('balls', 1)">+</button>
+        <div class="grid-3" style="gap:0.4rem; margin-bottom:0.45rem;">
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:8px; padding:0.35rem 0.25rem; text-align:center;">
+            <div style="font-size:0.72rem; font-weight:800; color:#4ade80;">🟢 BOLAS</div>
+            <div style="font-size:0.62rem; color:var(--text-muted); line-height:1; margin-bottom:0.25rem;">4ta = Pase 1B</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:0.3rem;">
+              <button type="button" class="btn btn-sm btn-outline" style="padding:0.15rem 0.45rem; font-size:0.8rem;" onclick="stepOverlayBSO('balls', -1)">−</button>
+              <strong id="ctrlBallsDisplay" style="font-size:1.15rem; min-width:20px;">0</strong>
+              <button type="button" class="btn btn-sm btn-green" style="padding:0.15rem 0.45rem; font-size:0.8rem;" onclick="stepOverlayBSO('balls', 1)">+</button>
             </div>
           </div>
 
-          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.65rem; text-align:center;">
-            <div style="font-size:0.75rem; font-weight:800; color:#facc15; margin-bottom:0.35rem;">🟡 STRIKES (0-2)</div>
-            <div style="display:flex; justify-content:center; align-items:center; gap:0.4rem;">
-              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayBSO('strikes', -1)">−</button>
-              <strong id="ctrlStrikesDisplay" style="font-size:1.25rem; min-width:24px;">0</strong>
-              <button type="button" class="btn btn-sm btn-amber" onclick="stepOverlayBSO('strikes', 1)">+</button>
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:8px; padding:0.35rem 0.25rem; text-align:center;">
+            <div style="font-size:0.72rem; font-weight:800; color:#facc15;">🟡 STRIKES</div>
+            <div style="font-size:0.62rem; color:var(--text-muted); line-height:1; margin-bottom:0.25rem;">3ro = Ponche K</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:0.3rem;">
+              <button type="button" class="btn btn-sm btn-outline" style="padding:0.15rem 0.45rem; font-size:0.8rem;" onclick="stepOverlayBSO('strikes', -1)">−</button>
+              <strong id="ctrlStrikesDisplay" style="font-size:1.15rem; min-width:20px;">0</strong>
+              <button type="button" class="btn btn-sm btn-amber" style="padding:0.15rem 0.45rem; font-size:0.8rem;" onclick="stepOverlayBSO('strikes', 1)">+</button>
             </div>
           </div>
 
-          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:10px; padding:0.65rem; text-align:center;">
-            <div style="font-size:0.75rem; font-weight:800; color:#f87171; margin-bottom:0.35rem;">🔴 OUTS (0-2)</div>
-            <div style="display:flex; justify-content:center; align-items:center; gap:0.4rem;">
-              <button type="button" class="btn btn-sm btn-outline" onclick="stepOverlayBSO('outs', -1)">−</button>
-              <strong id="ctrlOutsDisplay" style="font-size:1.25rem; min-width:24px;">0</strong>
-              <button type="button" class="btn btn-sm btn-red" onclick="stepOverlayBSO('outs', 1)">+</button>
+          <div style="background:var(--bg-card-alt); border:1px solid var(--border-color); border-radius:8px; padding:0.35rem 0.25rem; text-align:center;">
+            <div style="font-size:0.72rem; font-weight:800; color:#f87171;">🔴 OUTS</div>
+            <div style="font-size:0.62rem; color:var(--text-muted); line-height:1; margin-bottom:0.25rem;">3ro = Inning</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:0.3rem;">
+              <button type="button" class="btn btn-sm btn-outline" style="padding:0.15rem 0.45rem; font-size:0.8rem;" onclick="stepOverlayBSO('outs', -1)">−</button>
+              <strong id="ctrlOutsDisplay" style="font-size:1.15rem; min-width:20px;">0</strong>
+              <button type="button" class="btn btn-sm btn-red" style="padding:0.15rem 0.45rem; font-size:0.8rem;" onclick="stepOverlayBSO('outs', 1)">+</button>
             </div>
           </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-sm btn-outline" style="font-size:0.74rem; padding:0.2rem 0.55rem; font-weight:800;" onclick="resetOverlayCount()" title="Reiniciar bolas y strikes a 0-0">
+            🔄 Reset Conteo (0-0)
+          </button>
         </div>
       </div>
 
-      <!-- TARJETA 2: BASES OCUPADAS EN EL DIAMANTE 3D (1B, 2B, 3B) -->
-      <div class="card" style="margin-bottom:0;">
-        <div class="card-header">
-          <h3 class="card-title">💎 Bases Ocupadas en el Diamante 3D</h3>
-          <button type="button" class="btn btn-sm btn-outline" onclick="clearOverlayBases()">🧹 Limpiar Bases</button>
+      <!-- TARJETA 2: BASES OCUPADAS EN EL DIAMANTE 3D Y MOVIMIENTO DE CORREDORES -->
+      <div class="card" style="margin-bottom:0; padding:0.75rem 0.85rem; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3 class="card-title" style="font-size:0.95rem; margin-bottom:0;">💎 Diamante de Bases</h3>
+            <button type="button" class="btn btn-sm btn-outline" style="padding:0.2rem 0.55rem; font-size:0.75rem;" onclick="clearOverlayBases()">🧹 Limpiar Bases</button>
+          </div>
+
+          <!-- Botones de Bases individuales -->
+          <div class="grid-3" style="gap:0.4rem; margin-bottom:0.55rem;">
+            <button type="button" id="btnToggleBase3B" class="base-toggle-pill" style="padding:0.35rem 0.3rem; font-size:0.78rem;" onclick="toggleOverlayBase('third')" title="Click para ocupar o vaciar 3ra Base">
+              💎 3B (3ra)
+            </button>
+            <button type="button" id="btnToggleBase2B" class="base-toggle-pill" style="padding:0.35rem 0.3rem; font-size:0.78rem;" onclick="toggleOverlayBase('second')" title="Click para ocupar o vaciar 2da Base">
+              💎 2B (2da)
+            </button>
+            <button type="button" id="btnToggleBase1B" class="base-toggle-pill" style="padding:0.35rem 0.3rem; font-size:0.78rem;" onclick="toggleOverlayBase('first')" title="Click para ocupar o vaciar 1ra Base">
+              💎 1B (1ra)
+            </button>
+          </div>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.85rem;">
-          Activa o desactiva qué bases están ocupadas para iluminarlas en amarillo en el diamante inferior de la pizarra.
-        </p>
-        <div class="grid-3" style="gap:0.65rem;">
-          <button type="button" id="btnToggleBase3B" class="base-toggle-pill" onclick="toggleOverlayBase('third')">
-            💎 3ra Base (3B)
-          </button>
-          <button type="button" id="btnToggleBase2B" class="base-toggle-pill" onclick="toggleOverlayBase('second')">
-            💎 2da Base (2B)
-          </button>
-          <button type="button" id="btnToggleBase1B" class="base-toggle-pill" onclick="toggleOverlayBase('first')">
-            💎 1ra Base (1B)
-          </button>
+
+        <!-- Acciones rápidas de Movimiento de Corredores en Bases -->
+        <div style="padding-top:0.45rem; border-top:1px solid var(--border-color);">
+          <div style="font-size:0.72rem; font-weight:800; color:#facc15; margin-bottom:0.35rem;">
+            🏃 MOVIMIENTO Y ANOTACIÓN DE CORREDORES:
+          </div>
+          <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm btn-green" style="flex:1.2; min-width:130px; font-weight:900; padding:0.35rem 0.45rem; font-size:0.78rem;" onclick="scoreOverlayRunnerFromThird()" title="El corredor en 3B anota carrera (+1 R) y queda libre la 3B.">
+              🏠 Anotar desde 3B (+1 R)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" style="flex:1; min-width:115px; font-weight:800; padding:0.35rem 0.45rem; font-size:0.78rem;" onclick="advanceOverlayRunners()" title="Avanza cada corredor una base. Si hay corredor en 3B, anota carrera (+1 R).">
+              🏃 Avanzar (+1)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" style="flex:0.8; min-width:95px; font-weight:800; color:#fca5a5; border-color:rgba(248,113,113,0.4); padding:0.35rem 0.4rem; font-size:0.78rem;" onclick="outRunnerOnBase()" title="Canta out a un corredor en base (+1 Out sin cambiar el conteo de bolas y strikes del bateador).">
+              🏃 Out Corr
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2084,6 +2280,25 @@
       document.getElementById('ctrlStrikesDisplay').textContent = state.strikes;
       document.getElementById('ctrlOutsDisplay').textContent = state.outs;
 
+      // Actualizar indicadores del equipo al bate
+      const isBottomSide = state.half === 'bottom';
+      const currentBattingName = isBottomSide ? state.homeName : state.awayName;
+      const currentSideLabel = isBottomSide ? 'Baja ▼ (Local)' : 'Alta ▲ (Visitante)';
+
+      const battingBadgeEl = document.getElementById('bbBattingTeamBadge');
+      if (battingBadgeEl) {
+        battingBadgeEl.textContent = state.isFinal
+          ? '🏁 JUEGO FINALIZADO'
+          : `🏏 Al Bate: ${currentBattingName} • ${currentSideLabel}`;
+      }
+
+      const battingPillEl = document.getElementById('bbCurrentBattingInfoPill');
+      if (battingPillEl) {
+        battingPillEl.innerHTML = state.isFinal
+          ? `<span>🏁 <strong>JUEGO FINALIZADO</strong></span><span>Resultado Final</span>`
+          : `<span>🏏 Al Bate: <strong>${escapeHtml(currentBattingName)}</strong> (${currentSideLabel})</span><span>Inning: <strong>${state.inning}°</strong></span>`;
+      }
+
       document.getElementById('btnToggleBase1B').classList.toggle('active', Boolean(state.bases.first));
       document.getElementById('btnToggleBase2B').classList.toggle('active', Boolean(state.bases.second));
       document.getElementById('btnToggleBase3B').classList.toggle('active', Boolean(state.bases.third));
@@ -2286,25 +2501,585 @@
       });
     }
 
-    function stepOverlayBSO(field /* 'balls' | 'strikes' | 'outs' */, delta) {
-      const maxMap = { balls: 3, strikes: 2, outs: 2 };
+    function isBaseOccupied(target, baseKey) {
+      if (!target || !target.bases) return false;
+      return Boolean(target.bases[baseKey]);
+    }
+
+    function setBaseState(target, baseKey, occupied, isGame) {
+      if (!target.bases) {
+        target.bases = isGame
+          ? { first: '', second: '', third: '' }
+          : { first: false, second: false, third: false };
+      }
+      if (isGame) {
+        target.bases[baseKey] = occupied ? (target.currentBatterId || 'OCCUPIED') : '';
+      } else {
+        target.bases[baseKey] = Boolean(occupied);
+      }
+    }
+
+    function addRunsToBattingTeam(target, runsCount, isGame, store) {
+      if (runsCount <= 0) return;
+      const isBottom = target.half === 'bottom';
+      const side = isBottom ? 'home' : 'away';
+      const innKey = String(target.inning || 1);
+
+      if (!target.inningRuns) target.inningRuns = { away: {}, home: {} };
+      if (!target.inningRuns[side]) target.inningRuns[side] = {};
+      target.inningRuns[side][innKey] = Number(target.inningRuns[side][innKey] || 0) + runsCount;
+
+      if (isGame) {
+        if (side === 'home') {
+          target.runsAdjustHome = Number(target.runsAdjustHome || 0) + runsCount;
+        } else {
+          target.runsAdjustAway = Number(target.runsAdjustAway || 0) + runsCount;
+        }
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          target.baseballStats[target.currentBatterId].rbi = Number(target.baseballStats[target.currentBatterId].rbi || 0) + runsCount;
+        }
+        checkBaseballWalkOffWin(store, target);
+      } else {
+        if (side === 'home') {
+          target.homeScore = Math.max(0, Number(target.homeScore || 0) + runsCount);
+        } else {
+          target.awayScore = Math.max(0, Number(target.awayScore || 0) + runsCount);
+        }
+        checkManualBoardWalkOff(target);
+      }
+    }
+
+    function addHitsToBattingTeam(target, isGame) {
+      if (!isGame) {
+        const isBottom = target.half === 'bottom';
+        const side = isBottom ? 'home' : 'away';
+        if (side === 'home') {
+          target.homeHits = Number(target.homeHits || 0) + 1;
+        } else {
+          target.awayHits = Number(target.awayHits || 0) + 1;
+        }
+      }
+    }
+
+    function advanceNextBatterIfGame(store, game) {
+      if (!game || !game.tournamentId) return;
+      const battingTeamId = game.half === 'bottom' ? game.homeTeamId : game.awayTeamId;
+      const lineup = getTeamBaseballLineup(store, game, battingTeamId);
+      if (!lineup || lineup.length === 0) return;
+      const isHome = battingTeamId === game.homeTeamId;
+      const currentRefId = game.currentBatterId || (isHome ? game.nextBatterHomeId : game.nextBatterAwayId) || lineup[0].id;
+      const idx = lineup.findIndex(p => p.id === currentRefId);
+      const nextIdx = idx >= 0 ? (idx + 1) % lineup.length : 0;
+      const nextId = lineup[nextIdx].id;
+      if (isHome) {
+        game.nextBatterHomeId = nextId;
+      } else {
+        game.nextBatterAwayId = nextId;
+      }
+      game.currentBatterId = nextId;
+    }
+
+    // 1) BASE POR BOLAS (BB / WALK): 4ta bola llena 1ra base automáticamente y avanza corredores forzados
+    function applyOverlayBB(target, isGame, store) {
+      const b1 = isBaseOccupied(target, 'first');
+      const b2 = isBaseOccupied(target, 'second');
+      const b3 = isBaseOccupied(target, 'third');
+
+      let runsScored = 0;
+      if (b1 && b2 && b3) {
+        runsScored = 1;
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b1 && b2) {
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b1) {
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else {
+        setBaseState(target, 'first', true, isGame);
+      }
+
+      if (runsScored > 0) {
+        addRunsToBattingTeam(target, runsScored, isGame, store);
+      }
+
+      target.balls = 0;
+      target.strikes = 0;
+
+      target.playBadgeAnimation = {
+        id: uid('pb'),
+        type: 'BB',
+        label: runsScored > 0 ? '🎯 BB • ¡CARRERA FORZADA (+1 R)!' : '🎯 BASE POR BOLAS (BB)',
+        triggeredAt: Date.now(),
+        durationMs: 3000
+      };
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          target.baseballStats[target.currentBatterId].bb = Number(target.baseballStats[target.currentBatterId].bb || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // 2) HIT SENCILLO (1B): Bateador a 1B, solo anota si las bases están llenas (carrera forzada obligada)
+    function applyOverlayHit(target, isGame, store) {
+      addHitsToBattingTeam(target, isGame);
+
+      const b1 = isBaseOccupied(target, 'first');
+      const b2 = isBaseOccupied(target, 'second');
+      const b3 = isBaseOccupied(target, 'third');
+
+      let runsScored = 0;
+      // Regla de avance forzado: solo anota carrera obligada si hay casa llena (1B, 2B y 3B ocupadas)
+      if (b1 && b2 && b3) {
+        runsScored = 1; // El de 3B es forzado al plato
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b1 && b2) {
+        // 1B y 2B ocupadas -> 1B pasa a 2B, 2B empujado a 3B. Quedan las 3 bases llenas (0 carreras forzadas)
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b1 && b3) {
+        // 1B y 3B ocupadas -> 1B pasa a 2B, el de 3B se queda en 3B (o anota con "Anotar desde 3B")
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b1) {
+        // Solo 1B -> 1B pasa a 2B, bateador a 1B
+        setBaseState(target, 'third', false, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b2 && b3) {
+        // 2B y 3B ocupadas -> el de 2B pasa a 3B, el de 3B se queda (o anota con botón), bateador a 1B
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', false, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b2) {
+        // Solo 2B -> empujado a 3B, bateador a 1B (no anota obligado)
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', false, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else if (b3) {
+        // Solo 3B -> se queda en 3B (si anotó, tocar "Anotar desde 3B"), bateador a 1B
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', false, isGame);
+        setBaseState(target, 'first', true, isGame);
+      } else {
+        // Bases vacías -> bateador a 1B
+        setBaseState(target, 'third', false, isGame);
+        setBaseState(target, 'second', false, isGame);
+        setBaseState(target, 'first', true, isGame);
+      }
+
+      if (runsScored > 0) {
+        addRunsToBattingTeam(target, runsScored, isGame, store);
+      }
+
+      target.balls = 0;
+      target.strikes = 0;
+
+      target.playBadgeAnimation = {
+        id: uid('pb'),
+        type: '1B',
+        label: runsScored > 0 ? '🟢 HIT SENCILLO (1B) • ¡1 CARRERA FORZADA (+1 R)!' : '🟢 HIT SENCILLO (1B)',
+        triggeredAt: Date.now(),
+        durationMs: 3000
+      };
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          const st = target.baseballStats[target.currentBatterId];
+          st.ab = Number(st.ab || 0) + 1;
+          st.h = Number(st.h || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // 3) DOBLE (2B): Bateador a 2B. Solo anota carrera si el corredor es FORZADO hacia home.
+    // Ej: Con solo corredor en 2B se queda en 3B (0 carreras forzadas, se anota con botón si llega al plato).
+    // Con bases llenas bajan 2 carreras forzadas (+2 R).
+    function applyOverlayDouble(target, isGame, store) {
+      addHitsToBattingTeam(target, isGame);
+
+      const b1 = isBaseOccupied(target, 'first');
+      const b2 = isBaseOccupied(target, 'second');
+      const b3 = isBaseOccupied(target, 'third');
+
+      let runsScored = 0;
+
+      // El bateador ocupa 2da base. 1ra base queda vacía.
+      if (b1 && b2 && b3) {
+        // Casa llena con doble: 3B forzado a Home (+1 R) y 2B forzado a Home (+1 R) = 2 carreras obligadas
+        runsScored = 2;
+        setBaseState(target, 'third', true, isGame); // 1B empujado a 3B
+        setBaseState(target, 'second', true, isGame); // Bateador a 2B
+        setBaseState(target, 'first', false, isGame);
+      } else if (b2 && b3) {
+        // 2B y 3B ocupadas: 2B empuja a 3B, forzando al de 3B a Home (+1 R)
+        runsScored = 1;
+        setBaseState(target, 'third', true, isGame); // 2B queda en 3B
+        setBaseState(target, 'second', true, isGame); // Bateador a 2B
+        setBaseState(target, 'first', false, isGame);
+      } else if (b1 && b2) {
+        // 1B y 2B ocupadas: bateador a 2B empuja al de 2B a 3B y al de 1B a 3B -> 2B forzado a Home (+1 R)
+        runsScored = 1;
+        setBaseState(target, 'third', true, isGame); // 1B queda en 3B
+        setBaseState(target, 'second', true, isGame); // Bateador a 2B
+        setBaseState(target, 'first', false, isGame);
+      } else if (b1 && b3) {
+        // 1B y 3B ocupadas: bateador a 2B, 1B empujado a 3B fuerza al de 3B a Home (+1 R)
+        runsScored = 1;
+        setBaseState(target, 'third', true, isGame); // 1B queda en 3B
+        setBaseState(target, 'second', true, isGame); // Bateador a 2B
+        setBaseState(target, 'first', false, isGame);
+      } else if (b2) {
+        // SOLO corredor en 2B: el bateador lo empuja a 3B. Se queda en 3B (0 carreras forzadas)
+        // Si anotó en la jugada, el anotador toca "Anotar desde 3B"
+        runsScored = 0;
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', false, isGame);
+      } else if (b1) {
+        // SOLO corredor en 1B: empujado a 3B (0 carreras forzadas)
+        runsScored = 0;
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', false, isGame);
+      } else if (b3) {
+        // SOLO corredor en 3B: el bateador toma 2B, el de 3B se mantiene (o anota con "Anotar desde 3B")
+        runsScored = 0;
+        setBaseState(target, 'third', true, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', false, isGame);
+      } else {
+        // Bases vacías: bateador en 2B
+        runsScored = 0;
+        setBaseState(target, 'third', false, isGame);
+        setBaseState(target, 'second', true, isGame);
+        setBaseState(target, 'first', false, isGame);
+      }
+
+      if (runsScored > 0) {
+        addRunsToBattingTeam(target, runsScored, isGame, store);
+      }
+
+      target.balls = 0;
+      target.strikes = 0;
+
+      target.playBadgeAnimation = {
+        id: uid('pb'),
+        type: '2B',
+        label: runsScored > 0 ? `🔵 DOBLE (2B) • ¡${runsScored} CARRERA${runsScored > 1 ? 'S' : ''} FORZADA${runsScored > 1 ? 'S' : ''} (+${runsScored} R)!` : '🔵 DOBLE (2B) • Corredor empujado a 3B',
+        triggeredAt: Date.now(),
+        durationMs: 3000
+      };
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          const st = target.baseballStats[target.currentBatterId];
+          st.ab = Number(st.ab || 0) + 1;
+          st.h = Number(st.h || 0) + 1;
+          st.d2b = Number(st.d2b || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // 4) TRIPLE (3B): Bateador a 3B, anotan todos los corredores en base
+    function applyOverlayTriple(target, isGame, store) {
+      addHitsToBattingTeam(target, isGame);
+
+      const b1 = isBaseOccupied(target, 'first');
+      const b2 = isBaseOccupied(target, 'second');
+      const b3 = isBaseOccupied(target, 'third');
+
+      let runsScored = (b1 ? 1 : 0) + (b2 ? 1 : 0) + (b3 ? 1 : 0);
+
+      setBaseState(target, 'first', false, isGame);
+      setBaseState(target, 'second', false, isGame);
+      setBaseState(target, 'third', true, isGame);
+
+      if (runsScored > 0) {
+        addRunsToBattingTeam(target, runsScored, isGame, store);
+      }
+
+      target.balls = 0;
+      target.strikes = 0;
+
+      target.playBadgeAnimation = {
+        id: uid('pb'),
+        type: '3B',
+        label: runsScored > 0 ? `🟣 ¡TRIPLE! (3B) • (+${runsScored} R)` : '🟣 ¡TRIPLE! (3B)',
+        triggeredAt: Date.now(),
+        durationMs: 3200
+      };
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          const st = target.baseballStats[target.currentBatterId];
+          st.ab = Number(st.ab || 0) + 1;
+          st.h = Number(st.h || 0) + 1;
+          st.t3b = Number(st.t3b || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // 5) HOME RUN (HR): Bateador + todos los corredores anotan, bases limpias y animación
+    function applyOverlayHomeRun(target, isGame, store) {
+      addHitsToBattingTeam(target, isGame);
+
+      const b1 = isBaseOccupied(target, 'first');
+      const b2 = isBaseOccupied(target, 'second');
+      const b3 = isBaseOccupied(target, 'third');
+
+      const runnersCount = (b1 ? 1 : 0) + (b2 ? 1 : 0) + (b3 ? 1 : 0);
+      const totalRuns = 1 + runnersCount;
+
+      setBaseState(target, 'first', false, isGame);
+      setBaseState(target, 'second', false, isGame);
+      setBaseState(target, 'third', false, isGame);
+
+      addRunsToBattingTeam(target, totalRuns, isGame, store);
+
+      target.balls = 0;
+      target.strikes = 0;
+
+      const isBottom = target.half === 'bottom';
+      const teamSide = isBottom ? 'home' : 'away';
+      const teamName = (target[teamSide + 'Name'] || '').toUpperCase();
+      const hrSubtitle = totalRuns === 4
+        ? '💥 ¡GRAND SLAM! (4 CARRERAS) 💥'
+        : (totalRuns > 1 ? `💥 ¡HOME RUN! (${totalRuns} CARRERAS) 💥` : '💥 ¡HOME RUN SOLITARIO! 💥');
+
+      target.hrAnimation = {
+        id: uid('hr'),
+        playerText: teamName ? `EQUIPO ${teamName}` : '¡CUADRANGULAR!',
+        teamText: teamName,
+        subtitle: hrSubtitle,
+        triggeredAt: Date.now(),
+        durationMs: 6000
+      };
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          const st = target.baseballStats[target.currentBatterId];
+          st.ab = Number(st.ab || 0) + 1;
+          st.h = Number(st.h || 0) + 1;
+          st.hr = Number(st.hr || 0) + 1;
+          st.r = Number(st.r || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // 6) PONCHE (K): 3er strike suma out, resetea conteo y lanza animación Ponche
+    function applyOverlayStrikeout(target, isGame, store) {
+      target.balls = 0;
+      target.strikes = 0;
+
+      const isBottom = target.half === 'bottom';
+      const teamSide = isBottom ? 'home' : 'away';
+      const teamName = (target[teamSide + 'Name'] || '').toUpperCase();
+
+      target.kAnimation = {
+        id: uid('k'),
+        playerText: 'TERCER STRIKE • OUT',
+        teamText: teamName,
+        subtitle: '¡PONCHE! (STRIKEOUT)',
+        triggeredAt: Date.now(),
+        durationMs: 3600
+      };
+
+      const nextOuts = Number(target.outs || 0) + 1;
+      if (nextOuts >= 3) {
+        if (isGame) {
+          evaluateBaseballThirdOutTransition(store, target);
+        } else {
+          evaluateManualBoardThirdOutTransition(target);
+        }
+      } else {
+        target.outs = nextOuts;
+      }
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          const st = target.baseballStats[target.currentBatterId];
+          st.ab = Number(st.ab || 0) + 1;
+          st.k = Number(st.k || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // 7) OUT BATEADOR: suma out y resetea conteo
+    function applyOverlayOut(target, isGame, store) {
+      target.balls = 0;
+      target.strikes = 0;
+
+      const nextOuts = Number(target.outs || 0) + 1;
+      if (nextOuts >= 3) {
+        if (isGame) {
+          evaluateBaseballThirdOutTransition(store, target);
+        } else {
+          evaluateManualBoardThirdOutTransition(target);
+        }
+      } else {
+        target.outs = nextOuts;
+      }
+
+      if (isGame) {
+        if (target.currentBatterId && target.baseballStats && target.baseballStats[target.currentBatterId]) {
+          const st = target.baseballStats[target.currentBatterId];
+          st.ab = Number(st.ab || 0) + 1;
+        }
+        advanceNextBatterIfGame(store, target);
+      }
+    }
+
+    // Registro de jugada rápida desde los botones de secuencia oficial
+    function recordOverlayPlay(playType) {
       mutateActiveBbTarget((target, cfg, isGame, store) => {
-        const next = Number(target[field] || 0) + delta;
-        if (field === 'outs' && next >= 3) {
+        if (playType === '1B') applyOverlayHit(target, isGame, store);
+        else if (playType === '2B') applyOverlayDouble(target, isGame, store);
+        else if (playType === '3B') applyOverlayTriple(target, isGame, store);
+        else if (playType === 'HR') applyOverlayHomeRun(target, isGame, store);
+        else if (playType === 'BB') applyOverlayBB(target, isGame, store);
+        else if (playType === 'K') applyOverlayStrikeout(target, isGame, store);
+        else if (playType === 'OUT') applyOverlayOut(target, isGame, store);
+      });
+    }
+
+    // Avanzar corredores una base (+1 Base)
+    function advanceOverlayRunners() {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        const b1 = isBaseOccupied(target, 'first');
+        const b2 = isBaseOccupied(target, 'second');
+        const b3 = isBaseOccupied(target, 'third');
+
+        let runsScored = 0;
+        if (b3) runsScored = 1;
+
+        setBaseState(target, 'third', b2, isGame);
+        setBaseState(target, 'second', b1, isGame);
+        setBaseState(target, 'first', false, isGame);
+
+        if (runsScored > 0) {
+          addRunsToBattingTeam(target, runsScored, isGame, store);
+        }
+
+        target.playBadgeAnimation = {
+          id: uid('pb'),
+          type: 'ADV',
+          label: runsScored > 0 ? '🏃 AVANCE (+1 BASE) • ¡CARRERA (+1 R)!' : '🏃 AVANCE DE CORREDORES (+1 BASE)',
+          triggeredAt: Date.now(),
+          durationMs: 2800
+        };
+      });
+    }
+
+    // Anotar carrera directamente desde 3B (+1 R)
+    function scoreOverlayRunnerFromThird() {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        setBaseState(target, 'third', false, isGame);
+        addRunsToBattingTeam(target, 1, isGame, store);
+
+        target.playBadgeAnimation = {
+          id: uid('pb'),
+          type: 'SCORE',
+          label: '🏠 ¡CARRERA ANOTADA DESDE 3B (+1 R)!',
+          triggeredAt: Date.now(),
+          durationMs: 3000
+        };
+      });
+    }
+
+    // Out a corredor en base
+    function outRunnerOnBase(baseKey) {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        if (baseKey) {
+          setBaseState(target, baseKey, false, isGame);
+        } else {
+          // Si no se especifica base, retirar al corredor más avanzado
+          if (isBaseOccupied(target, 'third')) setBaseState(target, 'third', false, isGame);
+          else if (isBaseOccupied(target, 'second')) setBaseState(target, 'second', false, isGame);
+          else if (isBaseOccupied(target, 'first')) setBaseState(target, 'first', false, isGame);
+        }
+
+        const nextOuts = Number(target.outs || 0) + 1;
+        if (nextOuts >= 3) {
           if (isGame) {
             evaluateBaseballThirdOutTransition(store, target);
           } else {
             evaluateManualBoardThirdOutTransition(target);
           }
-          return;
+        } else {
+          target.outs = nextOuts;
         }
-        target[field] = Math.min(maxMap[field], Math.max(0, next));
+
+        target.playBadgeAnimation = {
+          id: uid('pb'),
+          type: 'OUT_RUNNER',
+          label: '🔴 OUT A CORREDOR EN BASE',
+          triggeredAt: Date.now(),
+          durationMs: 2800
+        };
+      });
+    }
+
+    // Reiniciar bolas y strikes a 0-0
+    function resetOverlayCount() {
+      mutateActiveBbTarget((target) => {
+        target.balls = 0;
+        target.strikes = 0;
+      });
+    }
+
+    // Control de Bolas, Strikes y Outs con secuencia oficial de béisbol
+    function stepOverlayBSO(field /* 'balls' | 'strikes' | 'outs' */, delta) {
+      mutateActiveBbTarget((target, cfg, isGame, store) => {
+        if (field === 'balls') {
+          const next = Number(target.balls || 0) + delta;
+          if (next >= 4) {
+            // 4ta bola = Base por Bolas automática (llena 1ra base y avanza forzados)
+            applyOverlayBB(target, isGame, store);
+          } else {
+            target.balls = Math.max(0, next);
+          }
+        } else if (field === 'strikes') {
+          const next = Number(target.strikes || 0) + delta;
+          if (next >= 3) {
+            // 3er strike = Ponche (K) automático con +1 Out y animación
+            applyOverlayStrikeout(target, isGame, store);
+          } else {
+            target.strikes = Math.max(0, next);
+          }
+        } else if (field === 'outs') {
+          const next = Number(target.outs || 0) + delta;
+          if (next >= 3) {
+            // 3er out = Cambio de entrada / mitad automático
+            if (isGame) {
+              evaluateBaseballThirdOutTransition(store, target);
+            } else {
+              evaluateManualBoardThirdOutTransition(target);
+            }
+          } else {
+            target.outs = Math.max(0, next);
+          }
+        }
       });
     }
 
     function toggleOverlayBase(baseKey /* 'first' | 'second' | 'third' */) {
       mutateActiveBbTarget((target, cfg, isGame) => {
-        if (!target.bases) target.bases = { first: '', second: '', third: '' };
+        if (!target.bases) target.bases = isGame ? { first: '', second: '', third: '' } : { first: false, second: false, third: false };
         if (isGame) {
           target.bases[baseKey] = target.bases[baseKey] ? '' : (target.currentBatterId || 'OCCUPIED');
         } else {
